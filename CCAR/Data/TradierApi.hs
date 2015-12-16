@@ -148,6 +148,7 @@ getOptionChains = \x y -> do
 		_ -> return $ Left "Nothing to process"
 		
 
+
 insertOptionChain x = dbOps $ do 
 	liftIO $ Logger.debugM iModuleName ("inserting single " `mappend` (show x))
 	x <- runMaybeT $ do 
@@ -155,17 +156,17 @@ insertOptionChain x = dbOps $ do
 				lift $ DB.getBy $ UniqueProvider provider
 		liftIO $ Logger.debugM iModuleName $ "Entity  " `mappend` (show providerEntity)
    		lift $ DB.insert $ OptionChain  
-				(symbol x)
-				(T.pack $ show $ strike x)				
-				(T.pack $ show $ lastPrice x)
-				(T.pack $ show $ bidPrice x) 
-				(T.pack $ show $ askPrice x)
-				(T.pack $ show $ change x)
-				(T.pack $ show $ openInterest x)
-				(underlying x)
-				(expiration x)				
-				(optionType x)
-				(kId)
+			(symbol x)
+			(underlying x)
+			(expiration x)				
+			(optionType x)
+			(T.pack $ show $ strike x)				
+			(T.pack $ show $ lastPrice x)
+			(T.pack $ show $ bidPrice x) 
+			(T.pack $ show $ askPrice x)
+			(T.pack $ show $ change x)
+			(T.pack $ show $ openInterest x)
+			(kId)
 	return x	
 
 --insertHistoricalPrice :: MarketDataTradier -> T.Text -> 
@@ -304,17 +305,25 @@ instance FromJSON MarketDataTradier where
 
 	parseJSON  _ = Appl.empty
 
-{-- | Returns the option expiration date for n months from now. --}
+{-- | Returns the option expiration date for n months from now. 
+ Complicated logic alert: 
+  * Get the number of days left in the current month.
+  * Get all the options for the end of the month.
+  * This can probably be better replaced by getting 
+  the market calendar from the market.
+
+--}
 expirationDate n = do 
 	x <- liftIO $ getCurrentTime >>= \l 
 				-> return $ utctDay l
+
 	(yy, m, d) <- return $ toGregorian x
 	-- Compute the number of days
 	y <- Control.Monad.foldM (\a b -> 
 				return $ 
-					a + (gregorianMonthLength yy (m + b)) - d)
+					a + (gregorianMonthLength yy (m + b)) - d) -- days to subtract
 				0 [0..n]
-	x2 <- return $ addDays (toInteger y) x
+	x2 <- return $ addDays (toInteger y) x -- calendar addition.
 	(yy2, m2, d2) <- return $ toGregorian x2 
 	monthLength <- return $ toInteger $ gregorianMonthLength yy m2
 	res <- return $ addDays (monthLength - (toInteger d2)) x2
@@ -338,8 +347,7 @@ insertDummyMarketData = dbOps $ do
 									1.0
 									1.0
 									time 
-									kid
-					
+									kid					
 				newTime <- liftIO $ return $ addUTCTime (24 * 3600) time
 				lift $ DB.insert $ MarketData (equitySymbolSymbol val) 
 									(newTime)
@@ -355,12 +363,15 @@ insertDummyMarketData = dbOps $ do
 		return () 
 	return y
 
+
 queryMarketData :: IO (Map T.Text MarketData)
 queryMarketData = dbOps $ do 
 		-- A bit of a hack. Sort by ascending market data date to replace with the latest element.
 		x <- selectList [][Asc MarketDataSymbol, Asc MarketDataDate]
 		y <- Control.Monad.mapM (\a@(Entity k val) -> return (marketDataSymbol val, val)) x 
 		return $ Data.Map.fromList y 
+
+
 --TODO: Exception handling needs to be robust.
 insertAndSave :: [String] -> IO (Either T.Text T.Text)
 insertAndSave x = (dbOps $ do
@@ -410,6 +421,7 @@ saveSymbol = do
 			
 			saveSymbol
 
+-- | Returns the symbol key.
 saveHistoricalData :: (MonadIO m) => Conduit (Either T.Text T.Text) m (Either T.Text T.Text)
 saveHistoricalData = do 
 	client <- await 

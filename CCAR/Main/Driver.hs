@@ -970,6 +970,8 @@ computeValue a b stress = do
 -- get the uuid and then map over it.
 tradierPollingInterval :: IO Int 
 tradierPollingInterval = return $ 10 * 10 ^ 6
+
+
 tradierRunner :: App -> WSConn.Connection -> T.Text -> Bool -> IO ()
 tradierRunner app conn nickName terminate = 
     if(terminate == True) then do 
@@ -1004,7 +1006,6 @@ tradierRunner app conn nickName terminate =
                     Just y -> return y                  
                 return $ daoToDto PortfolioSymbol.P_Update pid 
                             nickName nickName nickName p stressValue
-
             ) mySymbols
 
         mapM_  (\p -> do
