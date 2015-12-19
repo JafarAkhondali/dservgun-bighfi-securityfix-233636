@@ -1,0 +1,10 @@
+2015 12 13
+1. 	
+	Action: Manually tried to create stu1 (SeleniumTester NewUser). 
+	Result: Did not Register.
+
+
+2.
+Action:	tried to login programmatically using test user. First time succeded. Second time did not.
+	Tried to login as dinkar to kick out test user. but it did not work (at Sun Dec 13 09:30:06 EST 2015).
+Result: stuck
