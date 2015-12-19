@@ -19,8 +19,6 @@ def login(website):
     password.send_keys(Keys.TAB)
 
 def dropdown(website):
-    companymenu =  website.find_element_by_id("companyList")
-    
     time.sleep(time_wait)
     allcompanies = website.find_element_by_id("abc")
     allcompanies.click()
