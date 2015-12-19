@@ -37,6 +37,7 @@ import 			qualified CCAR.Main.GroupCommunication as GC
 import 			Database.Persist.Postgresql as DB
 import 			Data.Time
 import			Data.Map
+import 			System.Locale(defaultTimeLocale)
 import Control.Monad.IO.Class 
 import Control.Monad
 import Control.Monad.Logger 
@@ -73,14 +74,22 @@ timeAndSales = "markets/timesales"
 optionChains = "markets/options/chains"
 provider = "Tradier"
 
+historicalMarketData = "markets/history"
+
 insertTradierProvider = 
-	dbOps $ do
+	(dbOps $ do
 		get <- DB.getBy $ UniqueProvider provider 
+		liftIO $ Logger.debugM iModuleName $ "Inserting tradier provider " `mappend` (show get)
 		y <- case get of 
-				Nothing -> do 
-					DB.insert $ MarketDataProvider 
-							provider baseUrl "" timeAndSales optionChains 
-		return y 
+				Nothing ->do 
+					x <- DB.insert $ MarketDataProvider 
+							provider baseUrl "" timeAndSales optionChains
+					return $ Right x
+				Just x -> return $ Left $ "Record exists. Not inserting" 
+
+		liftIO $ Logger.debugM iModuleName $ "Inserted provider " `mappend` (show y)
+	) `catch` (\x@(SomeException s) -> do
+		Logger.errorM iModuleName $ "Error inserting tradier" `mappend`	 (show x))
 
 getMarketData url queryString = do 
 	authBearerToken <- getEnv("TRADIER_BEARER_TOKEN") >>= 
@@ -106,6 +115,21 @@ getQuotes = \x  -> getMarketData quotesUrl [("symbols", Just x)]
 
 getTimeAndSales y = \x -> getMarketData timeAndSales [("symbol", Just x)]
 
+
+getHistoricalData = \x -> do 
+	Object value <- getMarketData historicalMarketData [("symbol", Just x)]
+	
+	history <- return $ M.lookup "history" value
+
+	case history of 
+		Just (Object aValue) -> do
+			day <- return $ M.lookup "day" aValue 
+			case day of 
+				Just aValue2 -> do 
+					case aValue2 of 
+						a@(Array x2) -> return $ Right $ fmap (\y -> fromJSON y :: Result MarketDataTradier) x2
+						_			-> return $ Left $ "Error processing " `mappend` (show aValue2)
+
 getOptionChains = \x y -> do 
 	liftIO $ Logger.debugM iModuleName ("Inside option chains " `mappend` (show x) `mappend` (show y))
 	Object value <- getMarketData optionChains [("symbol", Just x), ("expiration", Just y )]
@@ -124,62 +148,48 @@ getOptionChains = \x y -> do
 		_ -> return $ Left "Nothing to process"
 		
 
+
 insertOptionChain x = dbOps $ do 
 	liftIO $ Logger.debugM iModuleName ("inserting single " `mappend` (show x))
 	x <- runMaybeT $ do 
 		Just (Entity kId providerEntity) <- 
 				lift $ DB.getBy $ UniqueProvider provider
 		liftIO $ Logger.debugM iModuleName $ "Entity  " `mappend` (show providerEntity)
-		liftIO $ Prelude.putStrLn (show providerEntity)
    		lift $ DB.insert $ OptionChain  
-				(symbol x)
-				(underlying x)
-				(optionType x)
-				(T.pack $ show $ strike x)
-				(expiration x)				
-				(T.pack $ show $ lastPrice x)
-				(T.pack $ show $ bidPrice x) 
-				(T.pack $ show $ askPrice x)
-				(T.pack $ show $ change x)
-				(T.pack $ show $ openInterest x)
-				(kId)
-		
+			(symbol x)
+			(underlying x)
+			(expiration x)				
+			(optionType x)
+			(T.pack $ show $ strike x)				
+			(T.pack $ show $ lastPrice x)
+			(T.pack $ show $ bidPrice x) 
+			(T.pack $ show $ askPrice x)
+			(T.pack $ show $ change x)
+			(T.pack $ show $ openInterest x)
+			(kId)
 	return x	
 
-{-MarketData 
-    symbol Text 
-    lastPrice Text 
-    askSize Text 
-    askPrice Text 
-    bidSize Text 
-    bidPrice Text 
-    lastUpdateTime UTCTime default=CURRENT_TIMESTAMP
-    marketDataProvider MarketDataProviderId 
--}
+--insertHistoricalPrice :: MarketDataTradier -> T.Text -> 
+insertHistoricalPrice y@(MarketDataTradier date open close high low volume) symb= dbOps $ do 
+	liftIO $ Logger.debugM iModuleName $ "Inserting " `mappend` (show y)
+	now <- liftIO $ getCurrentTime
+	runMaybeT $ do 
+		Just utcdate <- return $ parseTime defaultTimeLocale "%F" (T.unpack date)
+		Just (Entity kid providerEntity) <- 
+			lift $ DB.getBy $ UniqueProvider provider
+		Nothing <- lift $ DB.getBy $ MarketDataIdentifier symb utcdate 
+		lift $ DB.insert $ MarketData symb 
+						utcdate 
+						open 
+						close 
+						high 
+						low 
+						volume
+						now 
+						kid
 
-instance ToJSON MarketData where 
-	toJSON (MarketData s l a aa b bb la m) = object [
-		"symbol"      .= s 
-		, "lastPrice" .= l 
-		, "askSize"   .=  a 
-		, "askPrice"  .=  aa  
-		, "bidSize"   .=  b  
-		, "bidPrice"  .=  bb  
-		, "lastUpdateTime" .= la
-		, "marketDataProvider" .= m 
-		, "commandType" .= ("MarketDataUpdate" :: String)] 
+	
 
-instance FromJSON MarketData where 
-	parseJSON (Object v) = MarketData <$> 
-					v .: "symbol" <*> 
-					v .: "lastPrice" <*>
-					v .: "askSize" <*> 
-					v .: "askPrice" <*> 
-					v .: "bidSize" <*> 
-					v .: "bidPrice" <*> 
-					v .: "lastUpdateTime" <*> 
-					v .: "marketDataProvider"
-	parseJSON _ 	= Appl.empty 
 
 data QueryOptionChain = QueryOptionChain {
 	qNickName :: T.Text
@@ -212,6 +222,8 @@ instance FromJSON QueryOptionChain where
 	parseJSON (Object v) = parseQueryOptionChain v 
 	parseJSON _ 		 = Appl.empty
 
+
+
 instance Query QueryOptionChain where 
 	query = queryOptionChain
 
@@ -243,22 +255,75 @@ instance FromJSON OptionChainMarketData where
 								o .: "open_interest"
 	parseJSON _ 		 = Appl.empty
 instance ToJSON OptionChainMarketData
-						
 
+{-            symbol Text
+            date UTCTime default=CURRENT_TIMESTAMP
+            open Text default="0.0"
+            close Text default="0.0"
+            high Text default="0.0"
+            low Text default="0.0"
+            volume Text default="0.0"
+            lastUpdateTime UTCTime default=CURRENT_TIMESTAMP
+            dataProvider MarketDataProviderId 
+            MarketDataIdentifier symbol date
+-}						
 
+data MarketDataTradier = MarketDataTradier {
+	date :: T.Text 
+	, open :: Double
+	, close :: Double
+	, high :: Double
+	, low :: Double
+	, volume :: Double
+} deriving(Show, Eq, Ord)
+instance ToJSON MarketDataTradier where 
+	toJSON (MarketDataTradier date open close high low volume)	= 
+		object [
+			"date" .= date 
+			, "open" .= open
+			, "close" .= close 
+			, "high" .= high 
+			, "low" .= low 
+			, "volume" .= volume 
+		]
 
-{-- | Returns the option expiration date for n months from now. --}
+instance FromJSON MarketDataTradier where 
+	parseJSON (Object o) =  do 
+			date <- o .: "date" 
+			open <- o .: "open" 
+			close <- o .:  "close" 
+			high <- o .: "high" 
+			low <- 	o  .: "low"
+			volume <- o .: "volume"
+ 			return $ MarketDataTradier 
+						date 
+						open
+						close 
+						high
+						low 
+						volume
+
+	parseJSON  _ = Appl.empty
+
+{-- | Returns the option expiration date for n months from now. 
+ Complicated logic alert: 
+  * Get the number of days left in the current month.
+  * Get all the options for the end of the month.
+  * This can probably be better replaced by getting 
+  the market calendar from the market.
+
+--}
 expirationDate n = do 
-
 	x <- liftIO $ getCurrentTime >>= \l 
 				-> return $ utctDay l
+
 	(yy, m, d) <- return $ toGregorian x
 	-- Compute the number of days
 	y <- Control.Monad.foldM (\a b -> 
 				return $ 
-					a + (gregorianMonthLength yy (m + b)))
+					a + (gregorianMonthLength yy (m + b)) - d) -- days to subtract
 				0 [0..n]
-	x2 <- return $ addDays (toInteger y) x
+	x2 <- return $ addDays (toInteger y) x -- calendar addition.
 	(yy2, m2, d2) <- return $ toGregorian x2 
 	monthLength <- return $ toInteger $ gregorianMonthLength yy m2
 	res <- return $ addDays (monthLength - (toInteger d2)) x2
@@ -266,29 +331,47 @@ expirationDate n = do
 
 defaultExpirationDate = expirationDate 0
 
+
 insertDummyMarketData = dbOps $ do
 	time <- liftIO $ getCurrentTime 
 	y <- runMaybeT $ do 
 		x <- lift $ selectList [][Asc EquitySymbolSymbol]
 		Just (Entity kid providerEntity) <- 
 				lift $ DB.getBy $ UniqueProvider provider
-		y <- Control.Monad.mapM (\a @(Entity k val) -> 
+		y <- Control.Monad.mapM (\a @(Entity k val) -> do 
 				lift $ DB.insert $ MarketData (equitySymbolSymbol val) 
-									"1.0"
-									"1.0"
-									"1.0"
-									"1.0"
-									"1.0"
+									(time)
+									1.0
+									1.0
+									1.0
+									1.0
+									1.0
 									time 
-									kid) x 
+									kid					
+				newTime <- liftIO $ return $ addUTCTime (24 * 3600) time
+				lift $ DB.insert $ MarketData (equitySymbolSymbol val) 
+									(newTime)
+									3.0
+									3.0
+									3.0
+									3.0
+									3.0
+									time
+									kid					
+									) x 
 
 		return () 
 	return y
+
+
 queryMarketData :: IO (Map T.Text MarketData)
 queryMarketData = dbOps $ do 
-		x <- selectList [][Asc MarketDataSymbol]
+		-- A bit of a hack. Sort by ascending market data date to replace with the latest element.
+		x <- selectList [][Asc MarketDataSymbol, Asc MarketDataDate]
 		y <- Control.Monad.mapM (\a@(Entity k val) -> return (marketDataSymbol val, val)) x 
 		return $ Data.Map.fromList y 
+
+
 --TODO: Exception handling needs to be robust.
 insertAndSave :: [String] -> IO (Either T.Text T.Text)
 insertAndSave x = (dbOps $ do
@@ -338,6 +421,28 @@ saveSymbol = do
 			
 			saveSymbol
 
+-- | Returns the symbol key.
+saveHistoricalData :: (MonadIO m) => Conduit (Either T.Text T.Text) m (Either T.Text T.Text)
+saveHistoricalData = do 
+	client <- await 
+	liftIO $ threadDelay (10^6)
+	liftIO $ Logger.debugM iModuleName $ "Saving historical data " `mappend` (show client)
+	liftIO $ Prelude.putStrLn $ "saving historical data " `mappend` (show client)
+	case client of 
+		Nothing -> do 
+			return()
+			yield $ Left "Nothing to process"
+		Just sym -> do 
+			case sym of
+				Right x -> do 
+					_ <- liftIO $ insertHistoricalIntoDb (T.unpack x)
+					yield $ Right x
+					return $ Right x 
+				Left y -> do 
+					yield $ Left $ T.pack $ "Nothing to save " `mappend` (show y)
+					return $ Left $ "Nothing to save "
+			saveHistoricalData 			
+	
 
 
 queryOptionChain aNickName o = do 
@@ -361,7 +466,8 @@ saveOptionChains = do
 			case x of 
 				(Right aSymbol) -> do 
 					liftIO $ Logger.debugM iModuleName ("Inserting into db " `mappend` (show x))
-					i <- liftIO $ insertOptionChainsIntoDb (BS.pack $ T.unpack aSymbol) (BS.pack "2015-12-31")
+					d <- defaultExpirationDate
+					i <- liftIO $ insertOptionChainsIntoDb (BS.pack $ T.unpack aSymbol) d
 					yield $ BS.pack $ "Option chains for " `mappend` 
 									(T.unpack aSymbol) `mappend` " retrieved: "
 									`mappend` (show i)					
@@ -369,6 +475,29 @@ saveOptionChains = do
 			 		liftIO $ Logger.errorM iModuleName $ "Not parsing symbol"  `mappend` (show aSymbol)
 			 		yield $ BS.pack $ "Option chain not parsed for " `mappend` (show aSymbol)
 			saveOptionChains
+
+
+
+insertHistoricalIntoDb xS = do 
+	x1 <- getHistoricalData (BS.pack xS)
+	Prelude.putStrLn $ show x1
+	Logger.debugM iModuleName $ ("Inserting " `mappend` (show xS) `mappend` " database")
+	case x1 of 
+		Right x2 -> do 
+			x <- Data.Vector.forM x2 
+					(\x -> 
+					case x of 
+						Success y -> do 
+
+								insertHistoricalPrice y $ T.pack xS
+								return $ Right $ "Inserted  " `mappend`(show y)
+						_	-> return $ Left $ "Unable to process " `mappend` (show x))
+			return $ Right x
+		Left x2 -> do 
+			liftIO $ Logger.errorM iModuleName ("Error Historical price "  `mappend` (show xS))
+			return $ Left xS
+
+
 
 insertOptionChainsIntoDb x y = do 
 	Logger.debugM iModuleName ("Inserting " `mappend` show x `mappend` " " `mappend` show y)
@@ -385,13 +514,19 @@ insertOptionChainsIntoDb x y = do
 				return $ Left x
 
 
-setupSymbols aFileName = runResourceT $ 
+setupSymbols aFileName = do 
+	liftIO $ Logger.infoM iModuleName $ "Setting up symbols" `mappend` aFileName
+	runResourceT $ 
 			B.sourceFile aFileName $$ B.lines =$= parseSymbol =$= saveSymbol 
-					=$= saveOptionChains =$ consume
+					=$= saveHistoricalData
+					=$= saveOptionChains 
+					=$ consume
+	liftIO $ Logger.infoM iModuleName $ "Setup completeded " `mappend` aFileName
 
 
 startup = do 
 	dataDirectory <- getEnv("DATA_DIRECTORY")
+	insertTradierProvider 
 	x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "nasdaq_listed.txt"]
 	y <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "other_listed.txt"]
 	setupSymbols x 
@@ -401,6 +536,7 @@ startup = do
 
 startup_d = do 
 	dataDirectory <- getEnv("DATA_DIRECTORY")
+	_ <- insertTradierProvider 
 	x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "nasdaq_10.txt"]
 	setupSymbols x 
 

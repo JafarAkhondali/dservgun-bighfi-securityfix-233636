@@ -49,7 +49,8 @@ import qualified CCAR.Model.Survey as Survey
 import Data.ByteString as DBS 
 import Data.ByteString.Char8 as C8 
 import System.Environment
-
+import CCAR.Data.MarketDataAPI(MarketDataServer(..))
+import CCAR.Main.Application(App(..))
 import CCAR.Main.Util as Util
 import GHC.Generics
 import Data.Data
@@ -207,13 +208,6 @@ pJSON  aText = do
 
 
 
-
-type NickName = T.Text
-type ClientMap = GroupCommunication.ClientIdentifierMap
-
--- the broadcast channel for the application.
-data App = App { chan :: (TChan T.Text)
-                , nickNameMap :: ClientMap}
 
 instance Yesod App
 
@@ -924,11 +918,6 @@ driver = do
 
 
 
-class MarketDataServer a where 
-    {-- | A polling interval to poll for data. Non real time threads.--}
-    realtime :: a -> IO Bool 
-    pollingInterval :: a -> IO Int 
-    runner :: a -> App -> WSConn.Connection -> T.Text -> Bool -> IO ()
 
 data TradierMarketDataServer = TradierServer 
 
@@ -945,27 +934,36 @@ toDouble (Percentage Negative x) =  -1 * (fromRational x)
 _                                = 0.0 -- Need to model this better.
 
 
-computeValue :: MarketData -> PortfolioSymbol -> [Stress] -> IO T.Text
-computeValue a b stress = do 
-        m <- return $ T.unpack (marketDataLastPrice a )
+updateStressValue :: MarketData -> PortfolioSymbol -> [Stress] -> IO T.Text
+updateStressValue a b stress = do 
+        m <- return $ (marketDataClose a )
         q <- return $ T.unpack (portfolioSymbolQuantity b)
-        mD <- return $ (read m :: Double)
-        qD <- return $ (read q :: Double)
+        qD <- (return (read q :: Double))  `catch` (\x@(SomeException e) -> return 0.0)
         stressM <- return stress 
+        symbol <- return $ T.unpack $ portfolioSymbolSymbol b 
         sVT <- foldM (\sValue s -> 
                 case s of 
-                    EquityStress (Equity s1) sV -> return $ sValue + (toDouble sV)
+                    EquityStress (Equity sym) sV -> 
+                        if sym == symbol then 
+                            return $ sValue + (toDouble sV)
+                        else 
+                            return sValue
                     _ -> return sValue) 0.0 stressM 
         Logger.debugM iModuleName $ "Total stress " ++ (show sVT)
-        return $ T.pack $ show (mD * qD * (1 - sVT))
+        return $ T.pack $ show (m * qD * (1 - sVT))
+
+
+
 -- Refactoring note: move this to market data api.
--- The method is too complex. Need to fix it.
--- High level: 
+tradierPollingInterval :: IO Int 
+tradierPollingInterval = return $ 10 * 10 ^ 6
+
+
+-- The method is too complex. Need to fix it. 
 -- Get all the symbols for the users portfolio,
 -- Send a portfolio update : query the portfolio object
 -- get the uuid and then map over it.
-tradierPollingInterval :: IO Int 
-tradierPollingInterval = return $ 10 * 10 ^ 6
+
 tradierRunner :: App -> WSConn.Connection -> T.Text -> Bool -> IO ()
 tradierRunner app conn nickName terminate = 
     if(terminate == True) then do 
@@ -991,8 +989,8 @@ tradierRunner app conn nickName terminate =
                 val <- return $ Map.lookup (portfolioSymbolSymbol x) marketDataMap 
                 (stressValue, p) <- case val of 
                         Just v -> do 
-                            c <- computeValue v x activeScenario
-                            return (c, x {portfolioSymbolValue = marketDataLastPrice v}) 
+                            c <- updateStressValue v x activeScenario
+                            return (c, x {portfolioSymbolValue = T.pack $ show $ marketDataClose v}) 
                         Nothing -> return ("0.0", x)
                 x2 <- return $ Map.lookup (portfolioSymbolPortfolio x) portfolioMap 
                 pid <- case x2 of 
@@ -1000,7 +998,6 @@ tradierRunner app conn nickName terminate =
                     Just y -> return y                  
                 return $ daoToDto PortfolioSymbol.P_Update pid 
                             nickName nickName nickName p stressValue
-
             ) mySymbols
 
         mapM_  (\p -> do
