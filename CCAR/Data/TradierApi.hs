@@ -1,10 +1,12 @@
 module CCAR.Data.TradierApi 
-	(startup, query, QueryOptionChain, queryMarketData)
+	(startup, query, QueryOptionChain, queryMarketData, TradierMarketDataServer(..))
 where 
 
 import CCAR.Main.DBOperations (Query, query, manage, Manager)
 import Network.HTTP.Conduit 
 
+import Data.Set as Set 
+import Data.Map as Map
 -- The streaming interface
 import           Control.Monad.IO.Class  (liftIO)
 import           Data.Aeson              (Value (Object, String, Array) 
@@ -65,6 +67,14 @@ import Data.Conduit.Binary as B (sinkFile, lines, sourceFile)
 import Data.Conduit.List as CL 
 import Data.ByteString.Char8 as BS(ByteString, pack, unpack) 
 import Data.Conduit ( ($$), (=$=), (=$), Conduit, await, yield)
+import CCAR.Data.MarketDataAPI
+import CCAR.Model.Portfolio as Portfolio
+import CCAR.Model.PortfolioSymbol as PortfolioSymbol hiding (symbol)
+import CCAR.Main.Util as Util
+import Network.WebSockets.Connection as WSConn
+import CCAR.Model.CcarDataTypes
+import CCAR.Main.Application
+import Control.Concurrent.STM.Lifted
 
 iModuleName = "CCAR.Data.TradierApi"
 baseUrl =  "https://sandbox.tradier.com/v1"
@@ -546,5 +556,97 @@ startup_d = do
 testOptionChain aSymbol = queryOptionChain ("test"  :: String)
 						$ toJSON $ QueryOptionChain "test" "Read" aSymbol []
 
+
+
+data TradierMarketDataServer = TradierServer 
+
+
+instance MarketDataServer TradierMarketDataServer where 
+    realtime a = return False
+    pollingInterval a = tradierPollingInterval 
+    runner i a n t = tradierRunner a n t 
+
+
+toDouble :: StressValue -> Double 
+toDouble (Percentage Positive x) =  fromRational x 
+toDouble (Percentage Negative x) =  -1 * (fromRational x)
+_                                = 0.0 -- Need to model this better.
+
+
+updateStressValue :: MarketData -> PortfolioSymbol -> [Stress] -> IO T.Text
+updateStressValue a b stress = do 
+        m <- return $ (marketDataClose a )
+        q <- return $ T.unpack (portfolioSymbolQuantity b)
+        qD <- (return (read q :: Double))  `catch` (\x@(SomeException e) -> return 0.0)
+        stressM <- return stress 
+        symbol <- return $ T.unpack $ portfolioSymbolSymbol b 
+        sVT <- Control.Monad.foldM (\sValue s -> 
+                case s of 
+                    EquityStress (Equity sym) sV -> 
+                        if sym == symbol then 
+                            return $ sValue + (toDouble sV)
+                        else 
+                            return sValue
+                    _ -> return sValue) 0.0 stressM 
+        Logger.debugM iModuleName $ "Total stress " `mappend` (show sVT)
+        return $ T.pack $ show (m * qD * (1 - sVT))
+
+
+
+-- Refactoring note: move this to market data api.
+tradierPollingInterval :: IO Int 
+tradierPollingInterval = return $ 10 * 10 ^ 6
+
+
+-- The method is too complex. Need to fix it. 
+-- Get all the symbols for the users portfolio,
+-- Send a portfolio update : query the portfolio object
+-- get the uuid and then map over it.
+
+tradierRunner :: App -> WSConn.Connection -> T.Text -> Bool -> IO ()
+tradierRunner app conn nickName terminate = 
+    if(terminate == True) then do 
+        Logger.infoM iModuleName "Market data thread exiting" 
+        return ()
+    else do 
+        Logger.debugM iModuleName "Waiting for data"
+        tradierPollingInterval >>= \x -> threadDelay x        
+        mySymbols <- Portfolio.queryUniqueSymbols nickName
+        marketDataMap <- queryMarketData
+        portfolioIds <- Control.Monad.mapM (\p -> return $ portfolioSymbolPortfolio p) mySymbols
+        pSet <- return $ Set.fromList portfolioIds
+        portfoliom  <- Control.Monad.mapM (\x -> do 
+                        p <- dbOps $  DB.get x 
+                        case p of 
+                            Just x2 -> return (x, portfolioUuid x2)
+                            Nothing -> return (x, "INVALID PORTFOLIO")) 
+                        (Set.toList pSet)
+        portfolioMap <- return $ Map.fromList portfoliom
+        upd <- Control.Monad.mapM (\x -> do 
+                activeScenario <- liftIO $ atomically $ getActiveScenario app nickName 
+                Logger.infoM iModuleName $ " Active scenario " `mappend` (show activeScenario)
+                val <- return $ Map.lookup (portfolioSymbolSymbol x) marketDataMap 
+                (stressValue, p) <- case val of 
+                        Just v -> do 
+                            c <- updateStressValue v x activeScenario
+                            return (c, x {portfolioSymbolValue = T.pack $ show $ 
+                            		(marketDataClose v) * 
+                            			(read $ (T.unpack $ portfolioSymbolQuantity x) :: Double)}) 
+                        Nothing -> return ("0.0", x)
+                x2 <- return $ Map.lookup (portfolioSymbolPortfolio x) portfolioMap 
+                pid <- case x2 of 
+                    Nothing -> return "INVALID PORTFOLIO" 
+                    Just y -> return y                  
+                return $ daoToDto PortfolioSymbol.P_Update pid 
+                            nickName nickName nickName p stressValue
+            ) mySymbols
+
+        Control.Monad.mapM_  (\p -> do
+                liftIO $ Logger.debugM iModuleName ("test" `mappend` (show $ Util.serialize p))
+                liftIO $ threadDelay $ 1 * 10 ^ 4
+                liftIO $ WSConn.sendTextData conn (Util.serialize p) 
+                return p 
+                ) upd 
+        tradierRunner app conn nickName False
 
 

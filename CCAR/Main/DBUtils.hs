@@ -87,7 +87,7 @@ dbOps f = do
         return x
 
 
-share [mkPersist sqlSettings, mkMigrate "ccarModel"] 
+share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings] 
     [persistLowerCase| 
         Company json 
             companyName Text 

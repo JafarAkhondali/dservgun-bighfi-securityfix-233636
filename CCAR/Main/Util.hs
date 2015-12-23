@@ -1,4 +1,4 @@
-{--License: license.txt --}
+	{--License: license.txt --}
 module CCAR.Main.Util
 	(serialize, parseDate)
 where

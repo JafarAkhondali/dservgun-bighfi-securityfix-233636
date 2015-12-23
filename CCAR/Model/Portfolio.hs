@@ -409,6 +409,7 @@ deletePortfolio p@(PortfolioT cType
 			Nothing -> return $ Left $ T.pack $ "Portfolio not found " `mappend` (show p)  
 			Just(Entity pid port) -> do
 				liftIO $ Logger.debugM iModuleName $ "Deleting pid " `mappend` (show p)  
+				deleteWhere [PortfolioSymbolPortfolio ==. pid]
 				delete pid 
 				return $ Right pid
 
