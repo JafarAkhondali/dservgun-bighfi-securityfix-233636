@@ -1,15 +1,25 @@
 module CCAR.Data.MarketDataAPI 
-	(MarketDataServer(..), getActiveScenario, updateActiveScenario)
+	(MarketDataServer(..), getActiveScenario, updateActiveScenario
+        , queryMarketData
+        , queryOptionMarketData)
 where
 
 import Data.Text as T 
 import Network.WebSockets.Connection as WSConn
 import Network.WebSockets 
 import CCAR.Main.Application(App(..))
+import CCAR.Main.DBUtils
 import Data.Map as Map 
 import Control.Concurrent.STM.Lifted
 import CCAR.Model.CcarDataTypes
 import CCAR.Main.GroupCommunication
+import          Database.Persist
+import          Database.Persist.TH 
+
+import Control.Monad 
+import Control.Monad.Trans(liftIO, lift)
+import Data.Monoid(mappend, (<>))
+
 
 class MarketDataServer a where 
 	{-- | A polling interval to poll for data. Non real time threads.--}
@@ -37,3 +47,20 @@ updateActiveScenario app nn x = do
                 _ <- writeTVar (nickNameMap app) 
                             (Map.insert nn (x1 {activeScenario = x}) (cMap))
                 return ()
+
+
+queryMarketData :: IO (Map T.Text MarketData)
+queryMarketData = dbOps $ do 
+        -- A bit of a hack. Sort by ascending market data date to replace with the latest element.
+        x <- selectList [][Asc MarketDataSymbol, Asc MarketDataDate]
+        y <- Control.Monad.mapM (\a@(Entity k val) -> return (marketDataSymbol val, val)) x 
+        return $ Map.fromList y 
+
+
+
+queryOptionMarketData :: [CCAR.Main.DBUtils.PortfolioSymbol] -> IO [Entity CCAR.Main.DBUtils.OptionChain]
+queryOptionMarketData symbolList = dbOps $ do 
+    r <- Control.Monad.foldM (\acc sym -> do 
+            val <- selectList [OptionChainUnderlying ==. (portfolioSymbolSymbol sym)][]
+            return (val `mappend` acc) ) [] symbolList
+    return r

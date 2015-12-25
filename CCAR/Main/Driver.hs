@@ -71,6 +71,7 @@ import CCAR.Model.Portfolio as Portfolio
 import CCAR.Model.PortfolioSymbol as PortfolioSymbol
 import CCAR.Entitlements.Entitlements as Entitlements
 import CCAR.Data.TradierApi as TradierApi
+import CCAR.Data.OptionAnalytics as OptionAnalytics
 import CCAR.Model.Login as Login
 import CCAR.Model.UserOperations as UserOperations
 -- logging
@@ -596,6 +597,8 @@ ccarApp = do
                                             b <- (A.async (liftIO $ readerThread app nickNameV False))
                                             c <- (A.async $ liftIO $ jobReaderThread app nickNameV False)
                                             d <- (A.async $ liftIO $ runner TradierApi.TradierServer app connection nickNameV False)
+                                            e <- (A.async $ liftIO $ runner OptionAnalytics.OptionAnalyticsServer app connection 
+                                                                    nickNameV False)
                                             labelThread (A.asyncThreadId a) 
                                                         ("Writer thread " ++ (T.unpack nickNameV))
                                             labelThread (A.asyncThreadId b) 
@@ -604,7 +607,9 @@ ccarApp = do
                                                     ("Job thread " ++ (T.unpack nickNameV))
                                             labelThread (A.asyncThreadId d)
                                                     ("Market data thread " ++ (T.unpack nickNameV))
-                                            A.waitAny [a,  b,  c, d ]
+                                            labelThread(A.asyncThreadId e) 
+                                                    ("Option analytics thread " ++ (T.unpack nickNameV))
+                                            A.waitAny [a,  b,  c, d, e ]
                                             return "Threads had exception") 
                             return ("All threads exited" :: T.Text)
                 return () 

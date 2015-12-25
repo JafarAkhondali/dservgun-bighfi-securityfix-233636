@@ -67,7 +67,7 @@ import Data.Conduit.Binary as B (sinkFile, lines, sourceFile)
 import Data.Conduit.List as CL 
 import Data.ByteString.Char8 as BS(ByteString, pack, unpack) 
 import Data.Conduit ( ($$), (=$=), (=$), Conduit, await, yield)
-import CCAR.Data.MarketDataAPI
+import CCAR.Data.MarketDataAPI as MarketDataAPI
 import CCAR.Model.Portfolio as Portfolio
 import CCAR.Model.PortfolioSymbol as PortfolioSymbol hiding (symbol)
 import CCAR.Main.Util as Util
@@ -374,12 +374,6 @@ insertDummyMarketData = dbOps $ do
 	return y
 
 
-queryMarketData :: IO (Map T.Text MarketData)
-queryMarketData = dbOps $ do 
-		-- A bit of a hack. Sort by ascending market data date to replace with the latest element.
-		x <- selectList [][Asc MarketDataSymbol, Asc MarketDataDate]
-		y <- Control.Monad.mapM (\a@(Entity k val) -> return (marketDataSymbol val, val)) x 
-		return $ Data.Map.fromList y 
 
 
 --TODO: Exception handling needs to be robust.
@@ -595,7 +589,7 @@ updateStressValue a b stress = do
 
 -- Refactoring note: move this to market data api.
 tradierPollingInterval :: IO Int 
-tradierPollingInterval = return $ 10 * 10 ^ 6
+tradierPollingInterval = return $ 10 ^ 4
 
 
 -- The method is too complex. Need to fix it. 
@@ -612,7 +606,7 @@ tradierRunner app conn nickName terminate =
         Logger.debugM iModuleName "Waiting for data"
         tradierPollingInterval >>= \x -> threadDelay x        
         mySymbols <- Portfolio.queryUniqueSymbols nickName
-        marketDataMap <- queryMarketData
+        marketDataMap <- MarketDataAPI.queryMarketData
         portfolioIds <- Control.Monad.mapM (\p -> return $ portfolioSymbolPortfolio p) mySymbols
         pSet <- return $ Set.fromList portfolioIds
         portfoliom  <- Control.Monad.mapM (\x -> do 
@@ -643,10 +637,12 @@ tradierRunner app conn nickName terminate =
 
         Control.Monad.mapM_  (\p -> do
                 liftIO $ Logger.debugM iModuleName ("test" `mappend` (show $ Util.serialize p))
-                liftIO $ threadDelay $ 1 * 10 ^ 4
+                delay <- tradierPollingInterval
+                liftIO $ threadDelay $ delay
                 liftIO $ WSConn.sendTextData conn (Util.serialize p) 
                 return p 
                 ) upd 
         tradierRunner app conn nickName False
+
 
 
