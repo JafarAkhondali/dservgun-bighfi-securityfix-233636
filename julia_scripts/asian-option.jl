@@ -110,11 +110,11 @@ import JSON
       # Define the payoff
         println("Put call $PutCall")
         P = zeros(Float64,N);
-        if cmp(PutCall,'C') == 0
+        if cmp(PutCall,'c') == 0
             for n = 1:N
                 P[n] = max(A[n] - K, 0);
             end
-        elseif cmp(PutCall,'P') == 0
+        elseif cmp(PutCall,'p') == 0
             for n = 1:N
                P[n] = max(K - A[n], 0);
            end

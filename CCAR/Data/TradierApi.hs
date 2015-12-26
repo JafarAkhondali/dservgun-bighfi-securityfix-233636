@@ -145,6 +145,7 @@ getOptionChains = \x y -> do
 	Object value <- getMarketData optionChains [("symbol", Just x), ("expiration", Just y )]
 	liftIO $ Logger.debugM iModuleName ("getOptionChains " `mappend` (show x))
 	options <- return $ M.lookup "options" value 
+	liftIO $ Logger.debugM iModuleName (show options)
 	case options of 
 		Just (Object object) -> do 
 			object <- return $ M.lookup "option" object
@@ -168,9 +169,9 @@ insertOptionChain x = dbOps $ do
    		lift $ DB.insert $ OptionChain  
 			(symbol x)
 			(underlying x)
+			(T.pack $ show $ strike x)
 			(expiration x)				
 			(optionType x)
-			(T.pack $ show $ strike x)				
 			(T.pack $ show $ lastPrice x)
 			(T.pack $ show $ bidPrice x) 
 			(T.pack $ show $ askPrice x)
@@ -254,7 +255,7 @@ data OptionChainMarketData = OptionChainMarketData {
 instance FromJSON OptionChainMarketData where 
 	parseJSON (Object o) = OptionChainMarketData <$> 
 								o .: "symbol" <*>
-								o .: "root_symbol" <*> 
+								o .: "underlying" <*> 
 								o .: "strike" <*>
 								o .: "expiration_date" <*> 
 								o .: "option_type" <*>
@@ -505,7 +506,8 @@ insertHistoricalIntoDb xS = do
 
 insertOptionChainsIntoDb x y = do 
 	Logger.debugM iModuleName ("Inserting " `mappend` show x `mappend` " " `mappend` show y)
-	x1 <- getOptionChains x y 
+	x1 <- getOptionChains x y
+	Logger.debugM iModuleName (show x1) 
 	case x1 of 
 		Right x2 -> do 
 				liftIO $ Logger.debugM iModuleName ("Option chains " `mappend` (show x1))
