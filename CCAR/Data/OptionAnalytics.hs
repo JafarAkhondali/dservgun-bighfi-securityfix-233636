@@ -45,10 +45,17 @@ import           				Control.Monad.IO.Class  (liftIO)
 iModuleName = "CCAR.Data.OptionAnalytics"
 data ServerHandle = ServerHandle {
 	sHandle :: Handle
-}
+} 
 
-optionPricer :: HostName -> String -> IO ServerHandle 
-optionPricer hostName port = do 
+data OptionServer = OptionServer {
+	hostName :: String
+	, portNumber :: String
+} deriving (Show)
+
+defaultOptionServer = OptionServer "localhost" "20000"
+
+optionPricer :: OptionServer -> IO ServerHandle 
+optionPricer a@(OptionServer hostName port) = do 
 	addrinfos <- getAddrInfo Nothing (Just hostName) (Just port)
 	let serverAddr = List.head addrinfos
 	sock <- socket (addrFamily serverAddr) 
@@ -198,7 +205,7 @@ analyticsRunner app conn nickName terminate =
         Logger.infoM iModuleName "Market data thread exiting" 
         return ()
     else do 	    
-	    sH <- optionPricer "localhost" "20000"
+	    sH <- optionPricer defaultOptionServer
 	    marketDataMap <- MarketDataAPI.queryMarketData
 	    loop marketDataMap sH
 	where 
