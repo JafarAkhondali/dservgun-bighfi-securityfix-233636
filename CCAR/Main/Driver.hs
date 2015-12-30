@@ -694,6 +694,7 @@ handleDisconnects app connection nickN (CloseRequest a b) = do
 handleDisconnects app connecction nickN c = do 
     Logger.errorM iModuleName $ T.unpack $ 
                     ("Bye nickname " :: T.Text) `mappend` nickN 
+                            `mappend` (T.pack $ show c)
     atomically $ do 
         deleteConnection app nickN 
         restOfUs <- getAllClients app nickN
@@ -797,7 +798,7 @@ writerThread app connection nickName terminate = do
                             return "Close request received"
                         _ -> do 
                             handleDisconnects app connection nickName h 
-                            Logger.errorM iModuleName "Unknown exception"
+                            Logger.errorM iModuleName $ "Unknown exception " `mappend` (show h)
                             return $ T.pack $ "Unknown exception"
 
                 )

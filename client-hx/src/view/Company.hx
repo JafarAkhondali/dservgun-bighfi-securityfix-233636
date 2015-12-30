@@ -307,8 +307,9 @@ class Company {
 			MBooks_im.getSingleton().initializeElementStream(
 				cast getCompanySignup()
 				,"click");
+		//TODO: Use device information to decode keyup/blur.
 		var cidStream : Stream<Dynamic> = 
-			MBooks_im.getSingleton().initializeElementStream(cast getCompanyIDElement(), "keyup");			
+			MBooks_im.getSingleton().initializeElementStream(cast getCompanyIDElement(), "blur");			
 		cidStream.then(chkCompanyExists);
 		stream.then(saveButtonPressed);
 		selectListEventStream = new Deferred<Dynamic>();

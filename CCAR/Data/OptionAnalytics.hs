@@ -40,7 +40,7 @@ import							Text.ParserCombinators.Parsec
 import							Control.Applicative
 import							Numeric(readSigned, readFloat)
 import           				Control.Monad.IO.Class  (liftIO)
-
+import							Control.Exception(handle)
 
 iModuleName = "CCAR.Data.OptionAnalytics"
 data ServerHandle = ServerHandle {
@@ -202,24 +202,29 @@ getOptionMarketData nickName = do
 analyticsRunner :: App -> WSConn.Connection -> T.Text -> Bool -> IO ()
 analyticsRunner app conn nickName terminate = 
     if(terminate == True) then do 
-        Logger.infoM iModuleName "Market data thread exiting" 
+        Logger.infoM iModuleName "Analytics data thread exiting" 
         return ()
-    else do 	    
-	    sH <- optionPricer defaultOptionServer
+    else handle(\x@(SomeException e) -> do 
+    	Logger.infoM iModuleName "Exiting analytics thread."
+    	return ()) $ do 	    
+	    sH <- optionPricer defaultOptionServer 
 	    marketDataMap <- MarketDataAPI.queryMarketData
-	    loop marketDataMap sH
+	    loop marketDataMap sH terminate 
 	where 
-		loop marketDataMap sH = do 
-		    	Logger.debugM iModuleName $ " Getting option data "  `mappend` (T.unpack nickName)
-		        opts <- getOptionMarketData nickName
-		        pricers <- Control.Monad.mapM (\y -> return $ computeOptionAnal sH marketDataMap y) opts
-		        Control.Monad.mapM_ (\p1  ->  
-		        	do 
-		                delay <- analyticsPollingInterval
-		                liftIO $ threadDelay $ delay
-		                p2 <- p1
-		                liftIO $ WSConn.sendTextData conn (Util.serialize p2)) pricers
-	        	loop marketDataMap sH 
+		loop marketDataMap sH terminate = 
+				if (terminate == True) then do  
+					return () 
+				else do 
+			    	liftIO $ Logger.debugM iModuleName $ " Getting option data "  `mappend` (T.unpack nickName)
+			        opts <- getOptionMarketData nickName
+			        pricers <- Control.Monad.mapM (\y -> return $ computeOptionAnal sH marketDataMap y) opts
+			        Control.Monad.mapM_ (\p1  ->  
+			        	do 
+			                delay <- analyticsPollingInterval
+			                liftIO $ threadDelay $ delay
+			                p2 <- p1
+			                liftIO $ WSConn.sendTextData conn (Util.serialize p2) ) pricers
+		        	loop marketDataMap sH terminate
 
 
 

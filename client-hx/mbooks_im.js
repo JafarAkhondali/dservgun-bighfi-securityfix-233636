@@ -102,11 +102,14 @@ var MBooks_im = function() {
 	kStream.then($bind(this,this.kickUser));
 	var mStream = this.initializeElementStream(this.getMessageInput(),"keyup");
 	mStream.then($bind(this,this.sendMessage));
+	var sendMessageButton = this.initializeElementStream(this.getSendMessageElement(),"click");
+	sendMessageButton.then($bind(this,this.sendMessageFromButton));
 	this.userLoggedIn = new promhx.Deferred();
 	this.userLoggedIn.then($bind(this,this.authenticationChecks));
 	this.selectedCompanyStream = new promhx.Deferred();
 	this.assignCompanyStream = new promhx.Deferred();
 	this.activeCompanyStream = new promhx.Deferred();
+	this.activeCompanyStream.then($bind(this,this.displayUserElements));
 	this.portfolioListStream = new promhx.Deferred();
 	this.portfolioStream = new promhx.Deferred();
 	this.applicationErrorStream = new promhx.Deferred();
@@ -210,6 +213,15 @@ MBooks_im.prototype = {
 			this.updateMessageHistory(sentTime,this.getMessage());
 			inputElement.value = "";
 		}
+	}
+	,sendMessageFromButton: function(ev) {
+		console.log("Sending message from button " + Std.string(ev));
+		var sentTime = new Date();
+		var payload = { nickName : this.getNickName(), from : this.getNickName(), to : this.getNickName(), privateMessage : this.getMessage(), commandType : "SendMessage", destination : { tag : "Broadcast", contents : []}, sentTime : sentTime};
+		this.doSendJSON(payload);
+		this.updateMessageHistory(sentTime,this.getMessage());
+		var inputElement = this.getMessageInput();
+		inputElement.value = "";
 	}
 	,sendLogin: function(ev) {
 		var inputElement = ev.target;
@@ -322,6 +334,9 @@ MBooks_im.prototype = {
 	}
 	,getStatusMessageElement: function() {
 		return js.Browser.document.getElementById(MBooks_im.STATUS_MESSAGE);
+	}
+	,getSendMessageElement: function() {
+		return js.Browser.document.getElementById(MBooks_im.SEND_MESSAGE);
 	}
 	,getNickName: function() {
 		return this.getNickNameElement().value;
@@ -677,6 +692,7 @@ MBooks_im.prototype = {
 	,processSuccessfulLogin: function(loginEvent) {
 		console.log("Process successful login " + Std.string(loginEvent));
 		if(loginEvent.userName == this.getNickName()) {
+			this.showDivField(MBooks_im.MESSAGING_DIV);
 			MBooks_im.singleton.company = new view.Company();
 			MBooks_im.singleton.project = new model.Project(MBooks_im.singleton.company);
 			MBooks_im.singleton.ccar = new model.CCAR("","","");
@@ -685,6 +701,10 @@ MBooks_im.prototype = {
 			MBooks_im.singleton.portfolioSymbolModel = new model.PortfolioSymbol();
 			MBooks_im.singleton.portfolioSymbolView = new view.PortfolioSymbol(MBooks_im.singleton.portfolioSymbolModel);
 		} else console.log("A new user logged in " + Std.string(loginEvent));
+	}
+	,displayUserElements: function(companySelected) {
+		console.log("Displaying user elements the current user is entitled for");
+		this.showDivField(MBooks_im.PORTFOLIO_DIV);
 	}
 	,getGmailOauthButton: function() {
 		return js.Browser.document.getElementById(MBooks_im.SETUP_GMAIL);
@@ -4267,7 +4287,7 @@ view.Company = function() {
 	console.log("Instantiating company");
 	this.newCompany = true;
 	var stream = MBooks_im.getSingleton().initializeElementStream(this.getCompanySignup(),"click");
-	var cidStream = MBooks_im.getSingleton().initializeElementStream(this.getCompanyIDElement(),"keyup");
+	var cidStream = MBooks_im.getSingleton().initializeElementStream(this.getCompanyIDElement(),"blur");
 	cidStream.then($bind(this,this.chkCompanyExists));
 	stream.then($bind(this,this.saveButtonPressed));
 	this.selectListEventStream = new promhx.Deferred();
@@ -5639,6 +5659,7 @@ MBooks_im.USERS_ONLINE = "usersOnline";
 MBooks_im.REGISTER = "registerInput";
 MBooks_im.MESSAGE_HISTORY = "messageHistory";
 MBooks_im.MESSAGE_INPUT = "messageInput";
+MBooks_im.SEND_MESSAGE = "sendMessage";
 MBooks_im.STATUS_MESSAGE = "statusMessage";
 MBooks_im.KICK_USER = "kickUser";
 MBooks_im.KICK_USER_DIV = "kickUserDiv";

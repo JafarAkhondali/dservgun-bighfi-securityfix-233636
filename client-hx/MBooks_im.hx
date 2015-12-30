@@ -84,6 +84,7 @@ class MBooks_im {
 	private static var REGISTER = "registerInput";
 	private static var MESSAGE_HISTORY = "messageHistory";
 	private static var MESSAGE_INPUT = "messageInput";
+	private static var SEND_MESSAGE = "sendMessage";
 	private static var STATUS_MESSAGE = "statusMessage";
 	private static var KICK_USER = "kickUser";
 	private static var KICK_USER_DIV = "kickUserDiv";
@@ -120,16 +121,22 @@ class MBooks_im {
 		rStream.then(registerUser);
 
 		var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "keyup");
+		//TODO: Setup streams based on the type of device
+		//var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "blur");
 		kStream.then(kickUser);
-
+		//Same as above.
 		var mStream : Stream<Dynamic> = 
 			initializeElementStream(getMessageInput(), "keyup");
 		mStream.then(sendMessage);
+		var sendMessageButton : Stream<Dynamic> = 
+			initializeElementStream(getSendMessageElement(), "click");
+		sendMessageButton.then(sendMessageFromButton);
 		userLoggedIn = new Deferred<Dynamic>();
 		userLoggedIn.then(authenticationChecks);
 		selectedCompanyStream = new Deferred<Dynamic>();
 		assignCompanyStream = new Deferred<Dynamic> ();
 		activeCompanyStream = new Deferred<model.Company> ();
+		activeCompanyStream.then(displayUserElements);
 		portfolioListStream = new Deferred<PortfolioQuery>();
 		portfolioStream = new Deferred<Dynamic> ();
 		applicationErrorStream = new Deferred<Dynamic>();
@@ -166,9 +173,16 @@ class MBooks_im {
 		return (cast Browser.document.getElementById(SETUP_GMAIL));
 
 	}
+
+	private function displayUserElements(companySelected : Dynamic) {
+		trace("Displaying user elements the current user is entitled for");
+		showDivField(PORTFOLIO_DIV);
+
+	}
 	private function processSuccessfulLogin(loginEvent : Dynamic){
 		trace("Process successful login " + loginEvent);
 		if(loginEvent.userName == getNickName()){
+			showDivField(MESSAGING_DIV);
 			singleton.company = new view.Company();
 			singleton.project = new Project(singleton.company);
 			singleton.ccar = new CCAR("", "", "");
@@ -633,6 +647,9 @@ class MBooks_im {
 		return getNickNameElement().value;
 	}
 
+	private function getSendMessageElement() : Element {
+		return Browser.document.getElementById(SEND_MESSAGE);
+	}
 	private function getStatusMessageElement() : Element {
 		return Browser.document.getElementById(STATUS_MESSAGE);
 	}
@@ -776,6 +793,27 @@ class MBooks_im {
 		}
 	}
 
+	private function sendMessageFromButton(ev : Dynamic) {
+		trace("Sending message from button " + ev);
+		var sentTime = Date.now();
+		var payload : Dynamic = {
+			nickName : getNickName()
+			, from : getNickName()
+			, to : getNickName()
+			, privateMessage : getMessage()
+			, commandType : "SendMessage"
+			, destination :  {
+				tag : "Broadcast"
+				, contents : []
+			}
+			, sentTime : sentTime
+		};
+		doSendJSON(payload);
+		updateMessageHistory(sentTime, getMessage());
+		var inputElement = getMessageInput();
+		inputElement.value= ""; //Should we handle an exception here.
+
+	}
 	private function sendMessage(ev : KeyboardEvent) {
 		var inputElement : InputElement = cast ev.target;
 		if(Util.isBackspace(ev.keyCode)){
