@@ -81,7 +81,9 @@ data OptionPricer = OptionPricer {
 	, randomWalks ::  Int 
 	, price :: Double
 	, optionChain :: Maybe OptionChain
+	, bidRatio :: Double
 	, commandType :: T.Text
+
 } deriving (Show, Generic, Typeable)
 
 instance ToJSON OptionPricer 
@@ -103,15 +105,35 @@ parse_option_strike input =
 
 parse_float = parse_option_strike
 
+parse_float_j = do 
+	s <- getInput 
+	string "Just " 
+	s <- getInput
+	case readSigned readFloat s of 
+		[(n, s')] -> n <$ setInput s'
+		_		  -> Control.Applicative.empty 
+	 
+	
+
+parse_float_with_maybe input = do 
+	case parse parse_float_j ("Unknown") input of 
+		Right x -> x 
+		Left _ -> 0.0
+
+computeBidRatio :: T.Text -> Double -> Double
+computeBidRatio x y = (parse_float_with_maybe $ T.unpack x) /y 
 
 computeOptionAnal sHandle marketDataMap option = do 
 	y <- liftIO $ return $ Map.lookup (optionChainUnderlying option) marketDataMap
 	case y of 
 		Just x -> do  
 			optionSpotPrice <- return (marketDataClose x)
-			putStrLn $ show option	
+			Logger.debugM iModuleName $ show option	
 			strikePrice <- return $ 
 					parse_option_strike $ T.unpack $ optionChainStrike option
+
+			bidRatio <- return $ computeBidRatio (optionChainLastBid option) strikePrice
+			Logger.debugM iModuleName ("BidRatio " `mappend` (show bidRatio))
 			pricer <- return $ OptionPricer (optionChainUnderlying option) 
 							(optionChainOptionType option)
 							"A"
@@ -124,6 +146,7 @@ computeOptionAnal sHandle marketDataMap option = do
 							randomWalks 
 							price
 							(Just option)
+							bidRatio
 							"OptionAnalytics"
 			writeOptionPricer pricer sHandle
 
@@ -155,7 +178,7 @@ toCSV (OptionPricer a b c
 
 		f g 
 		h i 
-		j k _ _) = List.intercalate "|" [show a , show b , show c
+		j k _ _ _) = List.intercalate "|" [show a , show b , show c
 				, "" <> show d, "" <> show e
 				, show f, show g 
 				, show h , show i 
