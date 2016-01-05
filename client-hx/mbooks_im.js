@@ -119,6 +119,7 @@ var MBooks_im = function() {
 	oauthStream.then($bind(this,this.performGmailOauth));
 	this.entitlements = new view.Entitlement();
 	this.marketDataStream = new promhx.Deferred();
+	this.optionAnalyticsStream = new promhx.Deferred();
 	this.companyEntitlements = new view.CompanyEntitlement(this.entitlements,this.selectedCompanyStream);
 };
 MBooks_im.__name__ = ["MBooks_im"];
@@ -127,6 +128,7 @@ MBooks_im.getSingleton = function() {
 }
 MBooks_im.main = function() {
 	MBooks_im.singleton = new MBooks_im();
+	MBooks_im.singleton.optionAnalyticsView = new view.OptionAnalyticsView();
 	MBooks_im.singleton.setupStreams();
 	MBooks_im.singleton.connect();
 }
@@ -295,13 +297,6 @@ MBooks_im.prototype = {
 	,getMessageInput: function() {
 		var inputElement = js.Browser.document.getElementById(MBooks_im.MESSAGE_INPUT);
 		return inputElement;
-	}
-	,disableTab: function(tabName,tabSectionName) {
-		var element = js.Browser.document.getElementById(tabName);
-		console.log("Disabling tab " + tabName);
-		element.setAttribute("style","display:none");
-		var containerElement = js.Browser.document.getElementById(tabSectionName);
-		containerElement.setAttribute("style","display:none");
 	}
 	,getRegisterElement: function() {
 		var buttonElement = js.Browser.document.getElementById(MBooks_im.REGISTER);
@@ -610,6 +605,9 @@ MBooks_im.prototype = {
 		case 33:
 			this.marketDataStream.resolve(incomingMessage);
 			break;
+		case 38:
+			this.optionAnalyticsStream.resolve(incomingMessage);
+			break;
 		case 13:
 			this.processUndefinedCommandType(incomingMessage);
 			this.entitlements.modelResponseStream.resolve(incomingMessage);
@@ -704,7 +702,7 @@ MBooks_im.prototype = {
 	}
 	,displayUserElements: function(companySelected) {
 		console.log("Displaying user elements the current user is entitled for");
-		this.showDivField(MBooks_im.PORTFOLIO_DIV);
+		this.showDivField(MBooks_im.WORKBENCH);
 	}
 	,getGmailOauthButton: function() {
 		return js.Browser.document.getElementById(MBooks_im.SETUP_GMAIL);
@@ -2579,7 +2577,7 @@ model.Command.__name__ = ["model","Command"];
 model.Command.prototype = {
 	__class__: model.Command
 }
-model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers"] }
+model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics"] }
 model.CommandType.Login = ["Login",0];
 model.CommandType.Login.toString = $estr;
 model.CommandType.Login.__enum__ = model.CommandType;
@@ -2694,6 +2692,9 @@ model.CommandType.QueryEntitlements.__enum__ = model.CommandType;
 model.CommandType.QueryCompanyUsers = ["QueryCompanyUsers",37];
 model.CommandType.QueryCompanyUsers.toString = $estr;
 model.CommandType.QueryCompanyUsers.__enum__ = model.CommandType;
+model.CommandType.OptionAnalytics = ["OptionAnalytics",38];
+model.CommandType.OptionAnalytics.toString = $estr;
+model.CommandType.OptionAnalytics.__enum__ = model.CommandType;
 model.Company = function(n,cId,gM,ima) {
 	this.name = n;
 	this.companyId = cId;
@@ -4876,6 +4877,201 @@ view.ListManager.prototype = {
 	}
 	,__class__: view.ListManager
 }
+view.OptionAnalyticsTable = function(optionType,optionColumnHeaders,symbol) {
+	console.log("Creating option analytics table " + optionType + " for  " + symbol);
+	this.optionType = optionType;
+	this.tableHeaders = optionColumnHeaders;
+	this.currentSymbol = symbol;
+	this.optionAnalyticsMap = new haxe.ds.StringMap();
+	this.optionAnalyticsMapUI = new haxe.ds.StringMap();
+};
+view.OptionAnalyticsTable.__name__ = ["view","OptionAnalyticsTable"];
+view.OptionAnalyticsTable.prototype = {
+	clearCells: function(aRow) {
+		var cells = aRow.cells;
+		var _g = 0;
+		while(_g < cells.length) {
+			var c = cells[_g];
+			++_g;
+			var cell = c;
+			aRow.deleteCell(cell.cellIndex);
+		}
+	}
+	,insertCells: function(aRow,payload) {
+		console.log("Inserting cells " + Std.string(payload));
+		var newCell = aRow.insertCell(0);
+		newCell.innerHTML = payload.optionChain.symbol;
+		newCell = aRow.insertCell(1);
+		newCell.innerHTML = payload.optionType;
+		newCell = aRow.insertCell(2);
+		newCell.innerHTML = "" + Std.string(payload.optionChain.expiration);
+		newCell = aRow.insertCell(3);
+		newCell.innerHTML = payload.optionChain.lastBid;
+		newCell = aRow.insertCell(4);
+		newCell.innerHTML = "" + payload.optionChain.lastAsk;
+		newCell = aRow.insertCell(5);
+		newCell.innerHTML = "" + payload.bidRatio;
+		newCell = aRow.insertCell(6);
+		newCell.innerHTML = "" + payload.price;
+	}
+	,updateRow: function(aRow,payload) {
+		console.log("Inserting cells for " + Std.string(payload));
+		var key = this.key(payload);
+		var optionAnalytics = this.optionAnalyticsMap.get(key);
+		if(optionAnalytics == null) {
+			this.optionAnalyticsMap.set(key,payload);
+			var tableRowElement = this.optionAnalyticsMapUI.get(key);
+			this.insertCells(tableRowElement,payload);
+		} else {
+			this.optionAnalyticsMap.set(key,payload);
+			var tableRowElement = this.optionAnalyticsMapUI.get(key);
+			this.clearCells(tableRowElement);
+			this.insertCells(tableRowElement,payload);
+		}
+	}
+	,clear: function() {
+		console.log("Clearing the table");
+		var startIndex = 1;
+		var tableRows = this.getTable().rows;
+		var _g = 0;
+		while(_g < tableRows.length) {
+			var r = tableRows[_g];
+			++_g;
+			var row = r;
+			if(row.rowIndex >= 1) this.getTable().deleteRow(row.rowIndex);
+		}
+	}
+	,draw: function() {
+		console.log("Draw the table");
+		var sortedValues = this.sort(this.values(),$bind(this,this.sortByBidRatio));
+		var startIndex = 1;
+		var _g = 0;
+		while(_g < sortedValues.length) {
+			var val = sortedValues[_g];
+			++_g;
+			var row = this.getTable().insertRow(startIndex);
+			this.updateRow(row,val);
+			startIndex = startIndex + 1;
+		}
+	}
+	,sortByBidRatio: function(a,b) {
+		var error = a.bidRatio - b.bidRatio;
+		if(this.abs(error) < 0.00000001) return 0;
+		if(error <= 0) return -1; else if(error > 0) return 1;
+		console.log("Should never happen");
+		return 0;
+	}
+	,abs: function(a) {
+		if(a < 0) return a * -1;
+		return a;
+	}
+	,sort: function(optionAnalytics,sortFunction) {
+		console.log("Sort the rows");
+		optionAnalytics.sort(sortFunction);
+		return optionAnalytics;
+	}
+	,values: function() {
+		var elems = new Array();
+		var $it0 = this.optionAnalyticsMap.iterator();
+		while( $it0.hasNext() ) {
+			var anOpt = $it0.next();
+			elems.push(anOpt);
+		}
+		return elems;
+	}
+	,updateOptionAnalytics: function(payload) {
+		console.log("Processing update option analytics element " + Std.string(payload));
+		if(this.currentSymbol == "") return;
+		if(payload.optionType != this.optionType) {
+			console.log("Ignoring this option type " + Std.string(payload));
+			return;
+		}
+		if(payload.optionChain.underlying != this.currentSymbol) {
+			console.log("Ignoring this symbol " + Std.string(payload));
+			return;
+		}
+		var key = this.key(payload);
+		var row = this.optionAnalyticsMap.get(key);
+		if(row == null) {
+			row = this.getTable().insertRow(1);
+			this.insertCells(row,payload);
+		} else {
+			console.log("Clear the table and resort the elements.");
+			this.sort(this.values(),$bind(this,this.sortByBidRatio));
+			this.clear();
+			this.draw();
+		}
+	}
+	,key: function(anal) {
+		return anal.optionChain.underlying + anal.optionType + anal.optionChain.symbol + Std.string(anal.optionChain.expiration);
+	}
+	,getTable: function() {
+		var tableId = "";
+		if(this.optionType == "call") tableId = view.OptionAnalyticsTable.OPTION_CALLS_TABLE; else if(this.optionType == "put") tableId = view.OptionAnalyticsTable.OPTION_PUTS_TABLE; else return null;
+		return js.Browser.document.getElementById(tableId);
+	}
+	,reset: function() {
+		this.optionType = "";
+		this.currentSymbol = "";
+		this.clear();
+		this.optionAnalyticsMap = new haxe.ds.StringMap();
+		this.optionAnalyticsMapUI = new haxe.ds.StringMap();
+	}
+	,__class__: view.OptionAnalyticsTable
+}
+view.OptionAnalyticsView = function() {
+	var pStream = MBooks_im.getSingleton().initializeElementStream(this.getRetrieveUnderlying(),"click");
+	pStream.then($bind(this,this.populateOptionAnalyticsTables));
+	var qStream = MBooks_im.getSingleton().initializeElementStream(this.getClearUnderlying(),"click");
+	qStream.then($bind(this,this.clearOptionAnalyticsTable));
+};
+view.OptionAnalyticsView.__name__ = ["view","OptionAnalyticsView"];
+view.OptionAnalyticsView.prototype = {
+	populateOptionAnalyticsTables: function(ev) {
+		console.log("Creating puts and calls for the table " + this.getUnderlying().value);
+		var callTable = new view.OptionAnalyticsTable("call",this.getOptionCallHeaders(),this.getUnderlying().value);
+		var putTable = new view.OptionAnalyticsTable("put",this.getOptionPutHeaders(),this.getUnderlying().value);
+		MBooks_im.getSingleton().optionAnalyticsStream.then($bind(callTable,callTable.updateOptionAnalytics));
+		MBooks_im.getSingleton().optionAnalyticsStream.then($bind(putTable,putTable.updateOptionAnalytics));
+	}
+	,clearOptionAnalyticsTable: function(ev) {
+		this.getUnderlying().value = "";
+		var callTable = new view.OptionAnalyticsTable("call",this.getOptionCallHeaders(),this.getUnderlying().value);
+		callTable.reset();
+		var putTable = new view.OptionAnalyticsTable("put",this.getOptionPutHeaders(),this.getUnderlying().value);
+		putTable.reset();
+	}
+	,getOptionPutHeaders: function() {
+		var result = new Array();
+		result.push("Option Symbol");
+		result.push("Puts");
+		result.push("Last Bid");
+		result.push("Last Ask");
+		result.push("Bid ratio");
+		result.push("Theoretical Eu Asian Option Price");
+		return result;
+	}
+	,getOptionCallHeaders: function() {
+		var result = new Array();
+		result.push("Option Symbol");
+		result.push("Calls");
+		result.push("Last Bid");
+		result.push("Last Ask");
+		result.push("Bid ratio");
+		result.push("Theoretical Eu Asian Option Price");
+		return result;
+	}
+	,getUnderlying: function() {
+		return js.Browser.document.getElementById(view.OptionAnalyticsView.UNDERLYING);
+	}
+	,getClearUnderlying: function() {
+		return js.Browser.document.getElementById(view.OptionAnalyticsView.CLEAR_UNDERLYING);
+	}
+	,getRetrieveUnderlying: function() {
+		return js.Browser.document.getElementById(view.OptionAnalyticsView.RETRIEVE_UNDERLYING);
+	}
+	,__class__: view.OptionAnalyticsView
+}
 view.Portfolio = function() {
 	console.log("Creating new portfolio view");
 	this.activePortfolioStream = new promhx.Deferred();
@@ -5191,6 +5387,10 @@ view.PortfolioSymbol.prototype = {
 	,updateTableRowMap: function(payload) {
 		var key = this.getKey(payload);
 		var row = this.rowMap.get(key);
+		if(MBooks_im.getSingleton().portfolio.activePortfolio == null) {
+			console.log("Throwing message" + Std.string(payload));
+			return;
+		}
 		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId) {
 			console.log("Throwing message " + Std.string(payload));
 			return;
@@ -5647,6 +5847,7 @@ MBooks_im.CCAR_DIV = "workbench-ccar";
 MBooks_im.SECURITY_DIV = "workbench-security";
 MBooks_im.PORTFOLIO_DIV = "workbench-portfolio";
 MBooks_im.SETUP_GMAIL = "setupGmailOauth";
+MBooks_im.WORKBENCH = "workbench";
 MBooks_im.NICK_NAME = "nickName";
 MBooks_im.PASSWORD = "password";
 MBooks_im.FIRST_NAME = "firstName";
@@ -5738,6 +5939,11 @@ view.Entitlement.ADD_ENTITLEMENT = "addEntitlement";
 view.Entitlement.UPDATE_ENTITLEMENT = "updateEntitlement";
 view.Entitlement.REMOVE_ENTITLEMENT = "removeEntitlement";
 view.Entitlement.MANAGE_ENTITLEMENTS_COMMAND = "ManageEntitlements";
+view.OptionAnalyticsTable.OPTION_CALLS_TABLE = "option_calls_table";
+view.OptionAnalyticsTable.OPTION_PUTS_TABLE = "option_put_table";
+view.OptionAnalyticsView.UNDERLYING = "underlying";
+view.OptionAnalyticsView.RETRIEVE_UNDERLYING = "retrieveUnderlying";
+view.OptionAnalyticsView.CLEAR_UNDERLYING = "clearUnderlying";
 view.Portfolio.SAVE_PORTFOLIO = "savePortfolio";
 view.Portfolio.UPDATE_PORTFOLIO = "updatePortfolio";
 view.Portfolio.DELETE_PORTFOLIO = "deletePortfolio";

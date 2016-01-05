@@ -268,6 +268,10 @@ class PortfolioSymbol {
 	private function updateTableRowMap(payload : PortfolioSymbolT) {
 		var key : String = getKey(payload);
 		var row : TableRowElement = cast rowMap.get(key);
+		if(MBooks_im.getSingleton().portfolio.activePortfolio == null){
+			trace("Throwing message" + payload);
+			return;
+		}
 		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId){
 			trace("Throwing message " + payload);
 			return;

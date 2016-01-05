@@ -39,4 +39,5 @@ enum CommandType {
 	ManageEntitlements;
 	QueryEntitlements;
 	QueryCompanyUsers;
+	OptionAnalytics;
 }

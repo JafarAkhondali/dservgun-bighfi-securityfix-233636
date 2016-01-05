@@ -80,7 +80,7 @@ data OptionPricer = OptionPricer {
 	, timeToMaturity :: Double 
 	, randomWalks ::  Int 
 	, price :: Double
-	, optionChain :: Maybe OptionChain
+	, optionChain :: OptionChain
 	, bidRatio :: Double
 	, commandType :: T.Text
 
@@ -145,7 +145,7 @@ computeOptionAnal sHandle marketDataMap option = do
 							timeToMaturity 
 							randomWalks 
 							price
-							(Just option)
+							option
 							bidRatio
 							"OptionAnalytics"
 			writeOptionPricer pricer sHandle

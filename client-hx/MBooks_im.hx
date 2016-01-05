@@ -35,9 +35,8 @@ import model.Project;
 import model.CCAR;
 import model.Portfolio;
 import model.MarketDataUpdate;
-
 import view.Entitlement;
-
+import view.OptionAnalyticsView;
 import util.Util;
 import util.Config;
 import js.Browser;
@@ -49,7 +48,6 @@ import js.d3.D3;
 import js.d3.D3;
 import js.d3.scale.Scale;
 
-	import js.d3.selection.Selection;
 import js.d3.selection.Selection;
 import js.d3.layout.Layout;
 import view.Portfolio;
@@ -58,8 +56,8 @@ import view.Company;
 import massive.munit.TestRunner;
 using promhx.haxe.EventTools;
 import promhx.Deferred;
-
-
+import view.OptionAnalyticsView;
+import view.OptionAnalytics;
 class MBooks_im {
 
 	private static var singleton : MBooks_im;
@@ -71,6 +69,7 @@ class MBooks_im {
 	private static var SECURITY_DIV : String = "workbench-security";
 	private static var PORTFOLIO_DIV : String = "workbench-portfolio";
 	private static var SETUP_GMAIL  : String = "setupGmailOauth";
+	private static var WORKBENCH : String = "workbench";
 	//UI
 	private static var NICK_NAME = "nickName";
 	private static var PASSWORD = "password";
@@ -147,9 +146,9 @@ class MBooks_im {
 		oauthStream.then(performGmailOauth);
 		entitlements = new view.Entitlement();
 		marketDataStream = new Deferred<Dynamic>();
+		optionAnalyticsStream = new Deferred<OptionAnalytics>();
 		companyEntitlements = new view.CompanyEntitlement(entitlements, 
 			selectedCompanyStream);
-
 	}
 
 
@@ -176,7 +175,8 @@ class MBooks_im {
 
 	private function displayUserElements(companySelected : Dynamic) {
 		trace("Displaying user elements the current user is entitled for");
-		showDivField(PORTFOLIO_DIV);
+		showDivField(WORKBENCH);
+
 
 	}
 	private function processSuccessfulLogin(loginEvent : Dynamic){
@@ -447,6 +447,9 @@ class MBooks_im {
 			case MarketDataUpdate : {
 				marketDataStream.resolve(incomingMessage);
 			}
+			case OptionAnalytics: {
+				optionAnalyticsStream.resolve(incomingMessage);
+			}
 			case Undefined : {
 				processUndefinedCommandType(incomingMessage);
 				entitlements.modelResponseStream.resolve(incomingMessage);
@@ -686,15 +689,6 @@ class MBooks_im {
 
 	}
 
-	//tabName
-	private function disableTab(tabName : String, tabSectionName : String) {
-		var element : DivElement = cast Browser.document.getElementById(tabName);
-		trace("Disabling tab " + tabName);
-		element.setAttribute("style", "display:none");
-		var containerElement = Browser.document.getElementById(tabSectionName);
-		containerElement.setAttribute("style", "display:none");
-
-	}
 	private function getMessageInput() : InputElement {
 		var inputElement : InputElement = cast Browser.document.getElementById(MESSAGE_INPUT);
 		return inputElement;
@@ -967,14 +961,18 @@ class MBooks_im {
 	public var activeCompanyStream(default, null) : Deferred<model.Company>;
 	public var assignCompanyStream (default, null) : Deferred<Dynamic>;
 	public var marketDataStream(default, null) : Deferred<Dynamic>;
+	public var optionAnalyticsStream(default, null) : Deferred<OptionAnalytics>;
 	//PortfolioQuery messages
 	public var portfolioListStream(default, null) : Deferred<PortfolioQuery>;
 	//ManagePortfolio messages.
 	public var portfolioStream (default, null) : Deferred<Dynamic>;
 	//Global error stream
 	public var applicationErrorStream(default, null) : Deferred<Dynamic>;
+	private var optionAnalyticsView : OptionAnalyticsView;
 	static function main() {
 		singleton = new MBooks_im();
+		//TODO: Fix initialization
+		singleton.optionAnalyticsView = new OptionAnalyticsView();
 		singleton.setupStreams();
 		singleton.connect();
 	}
