@@ -40,6 +40,7 @@ import 			Database.Persist.Postgresql as DB
 import 			Data.Time
 import			Data.Map
 import 			System.Locale(defaultTimeLocale)
+import			System.Environment(getEnv)
 import Control.Monad.IO.Class 
 import Control.Monad
 import Control.Monad.Logger 
@@ -75,7 +76,6 @@ import Network.WebSockets.Connection as WSConn
 import CCAR.Model.CcarDataTypes
 import CCAR.Main.Application
 import Control.Concurrent.STM.Lifted
-
 iModuleName = "CCAR.Data.TradierApi"
 baseUrl =  "https://sandbox.tradier.com/v1"
 
@@ -591,7 +591,7 @@ updateStressValue a b stress = do
 
 -- Refactoring note: move this to market data api.
 tradierPollingInterval :: IO Int 
-tradierPollingInterval = return $ 10 ^ 4
+tradierPollingInterval = getEnv("TRADIER_POLLING_INTERVAL") >>= \x -> return $ parse_time_interval x
 
 
 -- The method is too complex. Need to fix it. 

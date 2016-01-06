@@ -4930,16 +4930,10 @@ view.OptionAnalyticsTable.prototype = {
 		}
 	}
 	,clear: function() {
-		console.log("Clearing the table");
+		console.log("Clearing the table " + Std.string(this));
 		var startIndex = 1;
 		var tableRows = this.getTable().rows;
-		var _g = 0;
-		while(_g < tableRows.length) {
-			var r = tableRows[_g];
-			++_g;
-			var row = r;
-			if(row.rowIndex >= 1) this.getTable().deleteRow(row.rowIndex);
-		}
+		while(tableRows.length > 1) this.getTable().deleteRow(1);
 	}
 	,draw: function() {
 		console.log("Draw the table");
@@ -4981,7 +4975,10 @@ view.OptionAnalyticsTable.prototype = {
 	}
 	,updateOptionAnalytics: function(payload) {
 		console.log("Processing update option analytics element " + Std.string(payload));
-		if(this.currentSymbol == "") return;
+		if(this.currentSymbol == "") {
+			console.log("Ignoring this after clear " + Std.string(payload));
+			return;
+		}
 		if(payload.optionType != this.optionType) {
 			console.log("Ignoring this option type " + Std.string(payload));
 			return;
@@ -5011,9 +5008,9 @@ view.OptionAnalyticsTable.prototype = {
 		return js.Browser.document.getElementById(tableId);
 	}
 	,reset: function() {
+		this.clear();
 		this.optionType = "";
 		this.currentSymbol = "";
-		this.clear();
 		this.optionAnalyticsMap = new haxe.ds.StringMap();
 		this.optionAnalyticsMapUI = new haxe.ds.StringMap();
 	}
@@ -5029,17 +5026,15 @@ view.OptionAnalyticsView.__name__ = ["view","OptionAnalyticsView"];
 view.OptionAnalyticsView.prototype = {
 	populateOptionAnalyticsTables: function(ev) {
 		console.log("Creating puts and calls for the table " + this.getUnderlying().value);
-		var callTable = new view.OptionAnalyticsTable("call",this.getOptionCallHeaders(),this.getUnderlying().value);
-		var putTable = new view.OptionAnalyticsTable("put",this.getOptionPutHeaders(),this.getUnderlying().value);
-		MBooks_im.getSingleton().optionAnalyticsStream.then($bind(callTable,callTable.updateOptionAnalytics));
-		MBooks_im.getSingleton().optionAnalyticsStream.then($bind(putTable,putTable.updateOptionAnalytics));
+		this.callTable = new view.OptionAnalyticsTable("call",this.getOptionCallHeaders(),this.getUnderlying().value);
+		this.putTable = new view.OptionAnalyticsTable("put",this.getOptionPutHeaders(),this.getUnderlying().value);
+		MBooks_im.getSingleton().optionAnalyticsStream.then(($_=this.callTable,$bind($_,$_.updateOptionAnalytics)));
+		MBooks_im.getSingleton().optionAnalyticsStream.then(($_=this.putTable,$bind($_,$_.updateOptionAnalytics)));
 	}
 	,clearOptionAnalyticsTable: function(ev) {
 		this.getUnderlying().value = "";
-		var callTable = new view.OptionAnalyticsTable("call",this.getOptionCallHeaders(),this.getUnderlying().value);
-		callTable.reset();
-		var putTable = new view.OptionAnalyticsTable("put",this.getOptionPutHeaders(),this.getUnderlying().value);
-		putTable.reset();
+		this.callTable.reset();
+		this.putTable.reset();
 	}
 	,getOptionPutHeaders: function() {
 		var result = new Array();

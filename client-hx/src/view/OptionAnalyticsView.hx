@@ -31,6 +31,8 @@ class OptionAnalyticsView {
 	public static var UNDERLYING(default, null): String = "underlying";
 	public static var RETRIEVE_UNDERLYING (default, null): String = "retrieveUnderlying";
 	public static var CLEAR_UNDERLYING (default, null) : String = "clearUnderlying";
+	private var callTable : OptionAnalyticsTable;
+	private var putTable : OptionAnalyticsTable;
 	public function new(){
 		var pStream : Stream<Dynamic> = MBooks_im.getSingleton().initializeElementStream(cast getRetrieveUnderlying(), "click");			
 		pStream.then(populateOptionAnalyticsTables);
@@ -69,18 +71,15 @@ class OptionAnalyticsView {
 	}
 	private function clearOptionAnalyticsTable(ev : Event){
 		getUnderlying().value = "";
-		var callTable : OptionAnalyticsTable = new OptionAnalyticsTable("call", getOptionCallHeaders()
-			, getUnderlying().value);
 		callTable.reset();
-		var putTable : OptionAnalyticsTable = new OptionAnalyticsTable("put", getOptionPutHeaders()
-		, getUnderlying().value);	
 		putTable.reset();
+
 	}
 	private function populateOptionAnalyticsTables(ev : Event){
 		trace("Creating puts and calls for the table " + getUnderlying().value);
-		var callTable : OptionAnalyticsTable = new OptionAnalyticsTable("call", getOptionCallHeaders()
+		callTable = new OptionAnalyticsTable("call", getOptionCallHeaders()
 			, getUnderlying().value);
-		var putTable : OptionAnalyticsTable = new OptionAnalyticsTable("put", getOptionPutHeaders()
+		putTable = new OptionAnalyticsTable("put", getOptionPutHeaders()
 		, getUnderlying().value);
 		MBooks_im.getSingleton().optionAnalyticsStream.then(callTable.updateOptionAnalytics);
 		MBooks_im.getSingleton().optionAnalyticsStream.then(putTable.updateOptionAnalytics);

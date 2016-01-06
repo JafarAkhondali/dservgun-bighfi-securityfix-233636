@@ -75,15 +75,14 @@ class OptionAnalyticsTable {
 		this.optionType = optionType;
 		this.tableHeaders = optionColumnHeaders;
 		this.currentSymbol = symbol;
-		//reset();
 		optionAnalyticsMap = new StringMap<OptionAnalytics>();
 		optionAnalyticsMapUI =  new StringMap<TableRowElement>();
 	}
 
 	public function reset() {
+		clear();
 		this.optionType = "";
 		this.currentSymbol = "";
-		clear();
 		optionAnalyticsMap = new StringMap<OptionAnalytics>();
 		optionAnalyticsMapUI =  new StringMap<TableRowElement>();		
 	}
@@ -109,6 +108,7 @@ class OptionAnalyticsTable {
 	public function updateOptionAnalytics(payload : OptionAnalytics){
 		trace("Processing update option analytics element " + payload);
 		if(this.currentSymbol == ""){
+			trace("Ignoring this after clear "  + payload);
 			return;
 		}
 		if(payload.optionType != this.optionType){
@@ -178,14 +178,12 @@ class OptionAnalyticsTable {
 		}
 	}
 	public function clear() {
-		trace("Clearing the table");
+		trace("Clearing the table " + this);
 		var startIndex = 1;
 		var tableRows : HTMLCollection = getTable().rows;
-		for(r in tableRows){
-			var row : TableRowElement = cast r;
-			if(row.rowIndex >= 1){
-				getTable().deleteRow(row.rowIndex);
-			}
+		//To account for the header.
+		while(tableRows.length > 1){
+			getTable().deleteRow(1);
 		}
 
 	}

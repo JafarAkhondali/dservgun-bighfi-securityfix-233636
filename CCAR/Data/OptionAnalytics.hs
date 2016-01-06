@@ -38,10 +38,11 @@ import 							Network.WebSockets.Connection as WSConn
 import							Control.Exception(catch, SomeException(..))
 import							Text.ParserCombinators.Parsec
 import							Control.Applicative
-import							Numeric(readSigned, readFloat)
+import							Numeric(readSigned, readFloat, readDec)
 import           				Control.Monad.IO.Class  (liftIO)
 import							Control.Exception(handle)
-
+import							System.Environment
+import							CCAR.Main.Util as Util(parse_time_interval)
 iModuleName = "CCAR.Data.OptionAnalytics"
 data ServerHandle = ServerHandle {
 	sHandle :: Handle
@@ -112,8 +113,7 @@ parse_float_j = do
 	case readSigned readFloat s of 
 		[(n, s')] -> n <$ setInput s'
 		_		  -> Control.Applicative.empty 
-	 
-	
+
 
 parse_float_with_maybe input = do 
 	case parse parse_float_j ("Unknown") input of 
@@ -209,7 +209,7 @@ instance MarketDataServer OptionAnalyticsServer where
 
 -- Refactoring note: move this to market data api.
 analyticsPollingInterval :: IO Int 
-analyticsPollingInterval = return $ 10 ^ 4
+analyticsPollingInterval = getEnv("ANALYTICS_POLLING_INTERVAL") >>= \x -> return $ (parse_time_interval x)
 
 
 
