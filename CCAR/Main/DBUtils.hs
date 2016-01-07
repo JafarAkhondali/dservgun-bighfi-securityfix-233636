@@ -141,15 +141,6 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             permissionScope PermissionId 
             UniqueCompanyUserRole cuId companyRole permissionScope
             deriving Eq Show 
-        Person json
-            firstName Text 
-            lastName Text 
-            nickName NickName
-            password Text
-            locale Text Maybe
-            lastLoginTime UTCTime default=CURRENT_TIMESTAMP
-            UniqueNickName nickName
-            deriving Show Eq
              
         Entitlement json
             tabName Text  -- the tab on the ui. 
@@ -171,10 +162,7 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             loginFor PersonId 
             UniqueGuestLogin loginFor loginTime 
             deriving Show Eq 
-        PersonRole json
-            roleFor PersonId 
-            roleType RoleType 
-            deriving Show Eq
+
         Country json
             name Text 
             iso_3 Text
@@ -182,13 +170,51 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             top_domain Text
             deriving Show Eq
             UniqueISO3 iso_3
-        Language json 
-            lcCode Text
-            name Text 
-            font Text 
-            country CountryId
-            UniqueLanguage lcCode 
+        CCAR json
+            scenarioName Text
+            scenarioText Text
+            creator Text -- This needs to be the unique name from the person table.
+            deleted Bool default=False
+            CCARUniqueName scenarioName 
             deriving Show Eq
+
+        Distributor json 
+            name Text 
+            address Text 
+            zoneId Zone  
+            createdBy PersonId 
+            createdOn UTCTime default=CURRENT_TIMESTAMP
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq
+
+        DistributorContact json 
+            distributor DistributorId 
+            contactType ContactType 
+            contactDetails Text -- Emailid, url etc.
+            createdBy PersonId 
+            createdOn UTCTime default = CURRENT_TIMESTAMP
+            updatedBy PersonId 
+            updatedOn UTCTime default = CURRENT_TIMESTAMP
+            deriving Show Eq
+        Gift json
+            from NickName 
+            to NickName
+            message Text 
+            sentDate UTCTime
+            acceptedDate UTCTime 
+            rejectDate UTCTime -- if the receiver doesnt want the gift. 
+            amount Double  -- not the best type. But all amounts are in SWBench.
+            deriving Show Eq
+        -- Location information needs a geo spatial extension, to be accurate.
+        -- How do we define uniqueness of double attributes?
+        GeoLocation json
+            locationName Text  -- Some unique identifier. We need to add tags.
+            latitude Double -- most likely in radians.
+            longitude Double
+            deriving Eq Show
+            UniqueLocation locationName 
+
         -- Could be the postal zone,
         -- Geographic zone etc.
         -- typical entries: 
@@ -199,19 +225,29 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             zoneType Text 
             country CountryId 
             deriving Eq Show
-        Zone json 
-            identification IdentificationZoneId 
-            zone Text 
-            UniqueZone identification zone
-            deriving Eq Show 
-        -- Location information needs a geo spatial extension, to be accurate.
-        -- How do we define uniqueness of double attributes?
-        GeoLocation json
-            locationName Text  -- Some unique identifier. We need to add tags.
-            latitude Double -- most likely in radians.
-            longitude Double
-            deriving Eq Show
-            UniqueLocation locationName 
+        Language json 
+            lcCode Text
+            name Text 
+            font Text 
+            country CountryId
+            UniqueLanguage lcCode 
+            deriving Show Eq
+        Person json
+            firstName Text 
+            lastName Text 
+            nickName NickName
+            password Text
+            locale Text Maybe
+            lastLoginTime UTCTime default=CURRENT_TIMESTAMP
+            UniqueNickName nickName
+            deriving Show Eq
+
+        PersonRole json
+            roleFor PersonId 
+            roleType RoleType 
+            deriving Show Eq
+
+
         Preferences json
             preferencesFor PersonId 
             maxHistoryCount Int default = 400 -- Maximum number of messages in history
@@ -228,13 +264,7 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             description Text
             acceptDate UTCTime
             deriving Show Eq 
-        CCAR json
-            scenarioName Text
-            scenarioText Text
-            creator Text -- This needs to be the unique name from the person table.
-            deleted Bool default=False
-            CCARUniqueName scenarioName 
-            deriving Show Eq
+
         MessageP json 
                 -- Persistent version of messages. This table is only for general messages and private messages.
                 -- MessageDestinationType is mainly, private message or broadcast.
@@ -270,15 +300,6 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             publicAddress Text 
             lastModified UTCTime default=CURRENT_TIMESTAMP
             UniqueWallet walletHolder name 
-            deriving Show Eq 
-        Gift json
-            from NickName 
-            to NickName
-            message Text 
-            sentDate UTCTime
-            acceptedDate UTCTime 
-            rejectDate UTCTime -- if the receiver doesnt want the gift. 
-            amount Double  -- not the best type. But all amounts are in SWBench.
             deriving Show Eq 
         Reputation json
             person PersonId 
@@ -370,26 +391,6 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             distributorId DistributorId 
             deriving Show Eq 
 
-        Distributor json 
-            name Text 
-            address Text 
-            zoneId Zone  
-            createdBy PersonId 
-            createdOn UTCTime default=CURRENT_TIMESTAMP
-            updatedBy PersonId 
-            updatedOn UTCTime default=CURRENT_TIMESTAMP
-            deriving Show Eq
-
-        DistributorContact json 
-            distributor DistributorId 
-            contactType ContactType 
-            contactDetails Text -- Emailid, url etc.
-            createdBy PersonId 
-            createdOn UTCTime default = CURRENT_TIMESTAMP
-            updatedBy PersonId 
-            updatedOn UTCTime default = CURRENT_TIMESTAMP
-            deriving Show Eq
-
         PassphraseManager json 
             passphrase Text 
             passphraseKey Text 
@@ -418,6 +419,76 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             updatedOn UTCTime default=CURRENT_TIMESTAMP
             UniquePortfolioSymbol portfolio symbol symbolType side 
             deriving Show Eq
+
+        -- Hedges are maintained daily till the portfolio is unpaused.
+        PausedPortfolioHedge json 
+            portfolio PausedPortfolioId 
+            currentValue Double
+            hedgeDate UTCTime default=CURRENT_TIMESTAMP 
+            createdBy PersonId 
+            createdOn UTCTime default=CURRENT_TIMESTAMP 
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq 
+        PausedPortfolioHedgeInstrument json 
+            hedge PausedPortfolioHedgeId 
+            option OptionChainId 
+            createdBy PersonId 
+            createdOn UTCTime default=CURRENT_TIMESTAMP
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq 
+
+        PausedPortfolio json 
+            companyUserId CompanyUserId 
+            uuid Text 
+            summary Text
+            startDate UTCTime default=CURRENT_TIMESTAMP
+            endDate UTCTime default=CURRENT_TIMESTAMP
+            createdBy PersonId 
+            createdOn UTCTime default=CURRENT_TIMESTAMP
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq
+        PausedPortfolioSymbol json 
+            portfolio PausedPortfolioId 
+            symbol Text 
+            quantity Text 
+            side PortfolioSymbolSide
+            value Double default=0.0
+            createdBy PersonId 
+            createdOn UTCTime default=CURRENT_TIMESTAMP
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq 
+        PausedPortfolioStress json 
+            scenarioName Text 
+            scenarioText Text
+            pausedPortfolio PausedPortfolioId
+            createdBy PersonId
+            createdOn UTCTime default=CURRENT_TIMESTAMP
+            updateBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq 
+        PausedPortfolioStressResult json
+            stress PausedPortfolioStressId 
+            summary Text 
+            createdBy PersonId
+            createdOn UTCTime default=CURRENT_TIMESTAMP
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq 
+        PausedPortfolioStressSymbol json 
+            result PausedPortfolioStressResultId 
+            symbol Text 
+            quantity Text 
+            side PortfolioSymbolSide 
+            stress Text -- The individual symbol stress (derived from the value in the global stress)
+            createdBy PersonId 
+            createdOn UTCTime default=CURRENT_TIMESTAMP
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq 
 
         PortfolioAnalysis json 
             portfolioId PortfolioId 
@@ -598,5 +669,9 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             permissionCode Bool -- True/False
             UniquePermission permission permissionCode
             deriving Show Eq
-
+        Zone json 
+            identification IdentificationZoneId 
+            zone Text 
+            UniqueZone identification zone
+            deriving Eq Show 
         |]
