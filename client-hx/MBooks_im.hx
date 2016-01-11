@@ -60,6 +60,8 @@ import view.OptionAnalyticsView;
 import view.OptionAnalytics;
 class MBooks_im {
 
+	private static var SERVER_ERROR_MESSAGES_DIV_FIELD = "serverMessages";
+	private static var SERVER_ERROR : String = "ServerError";
 	private static var singleton : MBooks_im;
 	private static var MESSAGING_DIV : String = "workbench-messaging";
 	private static var GENERAL_DIV : String = "workbench-general";
@@ -172,12 +174,9 @@ class MBooks_im {
 		return (cast Browser.document.getElementById(SETUP_GMAIL));
 
 	}
-
 	private function displayUserElements(companySelected : Dynamic) {
 		trace("Displaying user elements the current user is entitled for");
 		showDivField(WORKBENCH);
-
-
 	}
 	private function processSuccessfulLogin(loginEvent : Dynamic){
 		trace("Process successful login " + loginEvent);
@@ -272,6 +271,7 @@ class MBooks_im {
 		trace("Error " + ev);
 		getOutputEventStream().end();
 		websocket.close();
+		this.applicationErrorStream.resolve("Server Not found. Please reach out to support");
 	}
 
 	// Message processing 
@@ -577,7 +577,21 @@ class MBooks_im {
 		var userNickName = incomingMessage.userName;
 		removeFromUsersOnline(userNickName);
 	}
+
+	/**
+	* Disable messaging tab for all users.
+	*/
+	private function isEntitledFor(fieldName : String){
+		if(fieldName == MESSAGING_DIV){
+			return false;
+		}
+		return true;
+	}
 	private function showDivField(fieldName : String) {
+		if(!isEntitledFor(fieldName)){
+			trace("Not entitled for " + fieldName);
+			return;
+		}
 		var div : DivElement = cast (Browser.document.getElementById(fieldName));
 		div.setAttribute("style", "display:normal");
 	}
@@ -909,14 +923,19 @@ class MBooks_im {
 	private function getApplicationErrorElement() {
 		return (cast (Browser.document.getElementById(APPLICATION_ERROR)));
 	}
+
+	private function setServerError(anError){
+		getServerErrorElement().value = anError;
+	}
 	private function updateErrorMessages(incomingError : Dynamic) {
 		getApplicationErrorElement().value = 
 				getApplicationErrorElement().value + ("" + incomingError);
+		showDivField(SERVER_ERROR_MESSAGES_DIV_FIELD);
+		setServerError(incomingError);
 	}
 	private function getServerErrorElement() {
 		return (cast (Browser.document.getElementById(SERVER_ERROR)));
 	}
-	private static var SERVER_ERROR : String = "serverError";
 	private static var APPLICATION_ERROR : String = "applicationError";
 	private function setError(aMessage) {
 		applicationErrorStream.resolve(aMessage);

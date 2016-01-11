@@ -535,7 +535,25 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             roundLotSize Int -- 6
             UniqueEquitySymbol symbol
             deriving Show Eq
-        MarketData  json -- TODO: Rename to HistoricalPrices 
+        EquitySector json 
+            name Text 
+            description Text 
+            UniqueEquitySector name 
+            deriving Show Eq
+        EquitySymbolSector json 
+            symbol EquitySymbolId 
+            sector EquitySectorId 
+            UniqueSymbolSector symbol sector 
+            deriving Show Eq 
+        EquityIndex json 
+            name Text 
+            description Text
+            deriving Show Eq 
+        EquityIndexSymbol 
+            symbol EquitySymbolId 
+            marketIndex EquityIndexId 
+            deriving Show Eq 
+        HistoricalPrice  json -- TODO: Rename to HistoricalPrice 
             symbol Text
             date UTCTime default=CURRENT_TIMESTAMP
             open Double default=0.0

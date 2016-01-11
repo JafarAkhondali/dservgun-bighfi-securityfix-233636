@@ -156,6 +156,11 @@ MBooks_im.prototype = {
 	}
 	,updateErrorMessages: function(incomingError) {
 		this.getApplicationErrorElement().value = this.getApplicationErrorElement().value + ("" + Std.string(incomingError));
+		this.showDivField(MBooks_im.SERVER_ERROR_MESSAGES_DIV_FIELD);
+		this.setServerError(incomingError);
+	}
+	,setServerError: function(anError) {
+		this.getServerErrorElement().value = anError;
 	}
 	,getApplicationErrorElement: function() {
 		return js.Browser.document.getElementById(MBooks_im.APPLICATION_ERROR);
@@ -373,8 +378,16 @@ MBooks_im.prototype = {
 		div.setAttribute("style","display:none");
 	}
 	,showDivField: function(fieldName) {
+		if(!this.isEntitledFor(fieldName)) {
+			console.log("Not entitled for " + fieldName);
+			return;
+		}
 		var div = js.Browser.document.getElementById(fieldName);
 		div.setAttribute("style","display:normal");
+	}
+	,isEntitledFor: function(fieldName) {
+		if(fieldName == MBooks_im.MESSAGING_DIV) return false;
+		return true;
 	}
 	,processUserBanned: function(incomingMessage) {
 		var userNickName = incomingMessage.userName;
@@ -634,6 +647,7 @@ MBooks_im.prototype = {
 		console.log("Error " + Std.string(ev));
 		this.getOutputEventStream().end();
 		this.websocket.close();
+		this.applicationErrorStream.resolve("Server Not found. Please reach out to support");
 	}
 	,cleanup: function() {
 		console.log("Do all of the cleanup");
@@ -5834,6 +5848,8 @@ var global = window;
     }
 }(typeof global === "object" && global ? global : this));
 ;
+MBooks_im.SERVER_ERROR_MESSAGES_DIV_FIELD = "serverMessages";
+MBooks_im.SERVER_ERROR = "ServerError";
 MBooks_im.MESSAGING_DIV = "workbench-messaging";
 MBooks_im.GENERAL_DIV = "workbench-general";
 MBooks_im.COMPANY_DIV = "workbench-company";
@@ -5862,7 +5878,6 @@ MBooks_im.KICK_USER_DIV = "kickUserDiv";
 MBooks_im.INIT_WELCOME_MESSAGE_DIV = "initWelcomeMessageDiv";
 MBooks_im.INIT_WELCOME_MESSAGE = "initWelcomeMessage";
 MBooks_im.GOAUTH_URL = "gmail_oauthrequest";
-MBooks_im.SERVER_ERROR = "serverError";
 MBooks_im.APPLICATION_ERROR = "applicationError";
 format.csv.Reader.FETCH_SIZE = 4096;
 js.Browser.document = typeof window != "undefined" ? window.document : null;
