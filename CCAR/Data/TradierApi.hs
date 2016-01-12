@@ -189,7 +189,7 @@ insertHistoricalPrice y@(MarketDataTradier date open close high low volume) symb
 		Just (Entity kid providerEntity) <- 
 			lift $ DB.getBy $ UniqueProvider provider
 		Nothing <- lift $ DB.getBy $ MarketDataIdentifier symb utcdate 
-		lift $ DB.insert $ MarketData symb 
+		lift $ DB.insert $ HistoricalPrice symb 
 						utcdate 
 						open 
 						close 
@@ -350,7 +350,7 @@ insertDummyMarketData = dbOps $ do
 		Just (Entity kid providerEntity) <- 
 				lift $ DB.getBy $ UniqueProvider provider
 		y <- Control.Monad.mapM (\a @(Entity k val) -> do 
-				lift $ DB.insert $ MarketData (equitySymbolSymbol val) 
+				lift $ DB.insert $ HistoricalPrice (equitySymbolSymbol val) 
 									(time)
 									1.0
 									1.0
@@ -360,7 +360,7 @@ insertDummyMarketData = dbOps $ do
 									time 
 									kid					
 				newTime <- liftIO $ return $ addUTCTime (24 * 3600) time
-				lift $ DB.insert $ MarketData (equitySymbolSymbol val) 
+				lift $ DB.insert $ HistoricalPrice (equitySymbolSymbol val) 
 									(newTime)
 									3.0
 									3.0
@@ -569,9 +569,9 @@ toDouble (Percentage Negative x) =  -1 * (fromRational x)
 _                                = 0.0 -- Need to model this better.
 
 
-updateStressValue :: MarketData -> PortfolioSymbol -> [Stress] -> IO T.Text
+updateStressValue :: HistoricalPrice -> PortfolioSymbol -> [Stress] -> IO T.Text
 updateStressValue a b stress = do 
-        m <- return $ (marketDataClose a )
+        m <- return $ (historicalPriceClose a )
         q <- return $ T.unpack (portfolioSymbolQuantity b)
         qD <- (return (read q :: Double))  `catch` (\x@(SomeException e) -> return 0.0)
         stressM <- return stress 
@@ -626,7 +626,7 @@ tradierRunner app conn nickName terminate =
                         Just v -> do 
                             c <- updateStressValue v x activeScenario
                             return (c, x {portfolioSymbolValue = T.pack $ show $ 
-                            		(marketDataClose v) * 
+                            		(historicalPriceClose v) * 
                             			(read $ (T.unpack $ portfolioSymbolQuantity x) :: Double)}) 
                         Nothing -> return ("0.0", x)
                 x2 <- return $ Map.lookup (portfolioSymbolPortfolio x) portfolioMap 

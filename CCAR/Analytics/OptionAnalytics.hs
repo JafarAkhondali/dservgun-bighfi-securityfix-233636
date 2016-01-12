@@ -1,4 +1,4 @@
-module CCAR.Data.OptionAnalytics
+module CCAR.Analytics.OptionAnalytics
 	(OptionAnalyticsServer(..))
  where
 
@@ -25,7 +25,6 @@ import							CCAR.Data.MarketDataAPI as MarketDataAPI
 														, MarketDataServer(..))
 import 							CCAR.Model.Portfolio as Portfolio 
 import 							CCAR.Model.PortfolioSymbol as PortfolioSymbol 
-import 							Database.Persist.Postgresql as DB
 import 							Data.Map as Map 
 import 							Data.Set as Set
 import							System.IO 
@@ -43,10 +42,9 @@ import           				Control.Monad.IO.Class  (liftIO)
 import							Control.Exception(handle)
 import							System.Environment
 import							CCAR.Main.Util as Util(parse_time_interval)
-iModuleName = "CCAR.Data.OptionAnalytics"
-data ServerHandle = ServerHandle {
-	sHandle :: Handle
-} 
+import							CCAR.Analytics.Server
+
+iModuleName = "CCAR.Analytics.OptionAnalytics"
 
 data OptionServer = OptionServer {
 	hostName :: String
@@ -123,11 +121,12 @@ parse_float_with_maybe input = do
 computeBidRatio :: T.Text -> Double -> Double
 computeBidRatio x y = (parse_float_with_maybe $ T.unpack x) /y 
 
-computeOptionAnal sHandle marketDataMap option = do 
+
+analytics sHandle marketDataMap option = do 
 	y <- liftIO $ return $ Map.lookup (optionChainUnderlying option) marketDataMap
 	case y of 
 		Just x -> do  
-			optionSpotPrice <- return (marketDataClose x)
+			optionSpotPrice <- return (historicalPriceClose x)
 			Logger.debugM iModuleName $ show option	
 			strikePrice <- return $ 
 					parse_option_strike $ T.unpack $ optionChainStrike option
@@ -240,7 +239,7 @@ analyticsRunner app conn nickName terminate =
 				else do 
 			    	liftIO $ Logger.debugM iModuleName $ " Getting option data "  `mappend` (T.unpack nickName)
 			        opts <- getOptionMarketData nickName
-			        pricers <- Control.Monad.mapM (\y -> return $ computeOptionAnal sH marketDataMap y) opts
+			        pricers <- Control.Monad.mapM (\y -> return $ analytics sH marketDataMap y) opts
 			        Control.Monad.mapM_ (\p1  ->  
 			        	do 
 			                delay <- analyticsPollingInterval
@@ -250,13 +249,3 @@ analyticsRunner app conn nickName terminate =
 		        	loop marketDataMap sH terminate
 
 
-
-{-testAnalyticalRunner :: T.Text -> IO [()] 
-testAnalyticalRunner nickName = do 
-	        opts <- getOptionMarketData nickName
-	    	marketDataMap <- MarketDataAPI.queryMarketData
-	    	sH <- optionPricer "localhost" "20000"
-	        Control.Monad.mapM (\x -> do 
-	        				pricer <- computeOptionAnal sH marketDataMap x
-	        				putStrLn $ show pricer) opts 
--}

@@ -49,11 +49,11 @@ updateActiveScenario app nn x = do
                 return ()
 
 
-queryMarketData :: IO (Map T.Text MarketData)
+queryMarketData :: IO (Map T.Text HistoricalPrice)
 queryMarketData = dbOps $ do 
         -- A bit of a hack. Sort by ascending market data date to replace with the latest element.
-        x <- selectList [][Asc MarketDataSymbol, Asc MarketDataDate]
-        y <- Control.Monad.mapM (\a@(Entity k val) -> return (marketDataSymbol val, val)) x 
+        x <- selectList [][Asc HistoricalPriceSymbol, Asc HistoricalPriceDate]
+        y <- Control.Monad.mapM (\a@(Entity k val) -> return (historicalPriceSymbol val, val)) x 
         return $ Map.fromList y 
 
 

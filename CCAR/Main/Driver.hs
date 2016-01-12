@@ -71,7 +71,7 @@ import CCAR.Model.Portfolio as Portfolio
 import CCAR.Model.PortfolioSymbol as PortfolioSymbol
 import CCAR.Entitlements.Entitlements as Entitlements
 import CCAR.Data.TradierApi as TradierApi
-import CCAR.Data.OptionAnalytics as OptionAnalytics
+import CCAR.Analytics.OptionAnalytics as OptionAnalytics
 import CCAR.Model.Login as Login
 import CCAR.Model.UserOperations as UserOperations
 -- logging
