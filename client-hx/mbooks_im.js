@@ -1739,6 +1739,29 @@ js.d3 = {}
 js.d3._D3 = {}
 js.d3._D3.InitPriority = function() { }
 js.d3._D3.InitPriority.__name__ = ["js","d3","_D3","InitPriority"];
+js.promhx = {}
+js.promhx.JQueryTools = function() { }
+js.promhx.JQueryTools.__name__ = ["js","promhx","JQueryTools"];
+js.promhx.JQueryTools.bindStream = function(f) {
+	var def = new promhx.Deferred();
+	var str = new promhx.Stream(def);
+	f($bind(def,def.resolve));
+	return str;
+}
+js.promhx.JQueryTools.eventStream = function(jq,events) {
+	var def = new promhx.Deferred();
+	var str = new promhx.Stream(def);
+	jq.on(events,$bind(def,def.resolve));
+	return str;
+}
+js.promhx.JQueryTools.loadPromise = function(jq,url,data) {
+	var def = new promhx.Deferred();
+	var pro = new promhx.Promise(def);
+	jq.load(url,data,function(responseText,textStatus) {
+		def.resolve({ responseText : responseText, textStatus : textStatus});
+	});
+	return pro;
+}
 var massive = {}
 massive.haxe = {}
 massive.haxe.Exception = function(message,info) {
@@ -4798,6 +4821,17 @@ view.Entitlement.prototype = {
 	}
 	,__class__: view.Entitlement
 }
+view.JQueryTable = function(t) {
+	console.log("Creating table ");
+	this.tableId = t;
+};
+view.JQueryTable.__name__ = ["view","JQueryTable"];
+view.JQueryTable.prototype = {
+	tableClick: function(ev) {
+		console.log("Event " + Std.string(ev));
+	}
+	,__class__: view.JQueryTable
+}
 view.ListManager = function(list,idPrefix,opt,listDisplay) {
 	this.listElement = list;
 	this.prefix = idPrefix;
@@ -5244,6 +5278,7 @@ view.PortfolioSymbol = function(m) {
 	this.model = m;
 	this.rowMap = new haxe.ds.StringMap();
 	this.setupStreams();
+	this.jqTable = new view.JQueryTable(view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE_JQ);
 };
 view.PortfolioSymbol.__name__ = ["view","PortfolioSymbol"];
 view.PortfolioSymbol.prototype = {
@@ -5628,6 +5663,8 @@ Bool.__ename__ = ["Bool"];
 var Class = { __name__ : ["Class"]};
 var Enum = { };
 if(typeof(JSON) != "undefined") haxe.Json = JSON;
+var q = window.jQuery;
+js.JQuery = q;
 var global = window;
 (function (global, undefined) {
     "use strict";
@@ -5970,6 +6007,7 @@ view.PortfolioSymbol.SAVE_SYMBOL_BUTTON = "saveSymbol";
 view.PortfolioSymbol.DELETE_SYMBOL_BUTTON = "deleteSymbol";
 view.PortfolioSymbol.UPDATE_SYMBOL_BUTTON = "updateSymbol";
 view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE = "portfolioSymbolTable";
+view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE_JQ = "portfolioSymbolTableJQ";
 view.PortfolioSymbol.UPLOAD_PORTFOLIO_FILE = "uploadPortfolioFile";
 view.PortfolioSymbol.UPLOAD_PORTFOLIO_BUTTON = "uploadPortfolioButton";
 MBooks_im.main();

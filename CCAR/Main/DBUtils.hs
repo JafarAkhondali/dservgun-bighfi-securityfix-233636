@@ -420,6 +420,16 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             UniquePortfolioSymbol portfolio symbol symbolType side 
             deriving Show Eq
 
+        PortfolioStress json 
+            portfolioId PortfolioId 
+            stressText Text -- THe stress for the portfolio 
+            createdBy PersonId 
+            createdOn UTCTime default=CURRENT_TIMESTAMP 
+            updatedBy PersonId 
+            updatedOn UTCTime default=CURRENT_TIMESTAMP
+            deriving Show Eq
+
+
         -- Hedges are maintained daily till the portfolio is unpaused.
         PausedPortfolioHedge json 
             portfolio PausedPortfolioId 

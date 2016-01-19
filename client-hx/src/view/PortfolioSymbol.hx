@@ -23,6 +23,7 @@ import js.html.HTMLCollection;
 import js.html.FileReader;
 import haxe.ds.ObjectMap;
 import haxe.ds.StringMap;
+import view.JQueryTable;
 import promhx.Stream;
 import promhx.Deferred;
 import promhx.base.EventLoop;
@@ -48,6 +49,7 @@ class PortfolioSymbol {
 	private static var DELETE_SYMBOL_BUTTON = "deleteSymbol";
 	private static var UPDATE_SYMBOL_BUTTON = "updateSymbol";
 	private static var PORTFOLIO_SYMBOL_TABLE = "portfolioSymbolTable";
+	private static var PORTFOLIO_SYMBOL_TABLE_JQ = "portfolioSymbolTableJQ";
 	private static var UPLOAD_PORTFOLIO_FILE = "uploadPortfolioFile";
 	private static var UPLOAD_PORTFOLIO_BUTTON =  "uploadPortfolioButton";
 
@@ -60,11 +62,13 @@ class PortfolioSymbol {
 	public var symbolQueryResponse(default, null) : Deferred<PortfolioSymbolQueryT>;
 	private var model : model.PortfolioSymbol;
 	private var activePortfolio : PortfolioT;
+	private var jqTable : JQueryTable;
 	public function new(m : model.PortfolioSymbol){
 		trace("Instantiating new portfolio symbol view");
 		model = m;
 		rowMap = new StringMap<TableRowElement>();
 		setupStreams();
+		jqTable = new JQueryTable(PORTFOLIO_SYMBOL_TABLE_JQ);
 	}
 	
 	private function getUploadPortfolioFile() : InputElement {

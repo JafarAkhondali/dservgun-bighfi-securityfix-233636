@@ -123,6 +123,36 @@ parseEquityStress = do
         stressValue <- parseStressValue
         return $ EquityStress (Equity equitySymbol) stressValue
 
+parseIndexStress :: Parser Stress 
+parseIndexStress = do 
+        string "Create"
+        spaces
+        string "Index"
+        spaces 
+        string "Shock"
+        spaces
+        string "for"
+        spaces
+        equitySymbol <- many1 alphaNum
+        spaces
+        stressValue <- parseStressValue
+        return $ IndexStress (Index equitySymbol) stressValue
+
+parseSectorStress :: Parser Stress
+parseSectorStress = do 
+        string "Create"
+        spaces
+        string "Sector"
+        spaces 
+        string "Shock"
+        spaces
+        string "for"
+        spaces
+        equitySymbol <- many1 alphaNum
+        spaces
+        stressValue <- parseStressValue
+        return $ SectorStress (Sector equitySymbol) stressValue
+
 
 parseOptionStress :: Parser Stress
 parseOptionStress = do
@@ -237,6 +267,8 @@ parseExpr = do
         <|> try parseOptionStress
         <|> try parseRatesStress
         <|> try parseRatesVegaStress
+        <|> try parseIndexStress
+        <|> try parseSectorStress
         <|> parserError
 
 parseStatements :: Parser[Stress]

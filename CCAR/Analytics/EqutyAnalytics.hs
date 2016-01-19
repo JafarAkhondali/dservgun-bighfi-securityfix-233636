@@ -26,3 +26,8 @@ import							CCAR.Data.MarketDataAPI as MarketDataAPI
 
 
 iModuleName  = "CCAR.Analytics.EquityAnalytics"
+
+{-- Beta is computed as a correlation between a pair of symbols for a 
+	time interval. --}
+beta :: (EquitySymbol, EquitySymbol, UTCTime, UTCTime) -> Double
+beta symbol baseline start end = 0.0

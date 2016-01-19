@@ -569,6 +569,7 @@ toDouble (Percentage Negative x) =  -1 * (fromRational x)
 _                                = 0.0 -- Need to model this better.
 
 
+
 updateStressValue :: HistoricalPrice -> PortfolioSymbol -> [Stress] -> IO T.Text
 updateStressValue a b stress = do 
         m <- return $ (historicalPriceClose a )

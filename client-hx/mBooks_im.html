@@ -10,8 +10,10 @@
 <meta name="copyright" content="Joshua Gatcke 99lime.com All Rights Reserved" />
 <link rel="stylesheet" type="text/css" href="css/kickstart.css" media="all" />                  <!-- KICKSTART -->
 <link rel="stylesheet" type="text/css" href="style.css" media="all" />                          <!-- CUSTOM STYLES -->
-<<script type="text/javascript" src="js/jquery-2.1.4.js"></script>
- <script type="text/javascript" src="js/kickstart.js"></script>
+<script type="text/javascript" src="js/jquery-2.1.4.js"></script>
+<script type="text/javascript" src="js/kickstart.js"></script>
+<script type="text/javascript" src="js/DataTables/datatables.js"></script>
+<link rel="stylesheet" type="text/css" href="js/DataTables/datables.css"/>
 
  <!-- KICKSTART -->
 <style>
@@ -150,7 +152,7 @@
 			</div>
 		</form>
 		<div class="col_12">
-			<table id="portfolioSymbolTable" cellspacing="0" cellpadding="0" contentEditable="true">
+			<table id="portfolioSymbolTable" cellspacing="0" cellpadding="0" contentEditable="false">
 				<thead>
 					<th> Symbol</th>
 					<th> Side </th>
@@ -161,8 +163,9 @@
 					<th> Last updated by you at </th>
 				</thead>				
 			</table>
-
+			<table id="portfolioSymbolTableJQ" cellspacing="0" cellpadding="0"/>
 			<p> Portfolio analysis </p>
+			<p> Portfolio optimization analysis <p>
 			<p> Symbol analysis </p>
 		 </div>
 	</div>

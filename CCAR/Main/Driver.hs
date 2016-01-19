@@ -74,6 +74,7 @@ import CCAR.Data.TradierApi as TradierApi
 import CCAR.Analytics.OptionAnalytics as OptionAnalytics
 import CCAR.Model.Login as Login
 import CCAR.Model.UserOperations as UserOperations
+import CCAR.Model.PortfolioStress as PortfolioStress
 -- logging
 import System.Log.Formatter as LogFormatter
 import System.Log.Handler(setFormatter)
