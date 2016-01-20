@@ -18,6 +18,7 @@ import js.html.Document;
 import js.html.File;
 import js.html.KeyboardEvent;
 import js.html.InputElement;
+import view.JQueryTable;
 import js.html.SelectElement;
 import js.html.OptionElement;
 import js.html.FileReader;
@@ -108,8 +109,9 @@ class MBooks_im {
 	}
 
 	private var maxAttempts : Int = 3;
-
+	private var table : JQueryTable;
 	function new (){
+		table = new JQueryTable("test_wont_work");
 		trace("Calling MBooks_im");
 		reset();
 		person = new model.Person("", "", "", "");

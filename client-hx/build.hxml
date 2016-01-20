@@ -2,6 +2,7 @@
 -cp ./src
 -cp /usr/share/haxe/lib/promhx/1,0,16/src/main/
 -cp /usr/share/haxe/lib/csv/0,4,0/lib
+-cp /usr/share/haxe/lib/chartjs/1,0,0/
 -lib csv
 -lib promhx
 -lib munit
