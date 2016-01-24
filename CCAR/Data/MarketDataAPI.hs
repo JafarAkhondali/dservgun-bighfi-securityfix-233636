@@ -4,15 +4,15 @@ module CCAR.Data.MarketDataAPI
         , queryOptionMarketData)
 where
 
-import Data.Text as T 
-import Network.WebSockets.Connection as WSConn
-import Network.WebSockets 
-import CCAR.Main.Application(App(..))
-import CCAR.Main.DBUtils
-import Data.Map as Map 
-import Control.Concurrent.STM.Lifted
-import CCAR.Model.CcarDataTypes
-import CCAR.Main.GroupCommunication
+import          Data.Text as T 
+import          Network.WebSockets.Connection as WSConn
+import          Network.WebSockets 
+import          CCAR.Main.Application(App(..))
+import          CCAR.Main.DBUtils
+import          Data.Map as Map 
+import          Control.Concurrent.STM.Lifted
+import          CCAR.Model.CcarDataTypes
+import          CCAR.Main.GroupCommunication
 import          Database.Persist
 import          Database.Persist.TH 
 

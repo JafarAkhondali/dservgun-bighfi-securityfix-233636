@@ -102,7 +102,7 @@ class Company {
 
 
 	private function assignCompanyToUser(ev : Dynamic){
-		trace("Assigning company to a user:" + ev);
+		//trace("Assigning company to a user:" + ev);
 		try {
 				var payload : Dynamic = {
 					commandType : "AssignCompany"
@@ -114,13 +114,13 @@ class Company {
 				};
 				MBooks_im.getSingleton().doSendJSON(payload);
 		}catch (err : Dynamic) {
-			trace("Error assigning company " + ev);
+			//trace("Error assigning company " + ev);
 		}
 
 	}
 	//Save images in base64 encoded strings
 	private function saveButtonPressed(ev : Event) {
-		trace("Save button pressed");
+		//trace("Save button pressed");
 		var file = getCompanyImageElement().files[0];
 		if(file != null){
 			var reader = new FileReader();
@@ -136,7 +136,7 @@ class Company {
 	}
 
 	private function selectAllCompanies(loggedInMessage) {
-		trace("Processing select all companies " + loggedInMessage);
+		//trace("Processing select all companies " + loggedInMessage);
 		var payload = {
 			nickName : MBooks_im.getSingleton().getNickName()
 			, commandType : "SelectAllCompanies"
@@ -167,17 +167,17 @@ class Company {
 	}
 
 	private function loadImage(ev: Event){
-		trace("Load image");
+		//trace("Load image");
 		try {
 			var reader : FileReader = cast ev.target;
 			saveCompanyInfo(reader.result);
 		}catch(e : Dynamic) {
-			trace("Exception " + e);
+			//trace("Exception " + e);
 		}
 	}
 
 	private function saveCompanyInfo(encodedString) {
-		trace("Saving company info");
+		//trace("Saving company info");
 		var companyName : String = getCompanyName();
 		var companyID : String = getCompanyID();
 		var companyMailbox : String = getCompanyMailbox();
@@ -214,27 +214,27 @@ class Company {
 			MBooks_im.getSingleton().doSendJSON(payload);
 
 			}catch(err : Dynamic) {
-				trace("Error checking company " + err);
+				//trace("Error checking company " + err);
 			}
 
 	}
 	private function chkCompanyExists(ev : KeyboardEvent) {
-		trace("Chk company exists " + ev.keyCode);
+		//trace("Chk company exists " + ev.keyCode);
 		if(Util.isSignificantWS(ev.keyCode)){
 			try {
 				read(getCompanyID());
 			}catch(err : Dynamic) {
-				trace("Error checking company " + err);
+				//trace("Error checking company " + err);
 			}
 		}
 	}
 
 	public function processManageCompany(incomingMessage) {
-		trace("Process manage company ");
+		//trace("Process manage company ");
 		var crudType = incomingMessage.crudType;
-		trace(incomingMessage);
+		//trace(incomingMessage);
 		if(crudType == "Create") {
-			trace("Create successful");
+			//trace("Create successful");
 			copyIncomingValues(incomingMessage);
 		}else if (crudType == "Read") {
 			if(incomingMessage.company.companyID == "") {
@@ -301,7 +301,7 @@ class Company {
 
 	//Initialization
 	public function new() {
-		trace("Instantiating company");
+		//trace("Instantiating company");
 		newCompany = true;
 		var stream : Stream<Dynamic> = 
 			MBooks_im.getSingleton().initializeElementStream(
@@ -319,7 +319,7 @@ class Company {
 	}
 
 	private function assignCompanyResponse(res : Dynamic){
-		trace("Processing assign company response " + res);
+		//trace("Processing assign company response " + res);
 	}
 
 

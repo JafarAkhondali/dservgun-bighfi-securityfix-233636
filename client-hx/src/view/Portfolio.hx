@@ -46,7 +46,7 @@ class Portfolio {
 	//Save event should trigger a save event.
 	//Each symbol has a uuid that needs to be used to query the db.
 	private function setupEvents() : Void {
-		trace("Setting up ui events");
+		//trace("Setting up ui events");
 		var saveP : Stream<Dynamic> = 
 			MBooks_im.getSingleton().initializeElementStream(
 				cast getSavePortfolioButton()
@@ -78,7 +78,7 @@ class Portfolio {
 	}
 
 	public function new() {
-		trace("Creating new portfolio view");
+		//trace("Creating new portfolio view");
 		activePortfolioStream = new Deferred<PortfolioT>();
 		setupEvents();
 		activePortfolioStream.then(updateActivePortfolio);
@@ -87,28 +87,28 @@ class Portfolio {
 		this.activePortfolio = p;
 	}
 	private function processActiveCompany(selected: model.Company){
-		trace("Company selected for portfolio processing " + selected);
+		//trace("Company selected for portfolio processing " + selected);
 		this.activeCompany = selected;
 		getPortfoliosForUser();
 	}
 	private function deletePortfolio(ev : Event){
-		trace("Delete portfolio " + ev);
+		//trace("Delete portfolio " + ev);
 		deletePortfolioI();
 	}
 
 	private function savePortfolio(ev : Event) {
-		trace("Saving portfolio " + ev);
+		//trace("Saving portfolio " + ev);
 		if(activePortfolio == null) {
-			trace("Inserting as no active portfolio selected");
+			//trace("Inserting as no active portfolio selected");
 			insertPortfolioI();
 		}else {
 			updatePortfolioI();
 		}
 	}
 	private function updatePortfolio(ev : Event) {
-		trace("Update portfolio " + ev);
+		//trace("Update portfolio " + ev);
 		if(activePortfolio == null){
-			trace("Selected portfolio null. Not updating");
+			//trace("Selected portfolio null. Not updating");
 		}else {
 			updatePortfolioI();
 		}
@@ -207,7 +207,7 @@ class Portfolio {
 	}
 
 	private function processPortfolioList(incomingPayload : PortfolioQuery) {
-		trace("Processing portfolio list " + incomingPayload);
+		//trace("Processing portfolio list " + incomingPayload);
 		var results = incomingPayload.resultSet;
 		for(p in results) {
 			if(p.Right != null){
@@ -219,7 +219,7 @@ class Portfolio {
 	}
 
 	private function processManagePortfolio(incomingMessage : Dynamic){
-		trace("Incoming message manage portfolio "  + incomingMessage);
+		//trace("Incoming message manage portfolio "  + incomingMessage);
 		if(incomingMessage.Right != null){
 			updatePortfolioList(incomingMessage.Right);
 			copyIncomingValues(incomingMessage.Right);
@@ -243,7 +243,7 @@ class Portfolio {
 	//the currently actively company
 	private function getPortfoliosForUser(){
 		if(activeCompany == null){
-			trace("No company selected");
+			//trace("No company selected");
 			return;
 		}
 		var portfolioQuery : PortfolioQuery = {
@@ -253,12 +253,12 @@ class Portfolio {
 			, userId : MBooks_im.getSingleton().getNickName()
 			, resultSet : []
 		};
-		trace("Sending " + portfolioQuery);
+		//trace("Sending " + portfolioQuery);
 		MBooks_im.getSingleton().doSendJSON(portfolioQuery);
 	}
 
 	private function portfolioListChanged(event : Dynamic){
-		trace("Portfolio list changed " + event);
+		//trace("Portfolio list changed " + event);
 		var portfolioList : SelectElement = cast event.target;
 		for(portfolio in portfolioList.selectedOptions){
 			var pOption: OptionElement = cast portfolio;
@@ -267,7 +267,7 @@ class Portfolio {
 			}else {
 				readPortfolio(pOption.id);
 			}
-			trace("Handling " + pOption.id + "->" + pOption.text);
+			//trace("Handling " + pOption.id + "->" + pOption.text);
 		}
 	}
 	private function updatePortfolioEntry(update : PortfolioT){
@@ -280,14 +280,14 @@ class Portfolio {
 		}
 	}
 	private function deletePortfolioEntry(deleteMe : PortfolioT) {
-		trace("Deleting portfolio " + deleteMe);
+		//trace("Deleting portfolio " + deleteMe);
 		var optionElement : OptionElement 
 				= cast (Browser.document.getElementById(deleteMe.portfolioId));
 		if(optionElement != null){
 			getPortfolioList().removeChild(optionElement);
 			clearValues();
 		}else {
-			trace("Nothing to delete");
+			//trace("Nothing to delete");
 		}
 	}
 	private function clearValues(){

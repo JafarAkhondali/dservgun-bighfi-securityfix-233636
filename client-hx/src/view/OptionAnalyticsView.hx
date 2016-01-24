@@ -76,7 +76,7 @@ class OptionAnalyticsView {
 
 	}
 	private function populateOptionAnalyticsTables(ev : Event){
-		trace("Creating puts and calls for the table " + getUnderlying().value);
+		//trace("Creating puts and calls for the table " + getUnderlying().value);
 		callTable = new OptionAnalyticsTable("call", getOptionCallHeaders()
 			, getUnderlying().value);
 		putTable = new OptionAnalyticsTable("put", getOptionPutHeaders()

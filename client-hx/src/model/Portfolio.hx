@@ -69,7 +69,7 @@ class Portfolio {
 	}
 	//Manage portfolio.
 	public function save(portfolio : PortfolioT) {
-		trace("Saving portfolio");
+		//trace("Saving portfolio");
 	}
 
 

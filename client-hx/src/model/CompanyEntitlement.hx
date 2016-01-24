@@ -66,12 +66,12 @@ class CompanyEntitlement {
 		stream.then(updateModel);
 	}
 	private function updateModel(anEntitlement : CompanyEntitlementT){
-		trace("Updating model " + anEntitlement);
+		//trace("Updating model " + anEntitlement);
 		MBooks_im.getSingleton().doSendJSON(anEntitlement);
 	}
 	
 	public function queryAllEntitlements() {
-		trace("Query all the entitlements");
+		//trace("Query all the entitlements");
 		var queryEntitlements : QueryCompanyEntitlement = 
 			{
 				nickName : MBooks_im.getSingleton().getNickName()
@@ -82,7 +82,7 @@ class CompanyEntitlement {
 		MBooks_im.getSingleton().doSendJSON(queryEntitlements);
 	}
 	public static function addUserEntitlement(userNickName : String, entitlementId : String){
-		trace("Adding user entitlement for " + userNickName + " -> " + entitlementId);
+		//trace("Adding user entitlement for " + userNickName + " -> " + entitlementId);
 	}	
 
 }

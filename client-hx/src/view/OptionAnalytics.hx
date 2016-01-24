@@ -71,7 +71,7 @@ class OptionAnalyticsTable {
 	public function new(optionType : String
 		, optionColumnHeaders : Array<String>
 		, symbol : String){
-		trace("Creating option analytics table " + optionType + " for  " + symbol);
+		//trace("Creating option analytics table " + optionType + " for  " + symbol);
 		this.optionType = optionType;
 		this.tableHeaders = optionColumnHeaders;
 		this.currentSymbol = symbol;
@@ -106,17 +106,17 @@ class OptionAnalyticsTable {
 	}
 
 	public function updateOptionAnalytics(payload : OptionAnalytics){
-		trace("Processing update option analytics element " + payload);
+		//trace("Processing update option analytics element " + payload);
 		if(this.currentSymbol == ""){
-			trace("Ignoring this after clear "  + payload);
+			//trace("Ignoring this after clear "  + payload);
 			return;
 		}
 		if(payload.optionType != this.optionType){
-			trace("Ignoring this option type " + payload);
+			//trace("Ignoring this option type " + payload);
 			return;
 		}
 		if(payload.optionChain.underlying != this.currentSymbol){
-			trace("Ignoring this symbol " + payload);
+			//trace("Ignoring this symbol " + payload);
 			return;
 		}
 		var key : String = key(payload);
@@ -125,7 +125,7 @@ class OptionAnalyticsTable {
 			row = cast (getTable().insertRow(1));
 			insertCells(row, payload);
 		}else {
-			trace("Clear the table and resort the elements.");
+			//trace("Clear the table and resort the elements.");
 			sort(values(), sortByBidRatio);
 			clear();
 			draw();
@@ -142,7 +142,7 @@ class OptionAnalyticsTable {
 	}
 	private function sort(optionAnalytics : Array<OptionAnalytics>, 
 			sortFunction : OptionAnalytics -> OptionAnalytics -> Int) : Array<OptionAnalytics> {
-		trace("Sort the rows");
+		//trace("Sort the rows");
 		optionAnalytics.sort(sortFunction);
 		return optionAnalytics; //inplace sort.
 	}
@@ -164,11 +164,11 @@ class OptionAnalyticsTable {
 		else if(error > 0){
 			return 1;
 		}
-		trace("Should never happen");
+		//trace("Should never happen");
 		return 0;
 	}
 	private function draw() {
-		trace("Draw the table");
+		//trace("Draw the table");
 		var sortedValues : Array<OptionAnalytics> = (sort(values(), sortByBidRatio));
 		var startIndex : Int = 1;
 		for(val in sortedValues){
@@ -178,7 +178,7 @@ class OptionAnalyticsTable {
 		}
 	}
 	public function clear() {
-		trace("Clearing the table " + this);
+		//trace("Clearing the table " + this);
 		var startIndex = 1;
 		var tableRows : HTMLCollection = getTable().rows;
 		//To account for the header.
@@ -189,7 +189,7 @@ class OptionAnalyticsTable {
 	}
 
 	private function updateRow(aRow : TableRowElement, payload : OptionAnalytics){
-		trace("Inserting cells for " + payload);
+		//trace("Inserting cells for " + payload);
 		var key : String = key(payload);
 		var optionAnalytics : OptionAnalytics = optionAnalyticsMap.get(key);
 		if(optionAnalytics == null){
@@ -205,7 +205,7 @@ class OptionAnalyticsTable {
 	}
 
 	private function insertCells(aRow : TableRowElement, payload : OptionAnalytics){
-		trace("Inserting cells " + payload);
+		//trace("Inserting cells " + payload);
 		var newCell : TableCellElement = cast (aRow.insertCell(0));
 		newCell.innerHTML = payload.optionChain.symbol;
 		newCell  = cast aRow.insertCell(1);

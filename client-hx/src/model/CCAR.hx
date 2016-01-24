@@ -32,7 +32,7 @@ class CCAR {
 		if(getScenarioNameElement() != null) {
 			return getScenarioNameElement().value;
 		}else {
-			trace("Element not defined ");
+			//trace("Element not defined ");
 			return "TBD";
 		}
 		
@@ -54,15 +54,15 @@ class CCAR {
 
 	public function new(name : String, text : String, cr : String) {
 		try {
-		trace("Creating ccar instance");
+		//trace("Creating ccar instance");
 		scenarioName = name;
 		scenarioText = text;
 		creator = cr;
 		deleted = false;	
 		}catch(err : Dynamic) {
-			trace("Exception creating ccar " + err);
+			//trace("Exception creating ccar " + err);
 		}
-		trace("Created ccar instance successfully");
+		//trace("Created ccar instance successfully");
 
 	}
 
@@ -89,7 +89,7 @@ class CCAR {
 	}
 
 	private function saveScenario(ev : Event) {
-		trace ("Saving scenario " );
+		//trace ("Saving scenario " );
 		copyValuesFromUI();
 			var payload : Dynamic =  {
 				nickName : MBooks_im.getSingleton().getNickName()
@@ -107,7 +107,7 @@ class CCAR {
 
 	}
 	private function checkScenarioExists(ev : KeyboardEvent) {
-		trace("Checking if scenario exists ");
+		//trace("Checking if scenario exists ");
 		if(Util.isSignificantWS(ev.keyCode)){
 			copyValuesFromUI();
 			var payload : Dynamic =  {
@@ -127,7 +127,7 @@ class CCAR {
 	}
 
 	private function sendPT(ev : Event){
-		trace("Processing event " + ev);
+		//trace("Processing event " + ev);
 		sendParsingRequest();
 	}
 	private function sendParsingRequest() {
@@ -138,25 +138,25 @@ class CCAR {
 			, ccarText : getScenarioText()
 			, commandType : "ParsedCCARText"
 		};
-		trace("Sending parsing request " + payload);
+		//trace("Sending parsing request " + payload);
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 
 	public function processCCARUpload(incomingMessage : Dynamic){
-		trace("Processing ccar upload");
+		//trace("Processing ccar upload");
 		var ccarStruct : Dynamic = incomingMessage.ccarData;
 		var crudType = incomingMessage.ccarOperation.tag;
 		copyIncomingValues(incomingMessage);
 		if(crudType == "Create"){
-			trace("Create successful");
+			//trace("Create successful");
 			copyIncomingValues(incomingMessage);
 			sendParsingRequest();
 		}else if(crudType == "Update"){
-			trace("Update successful");
+			//trace("Update successful");
 			copyIncomingValues(incomingMessage);
 			sendParsingRequest();
 		}else if (crudType == "Query") {
-			trace("Read returned " + incomingMessage);
+			//trace("Read returned " + incomingMessage);
 			copyIncomingValues(incomingMessage);
 			if(ccarStruct.ccarResultSet == []) {
 				crudType = "Create";
@@ -167,7 +167,7 @@ class CCAR {
 		}
 	}
 	public function processParsedCCARText(incomingMessage : Dynamic){
-		trace("Processing parsed text");
+		//trace("Processing parsed text");
 		setParsedScenario(haxe.Json.stringify(incomingMessage));
 	}
 	private function setParsedScenario(incomingM) {

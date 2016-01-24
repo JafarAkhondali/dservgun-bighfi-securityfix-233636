@@ -84,7 +84,7 @@ class Project {
 
 	public function new(companyI : Company) {
 		try {
-			trace("Instantiating Project");
+			//trace("Instantiating Project");
 			newProject = true;
 			var stream : Stream<Dynamic> = 
 				MBooks_im.getSingleton().initializeElementStream(
@@ -97,7 +97,7 @@ class Project {
 			projectStream = new Deferred<Dynamic>();
 			projectStream.then(processProjectList);
 		}catch(err : Dynamic){
-			trace("Error creating project " + err);
+			//trace("Error creating project " + err);
 		}
 	}
 
@@ -114,12 +114,12 @@ class Project {
 
 	private function saveProject(ev : Event) {
 			try {
-				trace("Saving project");
+				//trace("Saving project");
 				var nickName = MBooks_im.getSingleton().getNickName();
 				var payload = getPayloadD(nickName, getCrudType());
 				MBooks_im.getSingleton().doSendJSON(payload);
 			}catch(err : Dynamic) {
-				trace("Error checking company " + err);
+				//trace("Error checking company " + err);
 			}
 	}
 
@@ -128,13 +128,13 @@ class Project {
 	}
 
 	public function processProjectList(incomingMessage : Dynamic) {
-		trace("Project list " + incomingMessage);
+		//trace("Project list " + incomingMessage);
 		var projects = incomingMessage.projects;
 		var projectList = getProjectsListElement();
 		var pArray : Array<Dynamic> = projects;
 		for (project in pArray){
 			var projectId = project.identification;
-			trace("Adding project id " + projectId);
+			//trace("Adding project id " + projectId);
 			var projectSummary = project.summary;
 			var optionElement : OptionElement = 
 				cast Browser.document.getElementById(projectId);
@@ -159,14 +159,14 @@ class Project {
 	}
 
 	public function processCompanyList(incomingMessage : Dynamic) {
-		trace("Processing company list " + incomingMessage);
+		//trace("Processing company list " + incomingMessage);
 		var companies = incomingMessage.company;
 		var companiesSelectElement : SelectElement = getCompanyListElement();
 		var cArray : Array<Dynamic> = incomingMessage.company;
 		for(company in cArray){
 			var companyID  = company.companyID;
 			var companyName = company.companyName;
-			trace("Company " + companyID + " -> " + companyName);
+			//trace("Company " + companyID + " -> " + companyName);
 			var optionElement : OptionElement = 
 				cast Browser.document.getElementById(companyID);
 			if(optionElement == null){
@@ -182,11 +182,11 @@ class Project {
 				optionSelectedStream.then(processCompanySelected);
 				companiesSelectElement.appendChild(optionElement);
 			}else {
-				trace("Element exists " + companyID);
+				//trace("Element exists " + companyID);
 			}
 
 		}
-		trace("Completed processing companies");
+		//trace("Completed processing companies");
 	}
 
 	private function getProjectID() : String {
@@ -253,12 +253,12 @@ class Project {
 	}
 
 	private function processCompanySelected(ev : Event){
-		trace("Company selected" + " " + ev.target + " " + ev);
+		//trace("Company selected" + " " + ev.target + " " + ev);
 
 		var selectionElement : OptionElement 
 				= cast ev.target;
 		var selectedId = selectionElement.id;
-		trace("Reading company information for " + selectedId);
+		//trace("Reading company information for " + selectedId);
 		company.read(selectedId);
 		getProjectList(selectedId);	
 		//Globally sets the company that was selected.
@@ -267,7 +267,7 @@ class Project {
 
 
 	private function getProjectList(companyId: String) {
-		trace("Processing select all projects " + companyId);
+		//trace("Processing select all projects " + companyId);
 		var payload = {
 			nickName : MBooks_im.getSingleton().getNickName()
 			, commandType : "SelectActiveProjects"
@@ -277,7 +277,7 @@ class Project {
 	}	
 
 	private function processProjectSelected(ev : Event) {
-		trace ("Project selected " + ev.target);
+		//trace ("Project selected " + ev.target);
 		var selectionElement :OptionElement  = 
 			cast ev.target;
 		var selectionId = selectionElement.id;
@@ -285,12 +285,12 @@ class Project {
 	}
 
 	public function processManageProject(incomingMessage){
-		trace("Process manage Projects  ");
+		//trace("Process manage Projects  ");
 		try {
 			var crudType = incomingMessage.Right.crudType;
-			//trace(incomingMessage);
+			////trace(incomingMessage);
 			if(crudType == CREATE) {
-				trace("Create successful");
+				//trace("Create successful");
 				copyIncomingValues(incomingMessage);
 			}else if (crudType == READ) {
 				if(incomingMessage.Right.projectId == "") {
@@ -328,7 +328,7 @@ class Project {
 			this.setProjectStart(aMessage.startDate);
 			this.setProjectEnd(aMessage.endDate);		
 		}catch(err : Dynamic){
-			trace("Error copying values "  + wMessage);
+			//trace("Error copying values "  + wMessage);
 		}
 
 	}
@@ -340,7 +340,7 @@ class Project {
 			this.setProjectStart("");
 			this.setProjectEnd("");
 		}catch(err : Dynamic){
-			trace("Error clearing fields "  + err);
+			//trace("Error clearing fields "  + err);
 		}
 		
 	}
@@ -351,7 +351,7 @@ class Project {
 			var payload = getPayload(nickName, "Read", projectID);
 			MBooks_im.getSingleton().doSendJSON(payload);
 			}catch(err : Dynamic) {
-				trace("Error checking company " + err);
+				//trace("Error checking company " + err);
 			}
 
 	}

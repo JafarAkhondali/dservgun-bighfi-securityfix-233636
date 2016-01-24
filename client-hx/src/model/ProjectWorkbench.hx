@@ -152,7 +152,7 @@ class ProjectWorkbench {
 	public var manageWorkbenchStream(default, null) : Deferred<PrjWorkbench>;
 	public var executeWorkbenchStream(default, null) : Deferred<ExecuteWorkbenchResult>;
 	public function new(project : Project){
-		trace("Instantiating project workbench ");
+		//trace("Instantiating project workbench ");
 		executeUponSave = true;
 		var stream : Stream<Dynamic> = 
 				MBooks_im.getSingleton().initializeElementStream(
@@ -201,7 +201,7 @@ class ProjectWorkbench {
 
 
 	private function createWorkbench(ev : Event) {
-		trace("Creating workbench");
+		//trace("Creating workbench");
 		//Load the upload script and save the workbench.
 		//Clear the workbench id, to indicate that 
 		//this is a new entry
@@ -217,20 +217,20 @@ class ProjectWorkbench {
 		reader.readAsText(file);
 	}
 	private function deleteWorkbench(ev : Event) {
-		trace("Deleting workbench");
+		//trace("Deleting workbench");
 		try {
 			var crudType = Delete;
 			scriptData = "";//Wipe out the script?
 			var payload = getPayloadFromUI(crudType, scriptData);
-			trace("Saving workbench model " + haxe.Json.stringify(payload));
+			//trace("Saving workbench model " + haxe.Json.stringify(payload));
 			MBooks_im.getSingleton().doSendJSON(payload);						
 		}catch(err : Dynamic){
-			trace ("Error saving workbench " + err);
+			//trace ("Error saving workbench " + err);
 		}
 
 	}
 	private function updateWorkbench(ev : Event){
-		trace("Update workbench ");
+		//trace("Update workbench ");
 		//Load the upload script and save the workbench.
 		var file = getScriptUploadElement().files[0];
 		var reader = new FileReader();
@@ -246,10 +246,10 @@ class ProjectWorkbench {
 		try {
 			var payload = getPayloadFromUI(Read, "");
 			payload.workbenchId = anId;
-			trace("Reading workbench");
+			//trace("Reading workbench");
 			MBooks_im.getSingleton().doSendJSON(payload);			
 		}catch(err : Dynamic){
-			trace("Error " + err);		
+			//trace("Error " + err);		
 		}
 	}
 
@@ -257,16 +257,16 @@ class ProjectWorkbench {
 		try {
 			var crudType = getCrudType();
 			var payload = getPayloadFromUI(crudType, scriptData);
-			trace("Saving workbench model " + haxe.Json.stringify(payload));
+			//trace("Saving workbench model " + haxe.Json.stringify(payload));
 			MBooks_im.getSingleton().doSendJSON(payload);						
 		}catch(err : Dynamic){
-			trace ("Error saving workbench " + err);
+			//trace ("Error saving workbench " + err);
 		}
 	}
 
 	private function callExecuteWorkbench() {
 		try {
-			trace("Execute the workbench");
+			//trace("Execute the workbench");
 			var payload : ExecuteWorkbench =  {
 				executeWorkbenchCommandType : "ExecuteWorkbench"
 				, executeWorkbenchId : getWorkbenchIdFromUI()
@@ -276,7 +276,7 @@ class ProjectWorkbench {
 			};
 			MBooks_im.getSingleton().doSendJSON(payload);		
 		}catch(err : Dynamic) {
-			trace("Error saving workbench "  + err);
+			//trace("Error saving workbench "  + err);
 		}		
 	}
 
@@ -293,7 +293,7 @@ class ProjectWorkbench {
 	}
 
 	private function uploadScript(ev : Event) {
-		trace ("Uploading script " + ev);
+		//trace ("Uploading script " + ev);
 		try {
 			var reader : FileReader = cast ev.target;
 			saveWorkbenchModel(reader.result);
@@ -313,12 +313,12 @@ class ProjectWorkbench {
 	private function clearWorkbenchId() {
 		var workbenchId : String = getWorkbenchIdElement().value;
 		if(workbenchId != "") {
-			trace("Clearing workbench id " );
+			//trace("Clearing workbench id " );
 			var optionElement : OptionElement = 
 				cast Browser.document.getElementById(workbenchId);
 			optionElement.selected = false;		
 		}else {
-			trace("Not clearing empty workbench id");
+			//trace("Not clearing empty workbench id");
 		}
 
 		var optionElement : OptionElement= 
@@ -347,7 +347,7 @@ class ProjectWorkbench {
 		return selectedScriptType;
 	}
 	private function setScriptTypeFromMessage(aScriptType : String){
-		trace("Setting script type");
+		//trace("Setting script type");
 		var element : OptionElement
 			 = cast Browser.document.getElementById(aScriptType);
 		element.selected = true;
@@ -420,7 +420,7 @@ class ProjectWorkbench {
 		var lCrudType : String = toString(crudType);
 		if(lCrudType == "Create"){
 			if(scriptData == null || scriptData == "") {
-				trace("Nothing to save");
+				//trace("Nothing to save");
 				throw "Inserting object with no script data ";
 			}		
 		}
@@ -458,13 +458,13 @@ class ProjectWorkbench {
 		return (cast Browser.document.getElementById(CLEAR_FIELDS));
 	}
 	private function processExecuteWorkbench(executeWorkbench : ExecuteWorkbenchResult) : Void {
-		trace("Processing execute workbench " + haxe.Json.stringify(executeWorkbench));
+		//trace("Processing execute workbench " + haxe.Json.stringify(executeWorkbench));
 		setScriptResult(executeWorkbench);
 	}
 	private function setScriptResult(workbench : ExecuteWorkbenchResult){
 		var inputElement : InputElement = 
 			cast (Browser.document.getElementById(SCRIPT_RESULT));
-		trace("Workbench " + workbench.Right);
+		//trace("Workbench " + workbench.Right);
 		if(workbench.Right != null){
 			var tempResult : ExecuteWorkbench = workbench.Right;
 			var tempResultS : Array<Dynamic> = haxe.Json.parse(tempResult.scriptResult);
@@ -475,22 +475,22 @@ class ProjectWorkbench {
 		}		
 	}
 	private function drawGraph(inputData : Array<Dynamic>) {		
-		trace("Input data " + inputData);
+		//trace("Input data " + inputData);
 		var values : Array < Point > = new Array< Point > ();
 		var index : Int = 0;
 		for(i in inputData) {
-			trace("Inside loop " + i);
+			//trace("Inside loop " + i);
 			try {
 			var pValue : Float = Reflect.field(i, "p.value");
 			if(pValue != null){
 				var p2 = 10000 * pValue;
-				trace("Setting p.value " + p2);
+				//trace("Setting p.value " + p2);
 				var t : Point = { "x": index, "y" : p2};
 				values[index] = t ;
 				index = index + 1;
 			}			
 			}catch(err : Dynamic) {
-				trace("Ignoring " + err);
+				//trace("Ignoring " + err);
 			}
 		}
 		// A formatter for counts.
@@ -546,7 +546,7 @@ class ProjectWorkbench {
 			.call(xAxis);		
 		}
 	private function processSupportedScripts(supportedScripts : QuerySupportedScript)  : Void{
-		trace("Process supported scripts  " + haxe.Json.stringify(supportedScripts));
+		//trace("Process supported scripts  " + haxe.Json.stringify(supportedScripts));
 		var supportedScriptListElement : SelectElement 
 				= getSupportedScriptsListElement();
 		if(supportedScriptListElement == null){
@@ -570,14 +570,14 @@ class ProjectWorkbench {
 
 
 			}else {
-				trace("Option element exists " + sType);
+				//trace("Option element exists " + sType);
 			}	
 		}
 		queryWorkbenches();// Need a better place for this.
 	}
 
 	private function querySupportedScripts(){
-		trace("Query supported scripts");
+		//trace("Query supported scripts");
 		var payload : QuerySupportedScript = 
 			{
 				nickName : MBooks_im.getSingleton().getNickName()
@@ -591,7 +591,7 @@ class ProjectWorkbench {
 
 	private function queryWorkbenches() {
 		try {
-			trace ("Query all active workbenches for " + this.selectedProject.projectID);
+			//trace ("Query all active workbenches for " + this.selectedProject.projectID);
 			var payload : QueryActiveWorkbenches = 
 				{
 					nickName : MBooks_im.getSingleton().getNickName()
@@ -601,7 +601,7 @@ class ProjectWorkbench {
 				};
 			MBooks_im.getSingleton().doSendJSON(payload);		
 		}catch(err : Dynamic){
-			trace("Error query workbenches " + err);
+			//trace("Error query workbenches " + err);
 		}
 	}
 	private function insertToActiveWorkbenches(workbenchesUI : InputElement, wrk : PrjWorkbench) 
@@ -621,14 +621,14 @@ class ProjectWorkbench {
 			optionSelectedStream.then(processWorkbenchSelected);
 			workbenchesUI.appendChild(optionElement);
 		}else {
-			trace("Element already exists " + wId);
+			//trace("Element already exists " + wId);
 		}
 		optionElement.selected = true;
 		return optionElement;
 	}
 
 	private function processQueryActiveWorkbenches(queryActiveWorkbenches : QueryActiveWorkbenches) {
-		trace("Processing query active workbenches " + queryActiveWorkbenches);
+		//trace("Processing query active workbenches " + queryActiveWorkbenches);
 		var workbenches : Array<PrjWorkbench> = queryActiveWorkbenches.workbenches;
 		var workbenchesUI : InputElement = getProjectWorkbenchListElement();
 		var firstElement  = true;
@@ -648,7 +648,7 @@ class ProjectWorkbench {
 		if(optionElement != null){
 			workbenchesUI.removeChild(optionElement);
 		}else {
-			trace("Element not found " + wrk);
+			//trace("Element not found " + wrk);
 		}
 	}
 	private function processWorkbenchSelected(ev : Event) {
@@ -659,7 +659,7 @@ class ProjectWorkbench {
 	}
 
 	private function processManageWorkbench(incomingMessage : PrjWorkbench) {
-		trace("Processing manage workbench " + incomingMessage);
+		//trace("Processing manage workbench " + incomingMessage);
 		var crudType : String = incomingMessage.crudType;
 		setWorkbenchIdFromMessage(incomingMessage.workbenchId);
 		copyIncomingValues(incomingMessage);
@@ -692,14 +692,14 @@ class ProjectWorkbench {
 
 	}
 	private function processScriptData(scriptType : String, scriptData: String){
-		trace("Processing script type " + scriptType);
+		//trace("Processing script type " + scriptType);
 	}
 	private function handleThreeJS(scriptData : String){
-		trace("processing three js");
+		//trace("processing three js");
 	}
 
 	private function handleThreeJSJSON(scriptData : String) {
-		trace("Processing three js json loading");
+		//trace("Processing three js json loading");
 	}
 	//Initialization populates the workbench list
 	//for the selected project. (User can select a single project at any time)
@@ -756,7 +756,7 @@ class ProjectWorkbench {
 	var autosave : Bool; //Enable when workbench has been inserted.
 	var executeUponSave : Bool;
 	private function processScriptTypeSelected(ev : Event) {
-		trace("Script type selected " + ev);
+		//trace("Script type selected " + ev);
 		try {
 			var selectionElement : OptionElement = 
 				cast ev.target;

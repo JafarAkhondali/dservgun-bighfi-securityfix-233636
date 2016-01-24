@@ -102,7 +102,7 @@
 	} 
 
 	public function createCCARForm(parent : DivElement){
-		//trace("Creating CCAR form ");
+		////trace("Creating CCAR form ");
 		var div : DivElement = Util.createDivTag(document, CCAR_DIV_TAG);
 		Util.createElementWithLabel(document, div
 			, NAME_CLASS
@@ -114,7 +114,7 @@
 		var scenarioAreaElementStream = MBooks.getMBooks().initializeElementStream(scenarioAreaElement, "change");
 		scenarioAreaElementStream.then(scenarioAreaElementUpdate);
 
-		trace("Class name " + PARSED_CLASS);
+		//trace("Class name " + PARSED_CLASS);
 		Util.createTextAreaElementWithLabel(document, div
 			, PARSED_CLASS
 			, PARSED_TEXT);
@@ -159,14 +159,14 @@
 	}
 
 	public function scenarioAreaElementUpdate(ev: Event) : Void {
-		trace("scenario area element update " + ev);
+		//trace("scenario area element update " + ev);
 		uploadCCARData(ev);
 	}
 	//When the user modifies the scenario name directly, if the 
 	//the name is not in the dictionary, then the list box should be disabled,
 	//or we may lose the scenario
 	public function scenarioNameUpdate(ev : KeyboardEvent) : Void {
-		//trace("Inside scenario name update " + ev + "->" + ev.keyCode);
+		////trace("Inside scenario name update " + ev + "->" + ev.keyCode);
 		var scenarioNameElement : InputElement = cast document.getElementById(NAME_CLASS);
 		var selectElement : SelectElement = getCCARListElement();
 
@@ -176,10 +176,10 @@
 		}
 		if(Util.isSignificantWS(ev.keyCode)){
 			if(!scenarioNameExists(scenarioNameElement.value)){
-				//trace("New element " + scenarioNameElement.value);
+				////trace("New element " + scenarioNameElement.value);
 				selectElement.disabled = true;
 			}else {
-					//trace("Element found so we are going to update an existing element " + scenarioNameElement.value);
+					////trace("Element found so we are going to update an existing element " + scenarioNameElement.value);
 			}
 		}
 	}
@@ -227,7 +227,7 @@
 			throw ("This should not happen. " + sName);
 	}
 	private function sendParseRequest(ccarModel : model.CCAR) {
-		//trace("Sending parse request");
+		////trace("Sending parse request");
 		var commandType : String = "ParsedCCARText";
 		var payload  = {
 			 nickName : MBooks.getMBooks().getNickName()
@@ -242,7 +242,7 @@
 	}
 
 	public function deleteScenario(ev : Event){
-		trace("Deleting ccar data");
+		//trace("Deleting ccar data");
 		var nickName : String = MBooks.getMBooks().getNickName();
 		var commandType : String = "CCARUpload";
 		var scenarioName = getScenarioName();
@@ -255,7 +255,7 @@
 			, uploadedBy : this.model.creator
 			, ccarData : this.model
 		};
-		trace("Payload " + Json.stringify(payload));
+		//trace("Payload " + Json.stringify(payload));
 		MBooks.getMBooks().doSendJSON(Json.stringify(payload));
 
 	}
@@ -274,7 +274,7 @@
 
 	}
 	public function uploadCCARData(ev : Event) {
-		//trace("Uploading ccar data");
+		////trace("Uploading ccar data");
 		var commandType : String = "CCARUpload";
 		var scenarioName = getScenarioName();
 		var ccarOperation = getOperation(scenarioName);
@@ -292,14 +292,14 @@
 	}
 
 	private function selectScenarioKb(ev : KeyboardEvent){
-		trace("Keydown event " + ev.keyCode);
+		//trace("Keydown event " + ev.keyCode);
 		if(Util.isUpOrDown(ev.keyCode)){
 			var selectElement : SelectElement = cast ev.target;
-			trace("Event target " + ev.target + " " + selectElement.value);
+			//trace("Event target " + ev.target + " " + selectElement.value);
 			var ccarText = ccarDictionary.get(selectElement.value);
 			var textAreaElement : TextAreaElement = cast document.getElementById(TEXT_CLASS);
-			//trace("Selected text " + ccarText.scenarioText);
-			//trace("textAreaElement dimensions " + textAreaElement.rows + " -> " + textAreaElement.cols);
+			////trace("Selected text " + ccarText.scenarioText);
+			////trace("textAreaElement dimensions " + textAreaElement.rows + " -> " + textAreaElement.cols);
 			textAreaElement.value = ccarText.scenarioText;
 			var scenarioNameElement : InputElement = cast document.getElementById(NAME_CLASS);
 			scenarioNameElement.value = selectElement.value;
@@ -308,27 +308,27 @@
 	}
 
 	private function selectScenario(ev : Event){
-		//trace("Selecting ccar element " + ev);
+		////trace("Selecting ccar element " + ev);
 		var selectElement : SelectElement = cast ev.target;
-		//trace("Event target " + ev.target + " " + selectElement.value);
+		////trace("Event target " + ev.target + " " + selectElement.value);
 		var ccarText = ccarDictionary.get(selectElement.value);
 		var textAreaElement : TextAreaElement = cast document.getElementById(TEXT_CLASS);
-		//trace("Selected text " + ccarText.scenarioText);
-		//trace("textAreaElement dimensions " + textAreaElement.rows + " -> " + textAreaElement.cols);
+		////trace("Selected text " + ccarText.scenarioText);
+		////trace("textAreaElement dimensions " + textAreaElement.rows + " -> " + textAreaElement.cols);
 		textAreaElement.value = ccarText.scenarioText;
 		var scenarioNameElement : InputElement = cast document.getElementById(NAME_CLASS);
 		scenarioNameElement.value = selectElement.value;
 		sendParseRequest(ccarText);
 	}
 	public function setParsedScenarioText(jsonString : String) : Void {
-		trace("Setting json string " + jsonString);
+		//trace("Setting json string " + jsonString);
 		var parsed : TextAreaElement = cast document.getElementById(PARSED_CLASS);
-		trace("Using " + parsed + "-> " + PARSED_CLASS);
+		//trace("Using " + parsed + "-> " + PARSED_CLASS);
 		parsed.value = jsonString;
 	}
 	
 	public function queryAllCCARs() {
-		//trace("Querying all ccar objects");
+		////trace("Querying all ccar objects");
 		var commandType : String = "CCARUpload";
 		var ccarOperation = {
 		tag : "QueryAll" , //Tag is needed for the aeson objects.
@@ -347,11 +347,11 @@
 
  	public function populateList(document: Document
  			, elements : Array<model.CCAR>, newElement : model.CCAR){
- 			//trace("Populate the elements in the list " + elements.length);
+ 			////trace("Populate the elements in the list " + elements.length);
  			for (i in elements){
- 				//trace("Dictionary " + i);
+ 				////trace("Dictionary " + i);
  				ccarDictionary[i.scenarioName] = i;
- 				trace("Element added "+ ccarDictionary.get(i.scenarioName) + " " + i.scenarioName);
+ 				//trace("Element added "+ ccarDictionary.get(i.scenarioName) + " " + i.scenarioName);
  			}
  			var list : SelectElement = cast document.getElementById(CCAR_DIV_TAG + LIST);
  			var options : List<OptionElement> = new List<OptionElement>();
@@ -363,7 +363,7 @@
  			}
  			for ( key in ccarDictionary.keys()){
  				var i : model.CCAR = ccarDictionary[key];
- 				trace("Populating " + i.scenarioName + "->" + i.deleted);
+ 				//trace("Populating " + i.scenarioName + "->" + i.deleted);
  				if(i.deleted == true){
  					continue;
  				}
@@ -385,7 +385,7 @@
  							list.appendChild(option);
  						}
  				}else {
- 					trace("Ignoring empty scenario name " + i);
+ 					//trace("Ignoring empty scenario name " + i);
  				}
  				index = index + 1;
  			}
@@ -403,8 +403,8 @@
  	private function updateUIModel(aModel : model.CCAR) {
 			var ccarText = ccarDictionary.get(aModel.scenarioName);
 			var textAreaElement : TextAreaElement = cast document.getElementById(TEXT_CLASS);
-			//trace("Selected text " + ccarText.scenarioText);
-			//trace("textAreaElement dimensions " + textAreaElement.rows + " -> " + textAreaElement.cols);
+			////trace("Selected text " + ccarText.scenarioText);
+			////trace("textAreaElement dimensions " + textAreaElement.rows + " -> " + textAreaElement.cols);
 			textAreaElement.value = ccarText.scenarioText;
 			var scenarioNameElement : InputElement = cast document.getElementById(NAME_CLASS);
 			scenarioNameElement.value = aModel.scenarioName;

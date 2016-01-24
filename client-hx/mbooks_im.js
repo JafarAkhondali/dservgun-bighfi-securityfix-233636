@@ -88,15 +88,11 @@ var MBooks_im = function() {
 	this.serverHost = "localhost";
 	this.attempts = 0;
 	this.maxAttempts = 3;
-	this.table = new view.JQueryTable("test_wont_work");
-	console.log("Calling MBooks_im");
 	this.reset();
 	this.person = new model.Person("","","","");
 	this.outputEventStream = new promhx.Deferred();
-	console.log("Registering nickname");
 	var blurStream = this.initializeElementStream(this.getNickNameElement(),"blur");
 	blurStream.then($bind(this,this.sendLoginBlur));
-	console.log("Registering password");
 	var rStream = this.initializeElementStream(this.getRegisterElement(),"click");
 	rStream.then($bind(this,this.registerUser));
 	var kStream = this.initializeElementStream(this.getKickUserElement(),"keyup");
@@ -120,8 +116,10 @@ var MBooks_im = function() {
 	oauthStream.then($bind(this,this.performGmailOauth));
 	this.entitlements = new view.Entitlement();
 	this.marketDataStream = new promhx.Deferred();
+	this.historicalPriceStream = new promhx.Deferred();
 	this.optionAnalyticsStream = new promhx.Deferred();
 	this.companyEntitlements = new view.CompanyEntitlement(this.entitlements,this.selectedCompanyStream);
+	this.symbolChart = new view.SymbolChart(this.historicalPriceStream);
 };
 MBooks_im.__name__ = ["MBooks_im"];
 MBooks_im.getSingleton = function() {
@@ -138,7 +136,6 @@ MBooks_im.getDynamic = function(name) {
 }
 MBooks_im.prototype = {
 	authenticationChecks: function(incoming) {
-		console.log("Processing " + Std.string(incoming));
 		this.entitlements.queryAllEntitlements();
 	}
 	,setupStreams: function() {
@@ -188,20 +185,12 @@ MBooks_im.prototype = {
 		this.getStatusMessageElement().innerHTML = this.getStatusMessageElement().innerHTML + " : " + userMessage;
 	}
 	,validatePassword: function(ev) {
-		console.log("Password: " + this.getPassword() + ":");
-		if(this.getPassword() == "") {
-			console.log("Not sending password");
-			return;
-		}
+		if(this.getPassword() == "") return;
 		if(this.getPassword() != this.person.password) {
 			js.Lib.alert("Invalid password. Try again");
 			this.attempts++;
-			if(this.attempts > this.maxAttempts) {
-				this.loginAsGuest();
-				console.log("Logging in as guest");
-			}
+			if(this.attempts > this.maxAttempts) this.loginAsGuest();
 		} else {
-			console.log("Password works!");
 			var userLoggedIn = { userName : this.getNickName(), commandType : "UserLoggedIn"};
 			this.getNickNameElement().disabled = true;
 			this.doSendJSON(userLoggedIn);
@@ -223,7 +212,6 @@ MBooks_im.prototype = {
 		}
 	}
 	,sendMessageFromButton: function(ev) {
-		console.log("Sending message from button " + Std.string(ev));
 		var sentTime = new Date();
 		var payload = { nickName : this.getNickName(), from : this.getNickName(), to : this.getNickName(), privateMessage : this.getMessage(), commandType : "SendMessage", destination : { tag : "Broadcast", contents : []}, sentTime : sentTime};
 		this.doSendJSON(payload);
@@ -233,32 +221,29 @@ MBooks_im.prototype = {
 	}
 	,sendLogin: function(ev) {
 		var inputElement = ev.target;
-		console.log("Inside send login " + ev.keyCode);
 		if(util.Util.isSignificantWS(ev.keyCode)) {
 			var inputValue = StringTools.trim(inputElement.value);
-			console.log("Sending login information: " + inputValue + ":");
 			if(inputValue != "") {
 				this.person.setNickName(inputElement.value);
 				var lStatus = model.LoginStatus.Undefined;
 				var cType = Std.string(model.CommandType.Login);
 				var l = new model.Login(cType,this.person,lStatus);
-				console.log("Sending login status " + Std.string(l));
 				this.doSendJSON(l);
-			} else console.log("Not sending any login");
+			} else {
+			}
 		}
 	}
 	,sendLoginBlur: function(ev) {
 		var inputElement = ev.target;
 		var inputValue = StringTools.trim(inputElement.value);
-		console.log("Sending login information: " + inputValue + ":");
 		if(inputValue != "") {
 			this.person.setNickName(inputElement.value);
 			var lStatus = model.LoginStatus.Undefined;
 			var cType = Std.string(model.CommandType.Login);
 			var l = new model.Login(cType,this.person,lStatus);
-			console.log("Sending login status " + Std.string(l));
 			this.doSendJSON(l);
-		} else console.log("Not sending any login");
+		} else {
+		}
 	}
 	,getLoginRequest: function(nickName,status) {
 		var lStatus = status;
@@ -273,11 +258,11 @@ MBooks_im.prototype = {
 		this.hideDivField(MBooks_im.KICK_USER_DIV);
 	}
 	,removeFromUsersOnline: function(nickName) {
-		console.log("Deleting user from the list " + nickName);
 		var usersOnline = js.Browser.document.getElementById(MBooks_im.USERS_ONLINE);
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement = js.Browser.document.getElementById(nickNameId);
-		if(optionElement != null) usersOnline.removeChild(optionElement); else console.log("This user was already removed : ?" + nickName);
+		if(optionElement != null) usersOnline.removeChild(optionElement); else {
+		}
 	}
 	,addToUsersOnline: function(nickName) {
 		var usersOnline = js.Browser.document.getElementById(MBooks_im.USERS_ONLINE);
@@ -343,7 +328,6 @@ MBooks_im.prototype = {
 		return this.getNickNameElement().value;
 	}
 	,doSendJSON: function(aMessage) {
-		console.log("Sending " + Std.string(aMessage));
 		this.outputEventStream.resolve(aMessage);
 	}
 	,getKickUserElement: function() {
@@ -354,35 +338,29 @@ MBooks_im.prototype = {
 	}
 	,sendEvents: function(aMessage) {
 		this.websocket.send(haxe.Json.stringify(aMessage));
-		console.log("Sent " + Std.string(aMessage));
 	}
 	,keepAliveFunction: function() {
 		var commandType = "KeepAlive";
 		var payload = { nickName : this.getNickName(), commandType : commandType, keepAlive : "Ping"};
-		console.log("Sending keep alive " + Std.string(payload));
 		this.doSendJSON(payload);
 	}
 	,disableKeepAlive: function() {
-		if(this.timer == null) console.log("Nothing to disable"); else {
-			console.log("Stopping the timer");
-			this.timer.stop();
-		}
+		if(this.timer == null) {
+		} else this.timer.stop();
 	}
 	,initializeKeepAlive: function() {
 		if(this.timer == null) {
 			this.timer = new haxe.Timer(this.keepAliveInterval);
 			this.timer.run = $bind(this,this.keepAliveFunction);
-		} else console.log("Timer already running. This should not happen");
+		} else {
+		}
 	}
 	,hideDivField: function(fieldName) {
 		var div = js.Browser.document.getElementById(fieldName);
 		div.setAttribute("style","display:none");
 	}
 	,showDivField: function(fieldName) {
-		if(!this.isEntitledFor(fieldName)) {
-			console.log("Not entitled for " + fieldName);
-			return;
-		}
+		if(!this.isEntitledFor(fieldName)) return;
 		var div = js.Browser.document.getElementById(fieldName);
 		div.setAttribute("style","display:normal");
 	}
@@ -403,7 +381,6 @@ MBooks_im.prototype = {
 		this.userLoggedIn.resolve(incomingMessage);
 	}
 	,processUserJoined: function(incomingMessage) {
-		console.log("User joined " + Std.string(new Date()));
 	}
 	,updateMessageHistory: function(currentTime,localMessage) {
 		var textAreaElement = js.Browser.document.getElementById(MBooks_im.MESSAGE_HISTORY);
@@ -417,10 +394,7 @@ MBooks_im.prototype = {
 		if(p.Right != null) {
 			var person = p.Right.person;
 			this.setInitWelcome(person);
-		} else {
-			console.log("Error processing manage user " + Std.string(p));
-			this.setError(p);
-		}
+		} else this.setError(p);
 	}
 	,setInitWelcome: function(p) {
 		try {
@@ -429,24 +403,17 @@ MBooks_im.prototype = {
 			inputElement.innerHTML = inputElement.innerHTML + "," + person.nickName;
 			this.showDivField(MBooks_im.INIT_WELCOME_MESSAGE_DIV);
 		} catch( err ) {
-			console.log(err);
 			this.setError(err);
 		}
 	}
 	,processLoginResponse: function(lR) {
-		console.log("Processing login object " + Std.string(lR));
-		console.log("Processing lR status " + lR.loginStatus);
-		if(lR.loginStatus == null) {
-			console.log("Undefined state");
-			return;
-		}
+		if(lR.loginStatus == null) return;
 		var lStatus = Type.createEnum(model.LoginStatus,lR.loginStatus);
 		if(this.getNickName() == lR.login.nickName) {
 			this.person.setPassword(lR.login.password);
 			this.person.setFirstName(lR.login.firstName);
 			this.person.setLastName(lR.login.lastName);
 		} else throw "Nick name and responses dont match!!!! -> " + this.getNickName() + " not the same as " + lR.login.nickName;
-		console.log("Processing lStatus " + Std.string(lStatus));
 		if(lStatus == model.LoginStatus.UserNotFound) {
 			this.showDivField(MBooks_im.DIV_PASSWORD);
 			this.showDivField(MBooks_im.DIV_FIRST_NAME);
@@ -466,13 +433,10 @@ MBooks_im.prototype = {
 		if(lStatus == model.LoginStatus.Undefined) throw "Undefined status";
 	}
 	,onMessage: function(ev) {
-		console.log("Received stream " + Std.string(ev.data));
 		var incomingMessage = haxe.Json.parse(ev.data);
-		console.log("Printing incoming message " + haxe.Json.stringify(incomingMessage));
 		this.parseIncomingMessage(incomingMessage);
 	}
 	,processUndefinedCommandType: function(incomingMessage) {
-		console.log("Unhandled command type " + Std.string(incomingMessage));
 	}
 	,incomingMessageNull: function(source) {
 		var errorMessage = "Incoming message is null. Should never happen. @ " + source;
@@ -487,58 +451,45 @@ MBooks_im.prototype = {
 			this.processLoginResponse(login);
 			break;
 		case 11:
-			console.log("Parsing ccar upload " + Std.string(incomingMessage));
 			this.ccar.processCCARUpload(incomingMessage);
 			break;
 		case 18:
 			this.company.processManageCompany(incomingMessage);
 			break;
 		case 20:
-			console.log("Updating company list event stream");
 			this.company.getSelectListEventStream().resolve(incomingMessage);
 			break;
 		case 23:
-			console.log("Processing get supported scripts");
 			try {
 				this.project.getSupportedScriptsStream().resolve(incomingMessage);
 			} catch( err ) {
-				console.log("Error processing supported scripts " + Std.string(err));
 			}
 			break;
 		case 24:
-			console.log("Processing query active workbenches");
 			try {
 				this.project.activeProjectWorkbench.queryActiveWorkbenchesStream.resolve(incomingMessage);
 			} catch( err ) {
-				console.log("Error processing query active workbenches " + Std.string(err));
 			}
 			break;
 		case 25:
-			console.log("Processing manage workbench ");
 			try {
 				this.project.activeProjectWorkbench.manageWorkbenchStream.resolve(incomingMessage);
 			} catch( err ) {
-				console.log("Error processing manage workbench " + Std.string(err));
 			}
 			break;
 		case 26:
-			console.log("Processing execute workbench");
 			try {
 				this.project.activeProjectWorkbench.executeWorkbenchStream.resolve(incomingMessage);
 			} catch( err ) {
-				console.log("Error processing execute workbench " + Std.string(err));
 			}
 			break;
 		case 21:
-			console.log("Processing all active projects ");
 			this.project.getSelectActiveProjectsStream().resolve(incomingMessage);
 			break;
 		case 22:
-			console.log("Manage project");
 			this.project.processManageProject(incomingMessage);
 			break;
 		case 12:
-			console.log("Parsing ccar text " + Std.string(incomingMessage));
 			this.ccar.processParsedCCARText(incomingMessage);
 			break;
 		case 2:
@@ -576,38 +527,29 @@ MBooks_im.prototype = {
 			this.processUserLeft(incomingMessage);
 			break;
 		case 27:
-			console.log("Processing assigning company");
 			this.assignCompanyStream.resolve(incomingMessage);
 			break;
 		case 19:
-			console.log("Processing keep alive");
 			break;
 		case 28:
-			console.log("Processing " + Std.string(incomingMessage));
 			this.portfolioSymbolModel.typesStream.resolve(incomingMessage);
 			break;
 		case 29:
-			console.log("Processing " + Std.string(incomingMessage));
 			this.portfolioSymbolModel.sidesStream.resolve(incomingMessage);
 			break;
 		case 30:
-			console.log("Processing " + Std.string(incomingMessage));
 			this.portfolioListStream.resolve(incomingMessage);
 			break;
 		case 31:
-			console.log("Processing " + Std.string(incomingMessage));
 			this.portfolioStream.resolve(incomingMessage);
 			break;
 		case 32:
-			console.log("Processing " + Std.string(incomingMessage));
 			this.portfolioSymbolView.manage(incomingMessage);
 			break;
 		case 34:
-			console.log("Processing " + Std.string(incomingMessage));
 			this.portfolioSymbolView.symbolQueryResponse.resolve(incomingMessage);
 			break;
 		case 35:
-			console.log("Processing " + Std.string(incomingMessage));
 			this.entitlements.modelResponseStream.resolve(incomingMessage);
 			break;
 		case 36:
@@ -621,6 +563,10 @@ MBooks_im.prototype = {
 			break;
 		case 38:
 			this.optionAnalyticsStream.resolve(incomingMessage);
+			break;
+		case 39:
+			console.log("Incoming message " + Std.string(incomingMessage));
+			this.historicalPriceStream.resolve(incomingMessage);
 			break;
 		case 13:
 			this.processUndefinedCommandType(incomingMessage);
@@ -637,30 +583,24 @@ MBooks_im.prototype = {
 			}
 		}
 		try {
-			console.log("Command type " + commandType);
 			return Type.createEnum(model.CommandType,commandType);
 		} catch( e ) {
-			console.log("Error " + Std.string(e) + " Command type " + commandType);
 			return model.CommandType.Undefined;
 		}
 	}
 	,onServerConnectionError: function(ev) {
-		console.log("Error " + Std.string(ev));
 		this.getOutputEventStream().end();
 		this.websocket.close();
 		this.applicationErrorStream.resolve("Server Not found. Please reach out to support");
 	}
 	,cleanup: function() {
-		console.log("Do all of the cleanup");
 	}
 	,onClose: function(ev) {
-		console.log("Connection closed " + ev.code + "->" + ev.reason);
 		this.setError(ev.code + ":" + ev.reason);
 		this.cleanup();
 		this.disableKeepAlive();
 	}
 	,onOpen: function(ev) {
-		console.log("Connection opened");
 		this.getOutputEventStream().then($bind(this,this.sendEvents));
 	}
 	,initializeElementStream: function(ws,event,useCapture) {
@@ -669,7 +609,6 @@ MBooks_im.prototype = {
 			ws.addEventListener(event,$bind(def,def.resolve),useCapture);
 			return def.stream();
 		} catch( err ) {
-			console.log("Error creating element stream for " + event);
 			throw "Unable to setup stream";
 		}
 	}
@@ -677,11 +616,10 @@ MBooks_im.prototype = {
 		return this.outputEventStream.stream();
 	}
 	,logout: function() {
-		console.log("Logging out ");
-		if(this.websocket != null) this.websocket.close(); else console.log("No valid connection found");
+		if(this.websocket != null) this.websocket.close(); else {
+		}
 	}
 	,connect: function() {
-		console.log("Calling connect");
 		try {
 			this.websocket = new WebSocket(this.connectionString());
 			this.websocket.onclose = $bind(this,this.onClose);
@@ -695,15 +633,12 @@ MBooks_im.prototype = {
 			var errorStream = this.initializeElementStream(this.websocket,"error");
 			errorStream.then($bind(this,this.onServerConnectionError));
 		} catch( err ) {
-			console.log("Error establishing connection " + Std.string(err));
 		}
-		console.log("Connection successful");
 	}
 	,connectionString: function() {
 		return this.protocol + "://" + js.Browser.location.hostname + "/chat";
 	}
 	,processSuccessfulLogin: function(loginEvent) {
-		console.log("Process successful login " + Std.string(loginEvent));
 		if(loginEvent.userName == this.getNickName()) {
 			this.showDivField(MBooks_im.MESSAGING_DIV);
 			MBooks_im.singleton.company = new view.Company();
@@ -713,10 +648,10 @@ MBooks_im.prototype = {
 			MBooks_im.singleton.portfolio = new view.Portfolio();
 			MBooks_im.singleton.portfolioSymbolModel = new model.PortfolioSymbol();
 			MBooks_im.singleton.portfolioSymbolView = new view.PortfolioSymbol(MBooks_im.singleton.portfolioSymbolModel);
-		} else console.log("A new user logged in " + Std.string(loginEvent));
+		} else {
+		}
 	}
 	,displayUserElements: function(companySelected) {
-		console.log("Displaying user elements the current user is entitled for");
 		this.showDivField(MBooks_im.WORKBENCH);
 	}
 	,getGmailOauthButton: function() {
@@ -724,10 +659,8 @@ MBooks_im.prototype = {
 	}
 	,oauthRequestData: function(data) {
 		var message = data;
-		console.log("Data " + Std.string(message.data));
 	}
 	,performGmailOauth: function(incoming) {
-		console.log("Processing gmail outh" + Std.string(incoming));
 		var oauthRequest = new XMLHttpRequest();
 		var url = "http://" + js.Browser.location.hostname + "/" + MBooks_im.GOAUTH_URL;
 		oauthRequest.open("GET",url);
@@ -2506,15 +2439,12 @@ massive.munit.util.Timer.prototype = {
 var model = {}
 model.CCAR = function(name,text,cr) {
 	try {
-		console.log("Creating ccar instance");
 		this.scenarioName = name;
 		this.scenarioText = text;
 		this.creator = cr;
 		this.deleted = false;
 	} catch( err ) {
-		console.log("Exception creating ccar " + Std.string(err));
 	}
-	console.log("Created ccar instance successfully");
 };
 model.CCAR.__name__ = ["model","CCAR"];
 model.CCAR.prototype = {
@@ -2525,24 +2455,19 @@ model.CCAR.prototype = {
 		this.getParsedScenarioElement().value = incomingM;
 	}
 	,processParsedCCARText: function(incomingMessage) {
-		console.log("Processing parsed text");
 		this.setParsedScenario(haxe.Json.stringify(incomingMessage));
 	}
 	,processCCARUpload: function(incomingMessage) {
-		console.log("Processing ccar upload");
 		var ccarStruct = incomingMessage.ccarData;
 		var crudType = incomingMessage.ccarOperation.tag;
 		this.copyIncomingValues(incomingMessage);
 		if(crudType == "Create") {
-			console.log("Create successful");
 			this.copyIncomingValues(incomingMessage);
 			this.sendParsingRequest();
 		} else if(crudType == "Update") {
-			console.log("Update successful");
 			this.copyIncomingValues(incomingMessage);
 			this.sendParsingRequest();
 		} else if(crudType == "Query") {
-			console.log("Read returned " + Std.string(incomingMessage));
 			this.copyIncomingValues(incomingMessage);
 			if(ccarStruct.ccarResultSet == []) crudType = "Create"; else crudType = "Update";
 			this.sendParsingRequest();
@@ -2550,15 +2475,12 @@ model.CCAR.prototype = {
 	}
 	,sendParsingRequest: function() {
 		var payload = { nickName : MBooks_im.getSingleton().getNickName(), uploadedBy : MBooks_im.getSingleton().getNickName(), scenarioName : this.getScenarioName(), ccarText : this.getScenarioText(), commandType : "ParsedCCARText"};
-		console.log("Sending parsing request " + Std.string(payload));
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,sendPT: function(ev) {
-		console.log("Processing event " + Std.string(ev));
 		this.sendParsingRequest();
 	}
 	,checkScenarioExists: function(ev) {
-		console.log("Checking if scenario exists ");
 		if(util.Util.isSignificantWS(ev.keyCode)) {
 			this.copyValuesFromUI();
 			var payload = { nickName : MBooks_im.getSingleton().getNickName(), uploadedBy : MBooks_im.getSingleton().getNickName(), commandType : "CCARUpload", ccarOperation : { tag : "Query", contents : []}, ccarData : { scenarioName : this.scenarioName, scenarioText : this.scenarioText, creator : MBooks_im.getSingleton().getNickName(), deleted : false}};
@@ -2566,7 +2488,6 @@ model.CCAR.prototype = {
 		}
 	}
 	,saveScenario: function(ev) {
-		console.log("Saving scenario ");
 		this.copyValuesFromUI();
 		var payload = { nickName : MBooks_im.getSingleton().getNickName(), uploadedBy : MBooks_im.getSingleton().getNickName(), commandType : "CCARUpload", ccarOperation : { tag : this.crudType, contents : []}, ccarData : { scenarioName : this.scenarioName, scenarioText : this.scenarioText, creator : MBooks_im.getSingleton().getNickName(), deleted : false}};
 		MBooks_im.getSingleton().doSendJSON(payload);
@@ -2600,10 +2521,7 @@ model.CCAR.prototype = {
 		return js.Browser.document.getElementById(model.CCAR.SCENARIO_NAME);
 	}
 	,getScenarioName: function() {
-		if(this.getScenarioNameElement() != null) return this.getScenarioNameElement().value; else {
-			console.log("Element not defined ");
-			return "TBD";
-		}
+		if(this.getScenarioNameElement() != null) return this.getScenarioNameElement().value; else return "TBD";
 	}
 	,__class__: model.CCAR
 }
@@ -2615,7 +2533,7 @@ model.Command.__name__ = ["model","Command"];
 model.Command.prototype = {
 	__class__: model.Command
 }
-model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics"] }
+model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics","QueryMarketData"] }
 model.CommandType.Login = ["Login",0];
 model.CommandType.Login.toString = $estr;
 model.CommandType.Login.__enum__ = model.CommandType;
@@ -2733,6 +2651,9 @@ model.CommandType.QueryCompanyUsers.__enum__ = model.CommandType;
 model.CommandType.OptionAnalytics = ["OptionAnalytics",38];
 model.CommandType.OptionAnalytics.toString = $estr;
 model.CommandType.OptionAnalytics.__enum__ = model.CommandType;
+model.CommandType.QueryMarketData = ["QueryMarketData",39];
+model.CommandType.QueryMarketData.toString = $estr;
+model.CommandType.QueryMarketData.__enum__ = model.CommandType;
 model.Company = function(n,cId,gM,ima) {
 	this.name = n;
 	this.companyId = cId;
@@ -2749,16 +2670,13 @@ model.CompanyEntitlement = function(stream) {
 };
 model.CompanyEntitlement.__name__ = ["model","CompanyEntitlement"];
 model.CompanyEntitlement.addUserEntitlement = function(userNickName,entitlementId) {
-	console.log("Adding user entitlement for " + userNickName + " -> " + entitlementId);
 }
 model.CompanyEntitlement.prototype = {
 	queryAllEntitlements: function() {
-		console.log("Query all the entitlements");
 		var queryEntitlements = { nickName : MBooks_im.getSingleton().getNickName(), queryParameters : "*", commandType : "QueryCompanyEntitlements", resultSet : new Array()};
 		MBooks_im.getSingleton().doSendJSON(queryEntitlements);
 	}
 	,updateModel: function(anEntitlement) {
-		console.log("Updating model " + Std.string(anEntitlement));
 		MBooks_im.getSingleton().doSendJSON(anEntitlement);
 	}
 	,__class__: model.CompanyEntitlement
@@ -2785,12 +2703,10 @@ model.Entitlement.optionId = function(entT) {
 }
 model.Entitlement.prototype = {
 	queryAllEntitlements: function() {
-		console.log("Query all the entitlements");
 		var queryEntitlements = { nickName : MBooks_im.getSingleton().getNickName(), queryParameters : "*", commandType : "QueryEntitlements", resultSet : new Array()};
 		MBooks_im.getSingleton().doSendJSON(queryEntitlements);
 	}
 	,updateModel: function(anEntitlement) {
-		console.log("Updating model " + Std.string(anEntitlement));
 		MBooks_im.getSingleton().doSendJSON(anEntitlement);
 	}
 	,__class__: model.Entitlement
@@ -2864,12 +2780,10 @@ model.Portfolio = function(crudType,portfolioId,companyId,userId,summary,created
 model.Portfolio.__name__ = ["model","Portfolio"];
 model.Portfolio.prototype = {
 	save: function(portfolio) {
-		console.log("Saving portfolio");
 	}
 	,__class__: model.Portfolio
 }
 model.PortfolioSymbol = function() {
-	console.log("Creating portfolio symbol");
 	this.sidesStream = new promhx.Deferred();
 	this.typesStream = new promhx.Deferred();
 	this.typeStream = new promhx.Deferred();
@@ -2891,19 +2805,16 @@ model.PortfolioSymbol = function() {
 model.PortfolioSymbol.__name__ = ["model","PortfolioSymbol"];
 model.PortfolioSymbol.prototype = {
 	handleSymbolTypeQuery: function(incomingMessage) {
-		console.log("Handle portfolio symbol type query " + Std.string(incomingMessage));
 		var resultSet = incomingMessage.symbolTypes;
 		var _g = 0;
 		while(_g < resultSet.length) {
 			var optionSymbolType = resultSet[_g];
 			++_g;
-			console.log("Resolving " + Std.string(optionSymbolType));
 			var p = { symbolType : optionSymbolType};
 			this.typeStream.resolve(p);
 		}
 	}
 	,handleSymbolSideQuery: function(incomingMessage) {
-		console.log("Handle portfolio symbol side query" + Std.string(incomingMessage));
 		var resultSet = incomingMessage.symbolSides;
 		var _g = 0;
 		while(_g < resultSet.length) {
@@ -2922,7 +2833,6 @@ model.PortfolioSymbol.prototype = {
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,sendPayload: function(payload) {
-		console.log("Processing sending payload " + Std.string(payload));
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,sendPortfolioSymbolQuery: function() {
@@ -2932,7 +2842,6 @@ model.PortfolioSymbol.prototype = {
 	}
 	,processActivePortfolio: function(a) {
 		if(a == null) throw "Active portfolio not defined " + Std.string(a);
-		console.log("Process active portfolio " + Std.string(a));
 		this.activePortfolio = a;
 		this.sendPortfolioSymbolQuery();
 	}
@@ -2940,7 +2849,6 @@ model.PortfolioSymbol.prototype = {
 }
 model.Project = function(companyI) {
 	try {
-		console.log("Instantiating Project");
 		this.newProject = true;
 		var stream = MBooks_im.getSingleton().initializeElementStream(this.getSaveProject(),"click");
 		stream.then($bind(this,this.saveProject));
@@ -2949,7 +2857,6 @@ model.Project = function(companyI) {
 		this.projectStream = new promhx.Deferred();
 		this.projectStream.then($bind(this,this.processProjectList));
 	} catch( err ) {
-		console.log("Error creating project " + Std.string(err));
 	}
 };
 model.Project.__name__ = ["model","Project"];
@@ -2970,7 +2877,6 @@ model.Project.prototype = {
 			var payload = this.getPayload(nickName,"Read",projectID);
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error checking company " + Std.string(err));
 		}
 	}
 	,clearFields: function(aMessage) {
@@ -2981,7 +2887,6 @@ model.Project.prototype = {
 			this.setProjectStart("");
 			this.setProjectEnd("");
 		} catch( err ) {
-			console.log("Error clearing fields " + Std.string(err));
 		}
 	}
 	,copyIncomingValues: function(wMessage) {
@@ -2994,17 +2899,12 @@ model.Project.prototype = {
 			this.setProjectStart(aMessage.startDate);
 			this.setProjectEnd(aMessage.endDate);
 		} catch( err ) {
-			console.log("Error copying values " + Std.string(wMessage));
 		}
 	}
 	,processManageProject: function(incomingMessage) {
-		console.log("Process manage Projects  ");
 		try {
 			var crudType = incomingMessage.Right.crudType;
-			if(crudType == model.Project.CREATE) {
-				console.log("Create successful");
-				this.copyIncomingValues(incomingMessage);
-			} else if(crudType == model.Project.READ) {
+			if(crudType == model.Project.CREATE) this.copyIncomingValues(incomingMessage); else if(crudType == model.Project.READ) {
 				if(incomingMessage.Right.projectId == "") this.newProject = true; else {
 					this.copyIncomingValues(incomingMessage);
 					this.newProject = false;
@@ -3017,21 +2917,17 @@ model.Project.prototype = {
 		}
 	}
 	,processProjectSelected: function(ev) {
-		console.log("Project selected " + Std.string(ev.target));
 		var selectionElement = ev.target;
 		var selectionId = selectionElement.id;
 		this.sendReadRequest(selectionId);
 	}
 	,getProjectList: function(companyId) {
-		console.log("Processing select all projects " + companyId);
 		var payload = { nickName : MBooks_im.getSingleton().getNickName(), commandType : "SelectActiveProjects", companyId : companyId};
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,processCompanySelected: function(ev) {
-		console.log("Company selected" + " " + Std.string(ev.target) + " " + Std.string(ev));
 		var selectionElement = ev.target;
 		var selectedId = selectionElement.id;
-		console.log("Reading company information for " + selectedId);
 		this.company.read(selectedId);
 		this.getProjectList(selectedId);
 		MBooks_im.getSingleton().selectedCompanyStream.resolve(selectedId);
@@ -3091,7 +2987,6 @@ model.Project.prototype = {
 		if(this.getProjectIDElement().value != "") return this.getProjectIDElement().value; else return "";
 	}
 	,processCompanyList: function(incomingMessage) {
-		console.log("Processing company list " + Std.string(incomingMessage));
 		var companies = incomingMessage.company;
 		var companiesSelectElement = this.getCompanyListElement();
 		var cArray = incomingMessage.company;
@@ -3101,7 +2996,6 @@ model.Project.prototype = {
 			++_g;
 			var companyID = company.companyID;
 			var companyName = company.companyName;
-			console.log("Company " + companyID + " -> " + companyName);
 			var optionElement = js.Browser.document.getElementById(companyID);
 			if(optionElement == null) {
 				optionElement = js.Browser.document.createElement("option");
@@ -3110,15 +3004,14 @@ model.Project.prototype = {
 				var optionSelectedStream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
 				optionSelectedStream.then($bind(this,this.processCompanySelected));
 				companiesSelectElement.appendChild(optionElement);
-			} else console.log("Element exists " + companyID);
+			} else {
+			}
 		}
-		console.log("Completed processing companies");
 	}
 	,getCompanyListElement: function() {
 		return js.Browser.document.getElementById(model.Project.COMPANY_LIST);
 	}
 	,processProjectList: function(incomingMessage) {
-		console.log("Project list " + Std.string(incomingMessage));
 		var projects = incomingMessage.projects;
 		var projectList = this.getProjectsListElement();
 		var pArray = projects;
@@ -3127,7 +3020,6 @@ model.Project.prototype = {
 			var project = pArray[_g];
 			++_g;
 			var projectId = project.identification;
-			console.log("Adding project id " + projectId);
 			var projectSummary = project.summary;
 			var optionElement = js.Browser.document.getElementById(projectId);
 			if(optionElement == null) {
@@ -3145,12 +3037,10 @@ model.Project.prototype = {
 	}
 	,saveProject: function(ev) {
 		try {
-			console.log("Saving project");
 			var nickName = MBooks_im.getSingleton().getNickName();
 			var payload = this.getPayloadD(nickName,this.getCrudType());
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error checking company " + Std.string(err));
 		}
 	}
 	,getSaveProject: function() {
@@ -3201,7 +3091,6 @@ model.ProjectWorkbench = function(project) {
 	this.PROJECT_WORKBENCH_LIST = "projectWorkbenches";
 	this.CHOOSE_SUPPORTED_SCRIPT = "chooseSupportedScriptType";
 	this.CHOOSE_WORKBENCH = "chooseWorkbench";
-	console.log("Instantiating project workbench ");
 	this.executeUponSave = true;
 	var stream = MBooks_im.getSingleton().initializeElementStream(this.getUpdateWorkbench(),"click");
 	stream.then($bind(this,this.updateWorkbench));
@@ -3231,18 +3120,14 @@ model.ProjectWorkbench.getDynamic = function(name) {
 }
 model.ProjectWorkbench.prototype = {
 	processScriptTypeSelected: function(ev) {
-		console.log("Script type selected " + Std.string(ev));
 		var selectionElement = ev.target;
 		this.selectedScriptType = selectionElement.id;
 	}
 	,handleThreeJSJSON: function(scriptData) {
-		console.log("Processing three js json loading");
 	}
 	,handleThreeJS: function(scriptData) {
-		console.log("processing three js");
 	}
 	,processScriptData: function(scriptType,scriptData) {
-		console.log("Processing script type " + scriptType);
 	}
 	,clearFields: function(ev) {
 		this.clearWorkbenchId();
@@ -3259,7 +3144,6 @@ model.ProjectWorkbench.prototype = {
 		this.processScriptData(incomingMessage.scriptType,incomingMessage.scriptData);
 	}
 	,processManageWorkbench: function(incomingMessage) {
-		console.log("Processing manage workbench " + Std.string(incomingMessage));
 		var crudType = incomingMessage.crudType;
 		this.setWorkbenchIdFromMessage(incomingMessage.workbenchId);
 		this.copyIncomingValues(incomingMessage);
@@ -3275,10 +3159,10 @@ model.ProjectWorkbench.prototype = {
 	}
 	,deleteFromActiveWorkbenches: function(workbenchesUI,wrk) {
 		var optionElement = js.Browser.document.getElementById(wrk.workbenchId);
-		if(optionElement != null) workbenchesUI.removeChild(optionElement); else console.log("Element not found " + Std.string(wrk));
+		if(optionElement != null) workbenchesUI.removeChild(optionElement); else {
+		}
 	}
 	,processQueryActiveWorkbenches: function(queryActiveWorkbenches) {
-		console.log("Processing query active workbenches " + Std.string(queryActiveWorkbenches));
 		var workbenches = queryActiveWorkbenches.workbenches;
 		var workbenchesUI = this.getProjectWorkbenchListElement();
 		var firstElement = true;
@@ -3304,26 +3188,23 @@ model.ProjectWorkbench.prototype = {
 			var optionSelectedStream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
 			optionSelectedStream.then($bind(this,this.processWorkbenchSelected));
 			workbenchesUI.appendChild(optionElement);
-		} else console.log("Element already exists " + wId);
+		} else {
+		}
 		optionElement.selected = true;
 		return optionElement;
 	}
 	,queryWorkbenches: function() {
 		try {
-			console.log("Query all active workbenches for " + this.selectedProject.projectID);
 			var payload = { nickName : MBooks_im.getSingleton().getNickName(), projectId : this.selectedProject.projectID, commandType : this.QUERY_ACTIVE_WORKBENCHES, workbenches : []};
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error query workbenches " + Std.string(err));
 		}
 	}
 	,querySupportedScripts: function() {
-		console.log("Query supported scripts");
 		var payload = { nickName : MBooks_im.getSingleton().getNickName(), commandType : this.SUPPORTED_SCRIPT_TYPES, scriptTypes : []};
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,processSupportedScripts: function(supportedScripts) {
-		console.log("Process supported scripts  " + haxe.Json.stringify(supportedScripts));
 		var supportedScriptListElement = this.getSupportedScriptsListElement();
 		if(supportedScriptListElement == null) throw "Script type list element is not defined";
 		var _g = 0, _g1 = supportedScripts.scriptTypes;
@@ -3338,30 +3219,27 @@ model.ProjectWorkbench.prototype = {
 				supportedScriptListElement.appendChild(optionElement);
 				var supportedScriptListStream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
 				supportedScriptListStream.then($bind(this,this.processScriptTypeSelected));
-			} else console.log("Option element exists " + sType);
+			} else {
+			}
 		}
 		this.queryWorkbenches();
 	}
 	,drawGraph: function(inputData) {
-		console.log("Input data " + Std.string(inputData));
 		var values = new Array();
 		var index = 0;
 		var _g = 0;
 		while(_g < inputData.length) {
 			var i = inputData[_g];
 			++_g;
-			console.log("Inside loop " + Std.string(i));
 			try {
 				var pValue = Reflect.field(i,"p.value");
 				if(pValue != null) {
 					var p2 = 10000 * pValue;
-					console.log("Setting p.value " + p2);
 					var t = { x : index, y : p2};
 					values[index] = t;
 					index = index + 1;
 				}
 			} catch( err ) {
-				console.log("Ignoring " + Std.string(err));
 			}
 		}
 		var formatCount = d3.format(",.0f");
@@ -3387,7 +3265,6 @@ model.ProjectWorkbench.prototype = {
 	}
 	,setScriptResult: function(workbench) {
 		var inputElement = js.Browser.document.getElementById(this.SCRIPT_RESULT);
-		console.log("Workbench " + Std.string(workbench.Right));
 		if(workbench.Right != null) {
 			var tempResult = workbench.Right;
 			var tempResultS = haxe.Json.parse(tempResult.scriptResult);
@@ -3395,7 +3272,6 @@ model.ProjectWorkbench.prototype = {
 		} else inputElement.value = haxe.Json.stringify(workbench);
 	}
 	,processExecuteWorkbench: function(executeWorkbench) {
-		console.log("Processing execute workbench " + haxe.Json.stringify(executeWorkbench));
 		this.setScriptResult(executeWorkbench);
 	}
 	,getClearFields: function() {
@@ -3416,10 +3292,7 @@ model.ProjectWorkbench.prototype = {
 	,getPayloadFromUI: function(crudType,scriptData) {
 		var lCrudType = this.toString(crudType);
 		if(lCrudType == "Create") {
-			if(scriptData == null || scriptData == "") {
-				console.log("Nothing to save");
-				throw "Inserting object with no script data ";
-			}
+			if(scriptData == null || scriptData == "") throw "Inserting object with no script data ";
 		}
 		var result = { crudType : this.toString(crudType), workbenchId : this.getWorkbenchIdFromUI(), uniqueProjectId : this.selectedProject.projectID, scriptType : this.getScriptTypeFromUI(), scriptSummary : this.getScriptSummaryFromUI(), scriptData : scriptData, numberOfCores : this.getNumberOfCoresFromUI(), scriptDataPath : this.getScriptDataPathFromUI(), jobStartDate : this.getJobStartDateFromUI(), jobEndDate : this.getJobEndDateFromUI(), nickName : MBooks_im.getSingleton().getNickName(), commandType : "ManageWorkbench"};
 		return result;
@@ -3481,7 +3354,6 @@ model.ProjectWorkbench.prototype = {
 		return js.Browser.document.getElementById(this.SCRIPT_SUMMARY);
 	}
 	,setScriptTypeFromMessage: function(aScriptType) {
-		console.log("Setting script type");
 		var element = js.Browser.document.getElementById(aScriptType);
 		element.selected = true;
 		this.selectedScriptType = aScriptType;
@@ -3506,10 +3378,10 @@ model.ProjectWorkbench.prototype = {
 	,clearWorkbenchId: function() {
 		var workbenchId = this.getWorkbenchIdElement().value;
 		if(workbenchId != "") {
-			console.log("Clearing workbench id ");
 			var optionElement = js.Browser.document.getElementById(workbenchId);
 			optionElement.selected = false;
-		} else console.log("Not clearing empty workbench id");
+		} else {
+		}
 		var optionElement = js.Browser.document.getElementById(this.CHOOSE_WORKBENCH);
 		optionElement.selected = true;
 		this.getWorkbenchIdElement().value = "";
@@ -3524,7 +3396,6 @@ model.ProjectWorkbench.prototype = {
 		return js.Browser.document.getElementById(this.PROJECT_WORKBENCH_LIST);
 	}
 	,uploadScript: function(ev) {
-		console.log("Uploading script " + Std.string(ev));
 		var reader = ev.target;
 		this.saveWorkbenchModel(reader.result);
 	}
@@ -3536,35 +3407,28 @@ model.ProjectWorkbench.prototype = {
 	}
 	,callExecuteWorkbench: function() {
 		try {
-			console.log("Execute the workbench");
 			var payload = { executeWorkbenchCommandType : "ExecuteWorkbench", executeWorkbenchId : this.getWorkbenchIdFromUI(), scriptResult : "", nickName : MBooks_im.getSingleton().getNickName(), commandType : "ExecuteWorkbench"};
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error saving workbench " + Std.string(err));
 		}
 	}
 	,saveWorkbenchModel: function(scriptData) {
 		try {
 			var crudType = this.getCrudType();
 			var payload = this.getPayloadFromUI(crudType,scriptData);
-			console.log("Saving workbench model " + haxe.Json.stringify(payload));
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error saving workbench " + Std.string(err));
 		}
 	}
 	,read: function(anId) {
 		try {
 			var payload = this.getPayloadFromUI(model.WorkbenchCrudType.Read,"");
 			payload.workbenchId = anId;
-			console.log("Reading workbench");
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error " + Std.string(err));
 		}
 	}
 	,updateWorkbench: function(ev) {
-		console.log("Update workbench ");
 		var file = this.getScriptUploadElement().files[0];
 		var reader = new FileReader();
 		var stream = MBooks_im.getSingleton().initializeElementStream(reader,"load");
@@ -3572,19 +3436,15 @@ model.ProjectWorkbench.prototype = {
 		reader.readAsText(file);
 	}
 	,deleteWorkbench: function(ev) {
-		console.log("Deleting workbench");
 		try {
 			var crudType = model.WorkbenchCrudType.Delete;
 			this.scriptData = "";
 			var payload = this.getPayloadFromUI(crudType,this.scriptData);
-			console.log("Saving workbench model " + haxe.Json.stringify(payload));
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error saving workbench " + Std.string(err));
 		}
 	}
 	,createWorkbench: function(ev) {
-		console.log("Creating workbench");
 		this.clearWorkbenchId();
 		var file = this.getScriptUploadElement().files[0];
 		var reader = new FileReader();
@@ -4252,14 +4112,14 @@ util.Util.isSignificantWS = function(code) {
 	return code == util.Util.TAB() || code == util.Util.NEW_LINE() || code == util.Util.CR();
 }
 util.Util.createDivTag = function(document,className) {
-	console.log("Creating DIV tag " + className);
 	var div = document.getElementById(className);
 	if(div == null) {
 		div = document.createElement("div");
 		div.className = className;
 		div.id = "DIV" + "_" + className;
 		document.body.appendChild(div);
-	} else console.log("Div tag exists -> " + className);
+	} else {
+	}
 	return div;
 }
 util.Util.createInputElement = function(document,parent,elementClass,elementName) {
@@ -4304,7 +4164,6 @@ util.Util.createTextAreaElementWithLabel = function(document,parent,elementId,el
 	var inputLabel = document.createElement("label");
 	inputLabel.id = util.Util.LABEL + elementId;
 	inputLabel.innerHTML = elementLabel;
-	console.log("Element id before calling textareaelement " + elementId);
 	util.Util.createTextAreaElement(document,parent,elementId,elementId);
 	var textAreaElement = document.getElementById(elementId);
 }
@@ -4319,11 +4178,9 @@ util.Util.hideDivField = function(fieldName) {
 util.Util.logToServer = function(logMessage) {
 }
 util.Util.log = function(logMessage) {
-	console.log(logMessage);
 }
 var view = {}
 view.Company = function() {
-	console.log("Instantiating company");
 	this.newCompany = true;
 	var stream = MBooks_im.getSingleton().initializeElementStream(this.getCompanySignup(),"click");
 	var cidStream = MBooks_im.getSingleton().initializeElementStream(this.getCompanyIDElement(),"blur");
@@ -4337,7 +4194,6 @@ view.Company = function() {
 view.Company.__name__ = ["view","Company"];
 view.Company.prototype = {
 	assignCompanyResponse: function(res) {
-		console.log("Processing assign company response " + Std.string(res));
 	}
 	,getSelectListEventStream: function() {
 		return this.selectListEventStream;
@@ -4372,24 +4228,17 @@ view.Company.prototype = {
 		}
 	}
 	,processManageCompany: function(incomingMessage) {
-		console.log("Process manage company ");
 		var crudType = incomingMessage.crudType;
-		console.log(incomingMessage);
-		if(crudType == "Create") {
-			console.log("Create successful");
-			this.copyIncomingValues(incomingMessage);
-		} else if(crudType == "Read") {
+		if(crudType == "Create") this.copyIncomingValues(incomingMessage); else if(crudType == "Read") {
 			if(incomingMessage.company.companyID == "") this.newCompany = true; else this.newCompany = false;
 			this.copyIncomingValues(incomingMessage);
 			MBooks_im.getSingleton().activeCompanyStream.resolve(this.createCompany(incomingMessage));
 		} else if(crudType == "C_Update") this.copyIncomingValues(incomingMessage); else if(crudType == "Delete") this.clearFields(incomingMessage); else throw "Invalid crudtype " + crudType;
 	}
 	,chkCompanyExists: function(ev) {
-		console.log("Chk company exists " + ev.keyCode);
 		if(util.Util.isSignificantWS(ev.keyCode)) try {
 			this.read(this.getCompanyID());
 		} catch( err ) {
-			console.log("Error checking company " + Std.string(err));
 		}
 	}
 	,read: function(companyID) {
@@ -4398,11 +4247,9 @@ view.Company.prototype = {
 			var payload = this.getPayload(nickName,"Read","",companyID,"","","");
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error checking company " + Std.string(err));
 		}
 	}
 	,saveCompanyInfo: function(encodedString) {
-		console.log("Saving company info");
 		var companyName = this.getCompanyName();
 		var companyID = this.getCompanyID();
 		var companyMailbox = this.getCompanyMailbox();
@@ -4415,12 +4262,10 @@ view.Company.prototype = {
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,loadImage: function(ev) {
-		console.log("Load image");
 		try {
 			var reader = ev.target;
 			this.saveCompanyInfo(reader.result);
 		} catch( e ) {
-			console.log("Exception " + Std.string(e));
 		}
 	}
 	,getPayload: function(nickName,crudType,companyName,companyID,companyMailbox,companyImage1,updatedBy) {
@@ -4428,12 +4273,10 @@ view.Company.prototype = {
 		return payload;
 	}
 	,selectAllCompanies: function(loggedInMessage) {
-		console.log("Processing select all companies " + loggedInMessage);
 		var payload = { nickName : MBooks_im.getSingleton().getNickName(), commandType : "SelectAllCompanies"};
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,saveButtonPressed: function(ev) {
-		console.log("Save button pressed");
 		var file = this.getCompanyImageElement().files[0];
 		if(file != null) {
 			var reader = new FileReader();
@@ -4443,12 +4286,10 @@ view.Company.prototype = {
 		} else this.saveCompanyInfo(this.getCompanySplashImageString());
 	}
 	,assignCompanyToUser: function(ev) {
-		console.log("Assigning company to a user:" + Std.string(ev));
 		try {
 			var payload = { commandType : "AssignCompany", companyID : ev, userName : MBooks_im.getSingleton().getNickName(), isChatMinder : false, isSupport : false, nickName : MBooks_im.getSingleton().getNickName()};
 			MBooks_im.getSingleton().doSendJSON(payload);
 		} catch( err ) {
-			console.log("Error assigning company " + Std.string(ev));
 		}
 	}
 	,showCompanyForm: function() {
@@ -4508,11 +4349,9 @@ view.CompanyEntitlement = function(view1,companyStream) {
 view.CompanyEntitlement.__name__ = ["view","CompanyEntitlement"];
 view.CompanyEntitlement.prototype = {
 	updateSelf: function(entitlement) {
-		console.log("Updating view " + Std.string(entitlement));
 		if(entitlement.crudType == "Delete") this.entitlementsManager["delete"](entitlement); else this.entitlementsManager.upsert(entitlement);
 	}
 	,handleModelResponse: function(incoming) {
-		console.log("handling model response");
 		if(incoming == null) {
 			MBooks_im.getSingleton().incomingMessageNull("ModelResponse");
 			return;
@@ -4520,17 +4359,14 @@ view.CompanyEntitlement.prototype = {
 		if(incoming.Left != null) MBooks_im.getSingleton().applicationErrorStream.resolve(incoming); else if(incoming.Right != null) this.updateSelf(incoming.Right);
 	}
 	,updateEntitlementList: function(queryEntitlement) {
-		console.log("Update entitlement list element");
 		var _g = 0, _g1 = queryEntitlement.resultSet;
 		while(_g < _g1.length) {
 			var entitlement = _g1[_g];
 			++_g;
-			console.log("Adding element to the list." + Std.string(entitlement));
 			var stream = this.entitlementsManager.add(entitlement);
 		}
 	}
 	,handleQueryEntitlementResponse: function(incoming) {
-		console.log("Query entitlements ");
 		if(incoming == null) {
 			MBooks_im.getSingleton().incomingMessageNull("QueryEntitlement");
 			return;
@@ -4538,17 +4374,14 @@ view.CompanyEntitlement.prototype = {
 		if(incoming.Left != null) MBooks_im.getSingleton().applicationErrorStream.resolve(incoming); else if(incoming.Right != null) this.updateEntitlementList(incoming.Right);
 	}
 	,updateCompanyUsers: function(queryUserResult) {
-		console.log("Update company users list");
 		var _g = 0, _g1 = queryUserResult.users;
 		while(_g < _g1.length) {
 			var user = _g1[_g];
 			++_g;
-			console.log("Adding element to the list." + Std.string(user));
 			var stream = this.userListManager.add(user);
 		}
 	}
 	,handleQueryCompanyUsers: function(incoming) {
-		console.log("Handle query company users " + Std.string(incoming));
 		if(incoming == null) {
 			MBooks_im.getSingleton().incomingMessageNull("QueryEntitlement");
 			return;
@@ -4556,15 +4389,12 @@ view.CompanyEntitlement.prototype = {
 		if(incoming.Left != null) MBooks_im.getSingleton().applicationErrorStream.resolve(incoming); else if(incoming.Right != null) this.updateCompanyUsers(incoming.Right);
 	}
 	,getCompanyUsers: function(aCompanyId) {
-		console.log("Query all company users for " + Std.string(aCompanyId));
 		var queryCompanyUsers = { nickName : MBooks_im.getSingleton().getNickName(), commandType : "QueryCompanyUsers", companyID : aCompanyId, users : new Array()};
 		MBooks_im.getSingleton().doSendJSON(queryCompanyUsers);
 	}
 	,removeUserEntitlementF: function(event) {
-		console.log("Remove user entitlement " + Std.string(event));
 	}
 	,addUserEntitlementF: function(event) {
-		console.log("Add user entitlements " + Std.string(event));
 		var _g = 0, _g1 = this.users;
 		while(_g < _g1.length) {
 			var userE = _g1[_g];
@@ -4575,13 +4405,11 @@ view.CompanyEntitlement.prototype = {
 				var entE = _g3[_g2];
 				++_g2;
 				var ent = entE;
-				console.log("Adding entitlements " + ent.id + " to " + user.id);
 				model.CompanyEntitlement.addUserEntitlement(user.id,ent.id);
 			}
 		}
 	}
 	,initializeStreams: function() {
-		console.log("Adding user entitlement stream");
 		var addUserEntitlementStream = MBooks_im.getSingleton().initializeElementStream(this.addUserEntitlement,"click");
 		addUserEntitlementStream.then($bind(this,this.addUserEntitlementF));
 		var removeUserEntitlementStream = MBooks_im.getSingleton().initializeElementStream(this.removeUserEntitlement,"click");
@@ -4606,10 +4434,8 @@ view.CompanyEntitlement.prototype = {
 		}(this))).then($bind(this,this.handleUserEntitlementSelect));
 	}
 	,handleEntitlementsChange: function(ev) {
-		console.log("Event received " + Std.string(ev));
 	}
 	,handleUserListChange: function(ev) {
-		console.log("Event received " + Std.string(ev));
 	}
 	,handleUserEntitlementSelect: function(userEv,entEv) {
 		var userList = userEv.target;
@@ -4619,20 +4445,17 @@ view.CompanyEntitlement.prototype = {
 			var user = _g1[_g];
 			++_g;
 			var u = user;
-			console.log("User " + u.id + " " + u.text);
 			var _g2 = 0, _g3 = entList.selectedOptions;
 			while(_g2 < _g3.length) {
 				var entE = _g3[_g2];
 				++_g2;
 				var ent = entE;
-				console.log("Ent " + ent.id + " " + ent.text);
 			}
 		}
 	}
 	,__class__: view.CompanyEntitlement
 }
 view.Entitlement = function() {
-	console.log("Creating Entitlement view");
 	this.tabNameElement = js.Browser.document.getElementById(view.Entitlement.TAB_NAME);
 	if(this.tabNameElement == null) throw "Element not found " + view.Entitlement.TAB_NAME;
 	this.tabName = this.tabNameElement.value;
@@ -4689,7 +4512,6 @@ view.Entitlement.prototype = {
 		var optionElement = js.Browser.document.getElementById(id);
 		if(optionElement == null) throw "Nothing to delete " + id;
 		optionElement.parentNode.removeChild(optionElement);
-		console.log("The above code should most likely work");
 		var $it0 = ((function(_e) {
 			return function() {
 				return _e.iterator();
@@ -4707,12 +4529,10 @@ view.Entitlement.prototype = {
 		}
 	}
 	,removeFromList: function(entitlement) {
-		console.log("Removing element from list");
 		var optionElementKey = this.getOptionElementKey(entitlement);
 		this.removeElementFromList(optionElementKey);
 	}
 	,updateList: function(entitlement) {
-		console.log("Adding element to list");
 		var optionElementKey = this.getOptionElementKey(entitlement);
 		var optionElement = js.Browser.document.getElementById(optionElementKey);
 		if(optionElement == null) {
@@ -4731,7 +4551,6 @@ view.Entitlement.prototype = {
 		return entitlement.tabName + "->" + entitlement.sectionName;
 	}
 	,getOptionElementKey: function(entitlement) {
-		console.log("Creating an option element key");
 		var optionElementKey = view.Entitlement.MANAGE_ENTITLEMENTS_COMMAND + entitlement.tabName + entitlement.sectionName;
 		return optionElementKey;
 	}
@@ -4756,7 +4575,6 @@ view.Entitlement.prototype = {
 		this.removeFromList(entitlement);
 	}
 	,updateSelf: function(entitlement) {
-		console.log("Updating view " + Std.string(entitlement));
 		if(entitlement.crudType == "Delete") this.deleteFromView(entitlement); else this.updateIntoView(entitlement);
 	}
 	,updateEntitlementList: function(queryEntitlement) {
@@ -4770,7 +4588,6 @@ view.Entitlement.prototype = {
 		}
 	}
 	,handleModelResponse: function(incoming) {
-		console.log("handling model response");
 		if(incoming == null) {
 			this.incomingMessageNull("ModelResponse");
 			return;
@@ -4794,17 +4611,14 @@ view.Entitlement.prototype = {
 		this.tabName = aTabName;
 	}
 	,deleteEntitlementEvent: function(ev) {
-		console.log("Deleting entitlement ");
 		var change = this.getModelEntitlement("Delete");
 		this.modelStream.resolve(change);
 	}
 	,updateEntitlementEvent: function(ev) {
-		console.log("Update entitlement clicked");
 		var change = this.getModelEntitlement("C_Update");
 		this.modelStream.resolve(change);
 	}
 	,addEntitlementEvent: function(ev) {
-		console.log("Add entitlement clicked");
 		var change = this.getModelEntitlement("Create");
 		this.modelStream.resolve(change);
 	}
@@ -4823,12 +4637,9 @@ view.Entitlement.prototype = {
 	,__class__: view.Entitlement
 }
 view.JQueryTable = function(t) {
-	console.log("Creating table ");
 	this.tableId = t;
 	try {
-		this.test();
 	} catch( err ) {
-		console.log("ERROR" + Std.string(err));
 	}
 };
 view.JQueryTable.__name__ = ["view","JQueryTable"];
@@ -4846,7 +4657,6 @@ view.JQueryTable.prototype = {
 		};
 	}
 	,tableClick: function(ev) {
-		console.log("Event " + Std.string(ev));
 	}
 	,__class__: view.JQueryTable
 }
@@ -4861,7 +4671,6 @@ view.ListManager = function(list,idPrefix,opt,listDisplay) {
 view.ListManager.__name__ = ["view","ListManager"];
 view.ListManager.prototype = {
 	closeStream: function(id) {
-		console.log("Closing stream " + id);
 		var stream = this.streamMap.get(id);
 		if(stream != null) stream.end();
 	}
@@ -4874,7 +4683,6 @@ view.ListManager.prototype = {
 		optionElement.parentNode.removeChild(optionElement);
 	}
 	,clear: function() {
-		console.log("Clearing list elements");
 		var $it0 = ((function(_e) {
 			return function() {
 				return _e.iterator();
@@ -4897,7 +4705,6 @@ view.ListManager.prototype = {
 		this.streamMap = new haxe.ds.StringMap();
 	}
 	,'delete': function(element) {
-		console.log("Deleting element " + Std.string(element));
 		var key = this.key(element);
 		var model = this.modelMap.get(key);
 		this.modelMap.remove(key);
@@ -4919,10 +4726,8 @@ view.ListManager.prototype = {
 		}
 	}
 	,add: function(element) {
-		console.log("Adding element " + Std.string(element));
 		var optionElement = js.Browser.document.getElementById(this.key(element));
 		if(optionElement == null) {
-			console.log("Element not found creating a new option");
 			optionElement = js.Browser.document.createElement("option");
 			optionElement.id = this.key(element);
 			optionElement.text = this.listDisplay(element);
@@ -4944,7 +4749,6 @@ view.ListManager.prototype = {
 	,__class__: view.ListManager
 }
 view.OptionAnalyticsTable = function(optionType,optionColumnHeaders,symbol) {
-	console.log("Creating option analytics table " + optionType + " for  " + symbol);
 	this.optionType = optionType;
 	this.tableHeaders = optionColumnHeaders;
 	this.currentSymbol = symbol;
@@ -4964,7 +4768,6 @@ view.OptionAnalyticsTable.prototype = {
 		}
 	}
 	,insertCells: function(aRow,payload) {
-		console.log("Inserting cells " + Std.string(payload));
 		var newCell = aRow.insertCell(0);
 		newCell.innerHTML = payload.optionChain.symbol;
 		newCell = aRow.insertCell(1);
@@ -4981,7 +4784,6 @@ view.OptionAnalyticsTable.prototype = {
 		newCell.innerHTML = "" + payload.price;
 	}
 	,updateRow: function(aRow,payload) {
-		console.log("Inserting cells for " + Std.string(payload));
 		var key = this.key(payload);
 		var optionAnalytics = this.optionAnalyticsMap.get(key);
 		if(optionAnalytics == null) {
@@ -4996,13 +4798,11 @@ view.OptionAnalyticsTable.prototype = {
 		}
 	}
 	,clear: function() {
-		console.log("Clearing the table " + Std.string(this));
 		var startIndex = 1;
 		var tableRows = this.getTable().rows;
 		while(tableRows.length > 1) this.getTable().deleteRow(1);
 	}
 	,draw: function() {
-		console.log("Draw the table");
 		var sortedValues = this.sort(this.values(),$bind(this,this.sortByBidRatio));
 		var startIndex = 1;
 		var _g = 0;
@@ -5018,7 +4818,6 @@ view.OptionAnalyticsTable.prototype = {
 		var error = a.bidRatio - b.bidRatio;
 		if(this.abs(error) < 0.00000001) return 0;
 		if(error <= 0) return -1; else if(error > 0) return 1;
-		console.log("Should never happen");
 		return 0;
 	}
 	,abs: function(a) {
@@ -5026,7 +4825,6 @@ view.OptionAnalyticsTable.prototype = {
 		return a;
 	}
 	,sort: function(optionAnalytics,sortFunction) {
-		console.log("Sort the rows");
 		optionAnalytics.sort(sortFunction);
 		return optionAnalytics;
 	}
@@ -5040,26 +4838,15 @@ view.OptionAnalyticsTable.prototype = {
 		return elems;
 	}
 	,updateOptionAnalytics: function(payload) {
-		console.log("Processing update option analytics element " + Std.string(payload));
-		if(this.currentSymbol == "") {
-			console.log("Ignoring this after clear " + Std.string(payload));
-			return;
-		}
-		if(payload.optionType != this.optionType) {
-			console.log("Ignoring this option type " + Std.string(payload));
-			return;
-		}
-		if(payload.optionChain.underlying != this.currentSymbol) {
-			console.log("Ignoring this symbol " + Std.string(payload));
-			return;
-		}
+		if(this.currentSymbol == "") return;
+		if(payload.optionType != this.optionType) return;
+		if(payload.optionChain.underlying != this.currentSymbol) return;
 		var key = this.key(payload);
 		var row = this.optionAnalyticsMap.get(key);
 		if(row == null) {
 			row = this.getTable().insertRow(1);
 			this.insertCells(row,payload);
 		} else {
-			console.log("Clear the table and resort the elements.");
 			this.sort(this.values(),$bind(this,this.sortByBidRatio));
 			this.clear();
 			this.draw();
@@ -5091,7 +4878,6 @@ view.OptionAnalyticsView = function() {
 view.OptionAnalyticsView.__name__ = ["view","OptionAnalyticsView"];
 view.OptionAnalyticsView.prototype = {
 	populateOptionAnalyticsTables: function(ev) {
-		console.log("Creating puts and calls for the table " + this.getUnderlying().value);
 		this.callTable = new view.OptionAnalyticsTable("call",this.getOptionCallHeaders(),this.getUnderlying().value);
 		this.putTable = new view.OptionAnalyticsTable("put",this.getOptionPutHeaders(),this.getUnderlying().value);
 		MBooks_im.getSingleton().optionAnalyticsStream.then(($_=this.callTable,$bind($_,$_.updateOptionAnalytics)));
@@ -5134,7 +4920,6 @@ view.OptionAnalyticsView.prototype = {
 	,__class__: view.OptionAnalyticsView
 }
 view.Portfolio = function() {
-	console.log("Creating new portfolio view");
 	this.activePortfolioStream = new promhx.Deferred();
 	this.setupEvents();
 	this.activePortfolioStream.then($bind(this,this.updateActivePortfolio));
@@ -5156,19 +4941,18 @@ view.Portfolio.prototype = {
 		this.setPortfolioSummary("");
 	}
 	,deletePortfolioEntry: function(deleteMe) {
-		console.log("Deleting portfolio " + Std.string(deleteMe));
 		var optionElement = js.Browser.document.getElementById(deleteMe.portfolioId);
 		if(optionElement != null) {
 			this.getPortfolioList().removeChild(optionElement);
 			this.clearValues();
-		} else console.log("Nothing to delete");
+		} else {
+		}
 	}
 	,updatePortfolioEntry: function(update) {
 		var optionElement = js.Browser.document.getElementById(update.portfolioId);
 		if(optionElement != null) optionElement.selected = true; else throw "Option element for portfolio Id not found " + Std.string(update);
 	}
 	,portfolioListChanged: function(event) {
-		console.log("Portfolio list changed " + Std.string(event));
 		var portfolioList = event.target;
 		var _g = 0, _g1 = portfolioList.selectedOptions;
 		while(_g < _g1.length) {
@@ -5176,23 +4960,17 @@ view.Portfolio.prototype = {
 			++_g;
 			var pOption = portfolio;
 			if(pOption.text == "--Choose--") this.activePortfolio = null; else this.readPortfolio(pOption.id);
-			console.log("Handling " + pOption.id + "->" + pOption.text);
 		}
 	}
 	,getPortfoliosForUser: function() {
-		if(this.activeCompany == null) {
-			console.log("No company selected");
-			return;
-		}
+		if(this.activeCompany == null) return;
 		var portfolioQuery = { commandType : "QueryPortfolios", nickName : MBooks_im.getSingleton().getNickName(), companyId : this.activeCompany.companyId, userId : MBooks_im.getSingleton().getNickName(), resultSet : []};
-		console.log("Sending " + Std.string(portfolioQuery));
 		MBooks_im.getSingleton().doSendJSON(portfolioQuery);
 	}
 	,copyIncomingValues: function(input) {
 		this.setPortfolioSummary(input.summary);
 	}
 	,processManagePortfolio: function(incomingMessage) {
-		console.log("Incoming message manage portfolio " + Std.string(incomingMessage));
 		if(incomingMessage.Right != null) {
 			this.updatePortfolioList(incomingMessage.Right);
 			this.copyIncomingValues(incomingMessage.Right);
@@ -5201,7 +4979,6 @@ view.Portfolio.prototype = {
 		} else if(incomingMessage.Left != null) MBooks_im.getSingleton().applicationErrorStream.resolve(incomingMessage.Left);
 	}
 	,processPortfolioList: function(incomingPayload) {
-		console.log("Processing portfolio list " + Std.string(incomingPayload));
 		var results = incomingPayload.resultSet;
 		var _g = 0;
 		while(_g < results.length) {
@@ -5252,22 +5029,16 @@ view.Portfolio.prototype = {
 		MBooks_im.getSingleton().doSendJSON(portfolioT);
 	}
 	,updatePortfolio: function(ev) {
-		console.log("Update portfolio " + Std.string(ev));
-		if(this.activePortfolio == null) console.log("Selected portfolio null. Not updating"); else this.updatePortfolioI();
-	}
-	,savePortfolio: function(ev) {
-		console.log("Saving portfolio " + Std.string(ev));
 		if(this.activePortfolio == null) {
-			console.log("Inserting as no active portfolio selected");
-			this.insertPortfolioI();
 		} else this.updatePortfolioI();
 	}
+	,savePortfolio: function(ev) {
+		if(this.activePortfolio == null) this.insertPortfolioI(); else this.updatePortfolioI();
+	}
 	,deletePortfolio: function(ev) {
-		console.log("Delete portfolio " + Std.string(ev));
 		this.deletePortfolioI();
 	}
 	,processActiveCompany: function(selected) {
-		console.log("Company selected for portfolio processing " + Std.string(selected));
 		this.activeCompany = selected;
 		this.getPortfoliosForUser();
 	}
@@ -5275,7 +5046,6 @@ view.Portfolio.prototype = {
 		this.activePortfolio = p;
 	}
 	,setupEvents: function() {
-		console.log("Setting up ui events");
 		var saveP = MBooks_im.getSingleton().initializeElementStream(this.getSavePortfolioButton(),"click");
 		saveP.then($bind(this,this.savePortfolio));
 		var updateP = MBooks_im.getSingleton().initializeElementStream(this.getUpdatePortfolioButton(),"click");
@@ -5292,22 +5062,20 @@ view.Portfolio.prototype = {
 	,__class__: view.Portfolio
 }
 view.PortfolioSymbol = function(m) {
-	console.log("Instantiating new portfolio symbol view");
 	this.model = m;
 	this.rowMap = new haxe.ds.StringMap();
+	this.portfolioMap = new haxe.ds.StringMap();
 	this.setupStreams();
-	this.jqTable = new view.JQueryTable(view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE_JQ);
 };
 view.PortfolioSymbol.__name__ = ["view","PortfolioSymbol"];
 view.PortfolioSymbol.prototype = {
-	updateMarketData: function(incomingMessage) {
-		console.log("Inside update market data response " + Std.string(incomingMessage));
+	updateHistoricalPrice: function(incomingMessage) {
+	}
+	,updateMarketData: function(incomingMessage) {
 	}
 	,handleQueryResponse: function(incomingMessage) {
-		console.log("Processing symbol query response " + Std.string(incomingMessage));
 		if(incomingMessage.Left != null) MBooks_im.getSingleton().applicationErrorStream.resolve(incomingMessage); else {
 			if(incomingMessage.Right.resultSet == null) {
-				console.log("Result set is not defined??");
 				MBooks_im.getSingleton().applicationErrorStream.resolve(incomingMessage);
 				return;
 			}
@@ -5321,7 +5089,6 @@ view.PortfolioSymbol.prototype = {
 		}
 	}
 	,manage: function(incomingMessage1) {
-		console.log("Manage portfolio symbol " + Std.string(incomingMessage1));
 		if(incomingMessage1.Right != null) {
 			var incomingMessage = incomingMessage1.Right;
 			if(incomingMessage.crudType == "Create") this.insertStreamResponse.resolve(incomingMessage); else if(incomingMessage.crudType == "P_Update") this.updateStreamResponse.resolve(incomingMessage); else if(incomingMessage.crudType == "Read") this.readStreamResponse.resolve(incomingMessage); else if(incomingMessage.crudType == "Delete") this.deleteStreamResponse.resolve(incomingMessage); else throw "Undefined crud type " + Std.string(incomingMessage);
@@ -5338,17 +5105,11 @@ view.PortfolioSymbol.prototype = {
 		return js.Browser.document.getElementById(view.PortfolioSymbol.SYMBOL_SIDE_LIST);
 	}
 	,handleSymbolTypeSelected: function(ev) {
-		console.log("handle symbol type selected " + Std.string(ev));
 	}
 	,handleSymbolSideSelected: function(ev) {
-		console.log("handle symbol side selected " + Std.string(ev));
 	}
 	,updateTypesStream: function(symbolType) {
-		console.log("Resolving symbol type " + Std.string(symbolType));
-		if(symbolType == null) {
-			console.log("Invalid symbol type ");
-			return;
-		}
+		if(symbolType == null) return;
 		var symbolTypeList = this.getSymbolTypeList();
 		var optionId = view.PortfolioSymbol.SYMBOL_TYPE_LIST + symbolType.symbolType;
 		var optionElement = js.Browser.document.getElementById(optionId);
@@ -5362,11 +5123,7 @@ view.PortfolioSymbol.prototype = {
 		}
 	}
 	,updateSidesStream: function(symbolSide) {
-		console.log("Resolving symbol side " + Std.string(symbolSide));
-		if(symbolSide == null) {
-			console.log("Invalid symbol side ");
-			return;
-		}
+		if(symbolSide == null) return;
 		var symbolSideList = this.getSymbolSideList();
 		var optionId = view.PortfolioSymbol.SYMBOL_SIDE_LIST + "_" + symbolSide.symbolSide;
 		var optionElement = js.Browser.document.getElementById(optionId);
@@ -5384,24 +5141,18 @@ view.PortfolioSymbol.prototype = {
 		this.model.readStream.resolve(portfolioSymbolT);
 	}
 	,deletePortfolioSymbol: function(ev) {
-		console.log("Delete portfolio symbol " + Std.string(ev));
 		var portfolioSymbolT = { crudType : "Delete", commandType : "ManagePortfolioSymbol", portfolioId : this.getPortfolioId(), symbol : this.getSymbolIdValue(), quantity : this.getQuantityValue(), side : this.getSymbolSideValue(), symbolType : this.getSymbolTypeValue(), value : "0.0", stressValue : "0.0", creator : MBooks_im.getSingleton().getNickName(), updator : MBooks_im.getSingleton().getNickName(), nickName : MBooks_im.getSingleton().getNickName()};
 		this.model.deleteStream.resolve(portfolioSymbolT);
 	}
 	,updatePortfolioSymbol: function(ev) {
-		console.log("Update portfolio symbol " + Std.string(ev));
 		var portfolioSymbolT = { crudType : "P_Update", commandType : "ManagePortfolioSymbol", portfolioId : this.getPortfolioId(), symbol : this.getSymbolIdValue(), quantity : this.getQuantityValue(), side : this.getSymbolSideValue(), symbolType : this.getSymbolTypeValue(), value : "0.0", stressValue : "0.0", creator : MBooks_im.getSingleton().getNickName(), updator : MBooks_im.getSingleton().getNickName(), nickName : MBooks_im.getSingleton().getNickName()};
 		this.model.updateStream.resolve(portfolioSymbolT);
 	}
 	,insertPortfolioSymbol: function(ev) {
-		console.log("Insert portfolio symbol " + Std.string(ev));
-		console.log("Symbol side " + this.getSymbolSideValue());
-		console.log("Symbol type " + this.getSymbolTypeValue());
 		var portfolioSymbolT = { crudType : "Create", commandType : "ManagePortfolioSymbol", portfolioId : this.getPortfolioId(), symbol : this.getSymbolIdValue(), quantity : this.getQuantityValue(), side : this.getSymbolSideValue(), symbolType : this.getSymbolTypeValue(), value : "0.0", stressValue : "0.0", creator : MBooks_im.getSingleton().getNickName(), updator : MBooks_im.getSingleton().getNickName(), nickName : MBooks_im.getSingleton().getNickName()};
 		this.model.insertStream.resolve(portfolioSymbolT);
 	}
 	,insertPortfolioSymbolI: function(aSymbol,aSymbolType,aSide,quantity) {
-		console.log("Inserting portfolio symbol through upload ");
 		var portfolioSymbolT = { crudType : "Create", commandType : "ManagePortfolioSymbol", portfolioId : this.getPortfolioId(), symbol : aSymbol, quantity : quantity, side : aSide, symbolType : aSymbolType, value : "0.0", stressValue : "0.0", creator : MBooks_im.getSingleton().getNickName(), updator : MBooks_im.getSingleton().getNickName(), nickName : MBooks_im.getSingleton().getNickName()};
 		this.model.insertStream.resolve(portfolioSymbolT);
 	}
@@ -5410,27 +5161,31 @@ view.PortfolioSymbol.prototype = {
 		return this.model.activePortfolio.portfolioId;
 	}
 	,readResponse: function(payload) {
-		console.log("Reading view " + Std.string(payload));
 		throw "Read response Not implemented";
 	}
+	,deleteChart: function(payload) {
+	}
 	,deleteResponse: function(payload) {
-		console.log("Deleting view " + Std.string(payload));
 		this.deleteTableRowMap(payload);
 	}
+	,updateChart: function(payload) {
+	}
 	,updateResponse: function(payload) {
-		console.log("Updating view " + Std.string(payload));
 		this.updateTableRowMap(payload);
 	}
 	,insertResponse: function(payload) {
-		console.log("Inserting view " + Std.string(payload));
 		this.updateTableRowMap(payload);
 	}
+	,sendHistoricalQuery: function(payload) {
+		var query = "select historical for " + payload.symbol + ";";
+		var payload1 = { commandType : view.PortfolioSymbol.QUERY_MARKET_DATA, nickName : MBooks_im.getSingleton().getNickName(), symbol : query, portfolioId : payload.portfolioId, resultSet : []};
+		MBooks_im.getSingleton().doSendJSON(payload1);
+	}
+	,createChart: function(payload) {
+		this.sendHistoricalQuery(payload);
+	}
 	,insertCells: function(aRow,payload) {
-		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId) {
-			console.log("Throwing away payload " + Std.string(payload));
-			return;
-		}
-		console.log("Inserting cells from payload " + Std.string(payload));
+		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId) return;
 		var newCell = aRow.insertCell(0);
 		newCell.innerHTML = payload.symbol;
 		newCell = aRow.insertCell(1);
@@ -5449,19 +5204,14 @@ view.PortfolioSymbol.prototype = {
 	,updateTableRowMap: function(payload) {
 		var key = this.getKey(payload);
 		var row = this.rowMap.get(key);
-		if(MBooks_im.getSingleton().portfolio.activePortfolio == null) {
-			console.log("Throwing message" + Std.string(payload));
-			return;
-		}
-		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId) {
-			console.log("Throwing message " + Std.string(payload));
-			return;
-		}
+		if(MBooks_im.getSingleton().portfolio.activePortfolio == null) return;
+		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId) return;
 		if(row == null) {
 			var pSymbolTable = this.getPortfolioSymbolTable();
 			row = pSymbolTable.insertRow(this.computeInsertIndex());
 			this.rowMap.set(key,row);
 			this.insertCells(row,payload);
+			this.insertStreamResponse.resolve(payload);
 		} else {
 			var cells = row.children;
 			var _g = 0;
@@ -5470,6 +5220,7 @@ view.PortfolioSymbol.prototype = {
 				++_g;
 				var cellI = cell;
 				var cellIndex = cellI.cellIndex;
+				this.updateStreamResponse.resolve(payload);
 				switch(cellIndex) {
 				case 0:
 					cellI.innerHTML = payload.symbol;
@@ -5497,24 +5248,17 @@ view.PortfolioSymbol.prototype = {
 		}
 	}
 	,deleteTableRowMap: function(payload) {
-		console.log("Deleting table row map " + Std.string(payload));
 		var key = this.getKey(payload);
-		console.log("Deleting key " + key);
-		if(!this.rowMap.exists(key)) {
-			console.log("Nothing to delete " + Std.string(payload));
-			return;
-		}
+		if(!this.rowMap.exists(key)) return;
 		var row = this.rowMap.get(key);
 		this.rowMap.remove(key);
 		var pSymbolTable = this.getPortfolioSymbolTable();
 		pSymbolTable.deleteRow(row.rowIndex);
 	}
 	,processActivePortfolio: function(a) {
-		console.log("Deleting all the existing rows as active portfolio changed " + Std.string(a));
 		var $it0 = this.rowMap.keys();
 		while( $it0.hasNext() ) {
 			var key = $it0.next();
-			console.log("Deleting key " + key);
 			var row = this.rowMap.get(key);
 			var pSymbolTable = this.getPortfolioSymbolTable();
 			pSymbolTable.deleteRow(row.rowIndex);
@@ -5529,18 +5273,13 @@ view.PortfolioSymbol.prototype = {
 		return 1;
 	}
 	,processFileUpload: function(ev) {
-		console.log("Processing file upload ");
 		try {
 			var reader = ev.target;
-			console.log("Reading");
 			this.parsePortfolioDetails(reader.result);
-			console.log("Read");
 		} catch( e ) {
-			console.log("Exception " + Std.string(e));
 		}
 	}
 	,parsePortfolioDetails: function(fileContents) {
-		console.log("Parsing portfolio details");
 		var portfolioDetails = format.csv.Reader.parseCsv(fileContents);
 		var headerRead = false;
 		var _g = 0;
@@ -5549,13 +5288,14 @@ view.PortfolioSymbol.prototype = {
 			++_g;
 			var a = aRecord;
 			if(a.length == 4) {
-				if(headerRead == true) this.insertPortfolioSymbolI(StringTools.trim(a[0]),StringTools.trim(a[1]),StringTools.trim(a[2]),StringTools.trim(a[3])); else console.log("Skipping " + Std.string(aRecord));
-			} else console.log("Invalid record length " + Std.string(aRecord));
+				if(headerRead == true) this.insertPortfolioSymbolI(StringTools.trim(a[0]),StringTools.trim(a[1]),StringTools.trim(a[2]),StringTools.trim(a[3])); else {
+				}
+			} else {
+			}
 			headerRead = true;
 		}
 	}
 	,uploadPortfolio: function(ev) {
-		console.log("Save button pressed");
 		var files = this.getUploadPortfolioFile().files;
 		var _g = 0;
 		while(_g < files.length) {
@@ -5583,11 +5323,15 @@ view.PortfolioSymbol.prototype = {
 		this.insertStreamResponse.then($bind(this,this.insertResponse));
 		this.updateStreamResponse.then($bind(this,this.updateResponse));
 		this.deleteStreamResponse.then($bind(this,this.deleteResponse));
+		this.insertStreamResponse.then($bind(this,this.createChart));
+		this.updateStreamResponse.then($bind(this,this.updateChart));
+		this.deleteStreamResponse.then($bind(this,this.deleteChart));
 		this.readStreamResponse.then($bind(this,this.readResponse));
 		this.symbolQueryResponse = new promhx.Deferred();
 		this.symbolQueryResponse.then($bind(this,this.handleQueryResponse));
 		MBooks_im.getSingleton().marketDataStream.then($bind(this,this.updateMarketData));
 		MBooks_im.getSingleton().portfolio.activePortfolioStream.then($bind(this,this.processActivePortfolio));
+		MBooks_im.getSingleton().historicalPriceStream.then($bind(this,this.updateHistoricalPrice));
 		var uploadPortfolioButtonStream = MBooks_im.getSingleton().initializeElementStream(this.getUploadPortfolioButton(),"click");
 		uploadPortfolioButtonStream.then($bind(this,this.uploadPortfolio));
 	}
@@ -5601,10 +5345,7 @@ view.PortfolioSymbol.prototype = {
 	}
 	,getSelectedOptionElement: function(inputList,multiSelect) {
 		var selectedOptions = inputList.selectedOptions;
-		if(multiSelect) {
-			console.log("Multiple selection true. What can we do here?");
-			throw "Multiple selection list not supported for this method";
-		} else {
+		if(multiSelect) throw "Multiple selection list not supported for this method"; else {
 			var optionElement = selectedOptions.item(0);
 			return optionElement.text;
 		}
@@ -5652,6 +5393,95 @@ view.PortfolioSymbol.prototype = {
 		return js.Browser.document.getElementById(view.PortfolioSymbol.UPLOAD_PORTFOLIO_FILE);
 	}
 	,__class__: view.PortfolioSymbol
+}
+view.SymbolChart = function(historicalPriceStream) {
+	historicalPriceStream.then($bind(this,this.createUpdateChart));
+};
+view.SymbolChart.__name__ = ["view","SymbolChart"];
+view.SymbolChart.prototype = {
+	draw: function() {
+		var data = { labels : ["January","February","March","April","May","June","July"], datasets : [{ label : "My First dataset", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : [65,59,80,81,56,55,40]},{ label : "My Second dataset", fillColor : "rgba(151,187,205,0.2)", strokeColor : "rgba(151,187,205,1)", pointColor : "rgba(151,187,205,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(151,187,205,1)", data : [28,48,40,19,86,27,90]}]};
+		var canvas = js.Browser.document.createElement("canvas");
+		js.Browser.document.body.appendChild(canvas);
+		Chart.defaults.global.responsive = true;
+		var ctx = canvas.getContext("2d");
+		var lineChart = new Chart(ctx).Line(data);
+		canvas.onclick = function(evt) {
+			lineChart.addData([Math.random() * 100,Math.random() * 100],"test");
+			lineChart.update();
+		};
+	}
+	,deleteChart: function(historicalPrice) {
+		var key = this.getKey(historicalPrice);
+		var canvasElement = js.Browser.document.getElementById(key);
+	}
+	,updateChartData: function(data) {
+	}
+	,createCanvasElement: function(historicalPrice) {
+		var key = this.getKey(historicalPrice);
+		var canvasElement = js.Browser.document.getElementById(key);
+		if(canvasElement == null) {
+			canvasElement = js.Browser.document.createElement("canvas");
+			canvasElement.id = key;
+			Chart.defaults.global.responsive = false;
+			var ctx = canvasElement.getContext("2d");
+			var dataSet = this.getData(historicalPrice);
+			var lineChart = null;
+			try {
+				var chart1 = new Chart(ctx);
+				console.log("Chart object " + Std.string(chart1));
+				lineChart = chart1.Line(dataSet);
+			} catch( e ) {
+				console.log("Error creating line chart " + Std.string(e));
+			}
+			var element = this.getPortfolioCharts();
+			if(element != null) element.appendChild(canvasElement); else console.log("Unable to add element " + Std.string(element));
+		} else {
+			var ctx = canvasElement.getContext("2d");
+			this.updateChartData(this.getData(historicalPrice));
+		}
+	}
+	,getData: function(historicalPrice) {
+		var labelsA = new Array();
+		var dataA = new Array();
+		var resultSet = historicalPrice.resultSet;
+		var count = 0;
+		var _g = 0;
+		while(_g < resultSet.length) {
+			var i = resultSet[_g];
+			++_g;
+			labelsA.push("" + count);
+			dataA.push(i.close);
+			count = count + 1;
+		}
+		var dataSet = { labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
+		return dataSet;
+	}
+	,createUpdateChart: function(historicalPrice) {
+		console.log("Creating chart for historical price" + Std.string(historicalPrice));
+		if(historicalPrice.Right != null) {
+			if(historicalPrice.Right.query != null) {
+				var i = historicalPrice.Right.query;
+				var _g = 0;
+				while(_g < i.length) {
+					var q = i[_g];
+					++_g;
+					try {
+						this.createCanvasElement(q);
+					} catch( e ) {
+						console.log("Error adding canvas element " + Std.string(e));
+					}
+				}
+			}
+		}
+	}
+	,getKey: function(historicalPrice) {
+		return Std.string(historicalPrice.portfolioId) + "_" + Std.string(historicalPrice.symbol);
+	}
+	,getPortfolioCharts: function() {
+		return js.Browser.document.getElementById(view.SymbolChart.PORTFOLIO_CHARTS);
+	}
+	,__class__: view.SymbolChart
 }
 function $iterator(o) { if( o instanceof Array ) return function() { return HxOverrides.iter(o); }; return typeof(o.iterator) == 'function' ? $bind(o,o.iterator) : o.iterator; };
 var $_, $fid = 0;
@@ -6028,6 +5858,8 @@ view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE = "portfolioSymbolTable";
 view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE_JQ = "portfolioSymbolTableJQ";
 view.PortfolioSymbol.UPLOAD_PORTFOLIO_FILE = "uploadPortfolioFile";
 view.PortfolioSymbol.UPLOAD_PORTFOLIO_BUTTON = "uploadPortfolioButton";
+view.PortfolioSymbol.QUERY_MARKET_DATA = "QueryMarketData";
+view.SymbolChart.PORTFOLIO_CHARTS = "portfolioCharts";
 MBooks_im.main();
 function $hxExpose(src, path) {
 	var o = typeof window != "undefined" ? window : exports;

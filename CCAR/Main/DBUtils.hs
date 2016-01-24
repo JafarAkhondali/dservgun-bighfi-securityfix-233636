@@ -563,7 +563,7 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             symbol EquitySymbolId 
             marketIndex EquityIndexId 
             deriving Show Eq 
-        HistoricalPrice  json -- TODO: Rename to HistoricalPrice 
+        HistoricalPrice  json
             symbol Text
             date UTCTime default=CURRENT_TIMESTAMP
             open Double default=0.0
@@ -574,7 +574,7 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             lastUpdateTime UTCTime default=CURRENT_TIMESTAMP
             dataProvider MarketDataProviderId 
             MarketDataIdentifier symbol date
-            deriving Show Eq Ord
+            deriving Show Eq
 
         TimeAndSales json 
             marketDataProvider MarketDataProviderId

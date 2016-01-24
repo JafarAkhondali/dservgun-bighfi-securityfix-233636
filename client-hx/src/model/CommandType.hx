@@ -40,4 +40,5 @@ enum CommandType {
 	QueryEntitlements;
 	QueryCompanyUsers;
 	OptionAnalytics;
+	QueryMarketData;
 }

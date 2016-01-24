@@ -67,11 +67,11 @@ class ListManager<T> {
 	//for the element. We need to add 
 	//methods to merge streams for the selecction event.
 	public function add(element : T ) : Stream<Dynamic>{
-		trace("Adding element " + element);
+		//trace("Adding element " + element);
 		var optionElement : OptionElement 
 			= cast (Browser.document.getElementById(key(element)));
 		if(optionElement == null) {
-			trace("Element not found creating a new option");
+			//trace("Element not found creating a new option");
 			optionElement = cast (Browser.document.createOptionElement());
 			optionElement.id = key(element);
 			optionElement.text = listDisplay(element);
@@ -107,7 +107,7 @@ class ListManager<T> {
 		}
 	}
 	public function delete(element : T ) {
-		trace("Deleting element " + element);
+		//trace("Deleting element " + element);
 		var key : String = key(element);
 		var model : T = modelMap.get(key);
 		modelMap.remove(key);
@@ -117,7 +117,7 @@ class ListManager<T> {
 		streamMap.remove(key);
 	}
 	public function clear(){
-		trace("Clearing list elements");
+		//trace("Clearing list elements");
 		try {
 			for (entry in modelMap) {
 				removeFromList(key(entry));
@@ -140,7 +140,7 @@ class ListManager<T> {
 		optionElement.parentNode.removeChild(optionElement);
 	}
 	private function closeStream(id : String){
-		trace("Closing stream " + id);
+		//trace("Closing stream " + id);
 		var stream : Stream<Dynamic	> = streamMap.get(id);
 		if(stream != null){
 			stream.end();

@@ -94,22 +94,22 @@ class CompanyEntitlement {
 		
 		for(user in userList.selectedOptions) {
 			var u : OptionElement = cast user;
-			trace("User " + u.id + " " + u.text);
+			//trace("User " + u.id + " " + u.text);
 			for(entE in entList.selectedOptions) {
 				var ent : OptionElement = cast entE;
-				trace("Ent " + ent.id + " " + ent.text);
+				//trace("Ent " + ent.id + " " + ent.text);
 			}
 		}
 	}
 	private function handleUserListChange(ev : Dynamic){
-		trace("Event received " + ev);
+		//trace("Event received " + ev);
 	}
 	private function handleEntitlementsChange(ev : Dynamic){
-		trace("Event received " + ev);
+		//trace("Event received " + ev);
 
 	}
 	public function initializeStreams(){
-		trace("Adding user entitlement stream");
+		//trace("Adding user entitlement stream");
 		var addUserEntitlementStream : Stream<Dynamic> =
 				MBooks_im.getSingleton().initializeElementStream(
 					cast addUserEntitlement
@@ -134,21 +134,21 @@ class CompanyEntitlement {
 	}
 
 	private function addUserEntitlementF(event : Dynamic) {
-		trace("Add user entitlements " + event);
+		//trace("Add user entitlements " + event);
 		for (userE in users) {
 			var user : OptionElement = cast userE;
 			for(entE in userEntitlementsList){
 				var ent : OptionElement = cast entE;
-				trace("Adding entitlements " + ent.id  + " to " + user.id);
+				//trace("Adding entitlements " + ent.id  + " to " + user.id);
 				model.CompanyEntitlement.addUserEntitlement(user.id, ent.id);
 			}
 		}		
 	}
 	private function removeUserEntitlementF(event : Dynamic){
-		trace("Remove user entitlement " + event);
+		//trace("Remove user entitlement " + event);
 	}
 	private function getCompanyUsers(aCompanyId : Dynamic) {
-		trace("Query all company users for " + aCompanyId);
+		//trace("Query all company users for " + aCompanyId);
 		var queryCompanyUsers : QueryCompanyUsers = {
 			nickName : MBooks_im.getSingleton().getNickName()
 			, commandType : "QueryCompanyUsers"
@@ -160,7 +160,7 @@ class CompanyEntitlement {
 	}
 
 	private function handleQueryCompanyUsers(incoming : Dynamic){
-		trace("Handle query company users " + incoming);
+		//trace("Handle query company users " + incoming);
 		if(incoming == null){
 			MBooks_im.getSingleton().incomingMessageNull("QueryEntitlement");
 			return;
@@ -172,9 +172,9 @@ class CompanyEntitlement {
 	}
 
 	private function updateCompanyUsers(queryUserResult : model.QueryCompanyUsers){
-		trace("Update company users list");
+		//trace("Update company users list");
 		for(user in queryUserResult.users){
-			trace("Adding element to the list." + user);
+			//trace("Adding element to the list." + user);
 			var stream = userListManager.add(user);
 		}
 
@@ -182,7 +182,7 @@ class CompanyEntitlement {
 
 
 	private function handleQueryEntitlementResponse(incoming : Dynamic){
-		trace("Query entitlements ");
+		//trace("Query entitlements ");
 		if(incoming == null){
 			MBooks_im.getSingleton().incomingMessageNull("QueryEntitlement");
 			return;
@@ -195,15 +195,15 @@ class CompanyEntitlement {
 
 
 	private function updateEntitlementList(queryEntitlement : model.QueryEntitlement) {
-		trace("Update entitlement list element");
+		//trace("Update entitlement list element");
 		for(entitlement in queryEntitlement.resultSet){
-			trace("Adding element to the list." + entitlement);			
+			//trace("Adding element to the list." + entitlement);			
 			var stream = entitlementsManager.add(entitlement);
 		}
 	}
 
 	private function handleModelResponse(incoming : Dynamic) {
-		trace("handling model response");
+		//trace("handling model response");
 		if(incoming == null){
 			MBooks_im.getSingleton().incomingMessageNull("ModelResponse");
 			return;
@@ -216,7 +216,7 @@ class CompanyEntitlement {
 	}
 
 	private function updateSelf(entitlement : model.EntitlementT){
-		trace("Updating view " +  entitlement);
+		//trace("Updating view " +  entitlement);
 		//If the crud type is Delete, then remove the element
 		//from the list. Pick the next element,
 		//replace the values with the values in that element.

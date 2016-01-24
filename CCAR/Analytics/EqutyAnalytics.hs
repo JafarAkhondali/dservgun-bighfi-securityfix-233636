@@ -1,5 +1,6 @@
 module CCAR.Analytics.EquityAnalytics
-	(EquityAnalyticsServer(..))
+	(change
+	, testChange)
  where
 
 import 							Data.Bits
@@ -23,11 +24,27 @@ import							CCAR.Data.MarketDataAPI as MarketDataAPI
 														(queryMarketData
 														, queryOptionMarketData
 														, MarketDataServer(..))
-
-
+import							Control.Monad.State as State
+import 							Data.Time
+import							Data.Functor.Identity as Identity
 iModuleName  = "CCAR.Analytics.EquityAnalytics"
 
-{-- Beta is computed as a correlation between a pair of symbols for a 
+{-- Beta is computed as a magnitude of the change, it is roughly defined as follows
+	y = a + bx 
+	where a = alpha
+	and b = beta. The equation is statistically computed with an error or 
+	unexplained returns.
 	time interval. --}
 beta :: (EquitySymbol, EquitySymbol, UTCTime, UTCTime) -> Double
-beta symbol baseline start end = 0.0
+beta = undefined
+
+
+change :: [Int] -> State Int Int
+change [] = do 
+	test <- State.get 
+	return test
+change (x:xs) = do
+	test <- State.get 
+	put $ test + x
+	change xs
+testChange = undefined

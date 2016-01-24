@@ -89,7 +89,7 @@ import Network.HTTP.Conduit
 import Network.HTTP.Types as W 
 import GHC.Conc(labelThread)
 import Debug.Trace(traceEventIO)
-
+import CCAR.Analytics.MarketDataLanguage(evalMDL)
 
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
@@ -334,6 +334,19 @@ processCommandValue app nickName aValue@(Object a)   = do
                             >>= \(gc, either) -> 
                                 return (gc, Util.serialize 
                                         (either :: Either ApplicationError CCAR.CCARUpload)) 
+                String "QueryMarketData" -> do 
+                        y <- runMaybeT $ do 
+                            s1  <- return $ LH.lookup "symbol" a
+                            pid <- return $ LH.lookup "portfolioId" a 
+                            case (s1, pid) of 
+                                (Just (String aName), Just (String portId))  -> lift $ evalMDL aName portId
+
+                        r <- case y of 
+                                Just x -> return $ Right x
+                                Nothing -> return $ Left $ ("Error in QueryMarketData" :: T.Text)
+                        return (GroupCommunication.Reply 
+                            , Util.serialize r)
+
                 String "ParsedCCARText" -> do 
                         (gc, x) <- CCAR.parseCCMessage nickName aValue 
                         case x of 
@@ -607,10 +620,10 @@ ccarApp = do
                                             labelThread (A.asyncThreadId c) 
                                                     ("Job thread " ++ (T.unpack nickNameV))
                                             labelThread (A.asyncThreadId d)
-                                                    ("Market data thread " ++ (T.unpack nickNameV))
+                                                  ("Market data thread " ++ (T.unpack nickNameV))
                                             labelThread(A.asyncThreadId e) 
-                                                    ("Option analytics thread " ++ (T.unpack nickNameV))
-                                            A.waitAny [a,  b,  c, d, e ]
+                                                    ("Option analytics thread " ++ (T.unpack nickNameV))                                          
+                                            A.waitAny [a,  b,  c, d, e]
                                             return "Threads had exception") 
                             return ("All threads exited" :: T.Text)
                 return () 
