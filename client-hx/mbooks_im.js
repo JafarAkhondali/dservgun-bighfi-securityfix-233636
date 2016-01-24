@@ -5312,6 +5312,7 @@ view.PortfolioSymbol.prototype = {
 	}
 	,updateMarketData: function(incomingMessage) {
 		console.log("Inside update market data response " + Std.string(incomingMessage));
+		this.updateTableRowMap(incomingMessage);
 	}
 	,handleQueryResponse: function(incomingMessage) {
 		console.log("Processing symbol query response " + Std.string(incomingMessage));
@@ -5486,7 +5487,7 @@ view.PortfolioSymbol.prototype = {
 			row = pSymbolTable.insertRow(this.computeInsertIndex());
 			this.rowMap.set(key,row);
 			this.insertCells(row,payload);
-			this.insertStreamResponse.resolve(payload);
+			this.createChart(payload);
 		} else {
 			var cells = row.children;
 			var _g = 0;
@@ -5495,7 +5496,7 @@ view.PortfolioSymbol.prototype = {
 				++_g;
 				var cellI = cell;
 				var cellIndex = cellI.cellIndex;
-				this.updateStreamResponse.resolve(payload);
+				this.updateChart(payload);
 				switch(cellIndex) {
 				case 0:
 					cellI.innerHTML = payload.symbol;
@@ -5610,6 +5611,7 @@ view.PortfolioSymbol.prototype = {
 		this.updateStreamResponse.then($bind(this,this.updateResponse));
 		this.deleteStreamResponse.then($bind(this,this.deleteResponse));
 		this.insertStreamResponse.then($bind(this,this.createChart));
+		this.updateStreamResponse.then($bind(this,this.updateChart));
 		this.deleteStreamResponse.then($bind(this,this.deleteChart));
 		this.readStreamResponse.then($bind(this,this.readResponse));
 		this.symbolQueryResponse = new promhx.Deferred();

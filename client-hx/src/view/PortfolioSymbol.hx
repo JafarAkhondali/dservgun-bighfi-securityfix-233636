@@ -167,7 +167,7 @@ class PortfolioSymbol {
 		updateStreamResponse.then(updateResponse);
 		deleteStreamResponse.then(deleteResponse);
 		insertStreamResponse.then(createChart);
-//		updateStreamResponse.then(updateChart);
+		updateStreamResponse.then(updateChart);
 		deleteStreamResponse.then(deleteChart);
 		readStreamResponse.then(readResponse);
 		symbolQueryResponse = new Deferred<PortfolioSymbolQueryT>();
@@ -287,13 +287,15 @@ class PortfolioSymbol {
 			row = cast(pSymbolTable.insertRow(computeInsertIndex()));
 			rowMap.set(key, row);
 			insertCells(row, payload);
-			insertStreamResponse.resolve(payload);			
+			//insertStreamResponse.resolve(payload);			
+			createChart(payload);
 		}else {
 			var cells : HTMLCollection = row.children;
 			for(cell in cells){
 				var cellI : TableCellElement = cast cell;
 				var cellIndex : Int = cellI.cellIndex;
-				updateStreamResponse.resolve(payload);
+				//updateStreamResponse.resolve(payload);
+				updateChart(payload);
 				switch(cellIndex) {
 					case 0 : cellI.innerHTML = payload.symbol;
 					case 1 : cellI.innerHTML = payload.side;
@@ -581,7 +583,7 @@ class PortfolioSymbol {
 	}
 	private function updateMarketData(incomingMessage: Dynamic){
 		trace("Inside update market data response " + incomingMessage);
-		//this.updateTableRowMap(incomingMessage);
+		this.updateTableRowMap(incomingMessage);
 	}
 
 	private function updateHistoricalPrice(incomingMessage : Dynamic){

@@ -7,4 +7,5 @@
 -lib promhx
 -lib munit
 -js mbooks_im.js
+-D PromHxExposeErrors
 -main MBooks_im
