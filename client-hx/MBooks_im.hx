@@ -110,14 +110,14 @@ class MBooks_im {
 
 	private var maxAttempts : Int = 3;
 	function new (){
-		//trace("Calling MBooks_im");
+		trace("Calling MBooks_im");
 		reset();
 		person = new model.Person("", "", "", "");
 		outputEventStream = new Deferred<Dynamic>();
-		//trace("Registering nickname");
+		trace("Registering nickname");
 		var blurStream : Stream<Dynamic> = initializeElementStream(cast getNickNameElement(), "blur");
 		blurStream.then(sendLoginBlur);
-		//trace("Registering password");
+		trace("Registering password");
 		var rStream : Stream<Dynamic> = initializeElementStream(cast getRegisterElement(), "click");
 		rStream.then(registerUser);
 
@@ -160,7 +160,7 @@ class MBooks_im {
 	private static var GOAUTH_URL = "gmail_oauthrequest";
 	
 	private function performGmailOauth(incoming : Dynamic) {
-		//trace("Processing gmail outh" + incoming);
+		trace("Processing gmail outh" + incoming);
 		var oauthRequest : XMLHttpRequest = new XMLHttpRequest();
 		var url : String = "http://" + Browser.location.hostname + "/" + GOAUTH_URL;
 		oauthRequest.open("GET", url);
@@ -170,7 +170,7 @@ class MBooks_im {
 
 	private function oauthRequestData(data : Event) {
 		var message : MessageEvent = cast data;
-		//trace("Data " + message.data);
+		trace("Data " + message.data);
 		
 	}
 	private function getGmailOauthButton() : ButtonElement {
@@ -178,11 +178,11 @@ class MBooks_im {
 
 	}
 	private function displayUserElements(companySelected : Dynamic) {
-		//trace("Displaying user elements the current user is entitled for");
+		trace("Displaying user elements the current user is entitled for");
 		showDivField(WORKBENCH);
 	}
 	private function processSuccessfulLogin(loginEvent : Dynamic){
-		//trace("Process successful login " + loginEvent);
+		trace("Process successful login " + loginEvent);
 		if(loginEvent.userName == getNickName()){
 			showDivField(MESSAGING_DIV);
 			singleton.company = new view.Company();
@@ -194,7 +194,7 @@ class MBooks_im {
 			singleton.portfolioSymbolView = 
 				new view.PortfolioSymbol(singleton.portfolioSymbolModel);		
 		}else {
-			//trace("A new user logged in " + loginEvent);
+			trace("A new user logged in " + loginEvent);
 		}
 	}
 	// Connection details
@@ -205,7 +205,7 @@ class MBooks_im {
 	}
 
 	private function connect() {
-		//trace("Calling connect");
+		trace("Calling connect");
 		try {
 		websocket = new WebSocket(connectionString());
 		websocket.onclose = onClose;
@@ -222,18 +222,18 @@ class MBooks_im {
 		var errorStream = initializeElementStream(cast websocket, "error");
 		errorStream.then(onServerConnectionError);
 		}catch(err : Dynamic) {
-			//trace("Error establishing connection " + err);
+			trace("Error establishing connection " + err);
 		}
-		//trace("Connection successful");
+		trace("Connection successful");
 	}
 
 
 	private function logout() : Void{
-		//trace("Logging out ");
+		trace("Logging out ");
 		if(websocket != null){
 			websocket.close();
 		}else {
-			//trace("No valid connection found");
+			trace("No valid connection found");
 		}
 	}
 
@@ -249,18 +249,18 @@ class MBooks_im {
 			ws.addEventListener(event, def.resolve, useCapture);
 			return def.stream();
 		}catch(err: Dynamic) {
-			//trace ("Error creating element stream for " + event);
+			trace ("Error creating element stream for " + event);
 			throw "Unable to setup stream";
 		}
 	}
 
 	private  function onOpen(ev: Event){
-		//trace("Connection opened");
+		trace("Connection opened");
 		getOutputEventStream().then(sendEvents);
 	}
 
 	private function onClose(ev: CloseEvent){
-		//trace("Connection closed " + ev.code + "->" + ev.reason);
+		trace("Connection closed " + ev.code + "->" + ev.reason);
 		setError(ev.code + ":" + ev.reason);
 		cleanup();
 		disableKeepAlive();
@@ -268,10 +268,10 @@ class MBooks_im {
 
 	}
 	private function cleanup () {
-		//trace("Do all of the cleanup");
+		trace("Do all of the cleanup");
 	}
 	private  function onServerConnectionError(ev : Event){
-		//trace("Error " + ev);
+		trace("Error " + ev);
 		getOutputEventStream().end();
 		websocket.close();
 		this.applicationErrorStream.resolve("Server Not found. Please reach out to support");
@@ -292,10 +292,10 @@ class MBooks_im {
 			}			
 		}
 		try {
-			//trace("Command type " + commandType);
+			trace("Command type " + commandType);
 			return Type.createEnum(CommandType, commandType);
 		}catch(e : Dynamic){
-			//trace("Error " + e + " Command type " + commandType);
+			trace("Error " + e + " Command type " + commandType);
 			return Undefined;
 		}
 	}
@@ -310,58 +310,58 @@ class MBooks_im {
 				processLoginResponse(login);
 			}
 			case CCARUpload : {
-				//trace("Parsing ccar upload " + incomingMessage);
+				trace("Parsing ccar upload " + incomingMessage);
 				ccar.processCCARUpload(incomingMessage);				
 			}
 			case ManageCompany : {
 				company.processManageCompany(incomingMessage);
 			}
 			case SelectAllCompanies: {
-				//trace("Updating company list event stream");
+				trace("Updating company list event stream");
 				company.getSelectListEventStream().resolve(incomingMessage);	
 			}
 			case QuerySupportedScripts : {
-				//trace("Processing get supported scripts");
+				trace("Processing get supported scripts");
 				try {
 					project.getSupportedScriptsStream().resolve(incomingMessage);
 				}catch(err : Dynamic){
-					//trace("Error processing supported scripts "  + err);
+					trace("Error processing supported scripts "  + err);
 				}				
 			}
 			case QueryActiveWorkbenches : {
-				//trace("Processing query active workbenches");
+				trace("Processing query active workbenches");
 				try {
 					project.activeProjectWorkbench.queryActiveWorkbenchesStream.resolve(incomingMessage);
 				}catch(err : Dynamic){
-					//trace("Error processing query active workbenches " + err);
+					trace("Error processing query active workbenches " + err);
 				}
 			}
 			case ManageWorkbench : {
-				//trace("Processing manage workbench ");
+				trace("Processing manage workbench ");
 				try {
 					project.activeProjectWorkbench.manageWorkbenchStream.resolve(incomingMessage);
 				}catch(err : Dynamic) {
-					//trace("Error processing manage workbench " + err);
+					trace("Error processing manage workbench " + err);
 				}
 			}
 			case ExecuteWorkbench :{
-				//trace("Processing execute workbench");
+				trace("Processing execute workbench");
 				try {
 					project.activeProjectWorkbench.executeWorkbenchStream.resolve(incomingMessage);
 				}catch(err : Dynamic){
-					//trace("Error processing execute workbench " + err);
+					trace("Error processing execute workbench " + err);
 				}
 			}
 			case SelectActiveProjects : {
-				//trace("Processing all active projects ");
+				trace("Processing all active projects ");
 				project.getSelectActiveProjectsStream().resolve(incomingMessage);		
 			}
 			case ManageProject : {
-				//trace("Manage project");
+				trace("Manage project");
 				project.processManageProject(incomingMessage);
 			}
 			case ParsedCCARText : {
-				//trace("Parsing ccar text " + incomingMessage);
+				trace("Parsing ccar text " + incomingMessage);
 				ccar.processParsedCCARText(incomingMessage);
 			}
 			case ManageUser: {
@@ -407,38 +407,38 @@ class MBooks_im {
 				processUserLeft(incomingMessage);
 			}
 			case AssignCompany :{
-				//trace("Processing assigning company");
+				trace("Processing assigning company");
 				assignCompanyStream.resolve(incomingMessage);
 			}
 			case KeepAlive : {
-				//trace("Processing keep alive");
+				trace("Processing keep alive");
 			}
 			case PortfolioSymbolTypesQuery : {
-				//trace("Processing " + incomingMessage);
+				trace("Processing " + incomingMessage);
 				portfolioSymbolModel.typesStream.resolve(incomingMessage);
 			}
 			case PortfolioSymbolSidesQuery : {
-				//trace("Processing " + incomingMessage);
+				trace("Processing " + incomingMessage);
 				portfolioSymbolModel.sidesStream.resolve(incomingMessage);
 			}
 			case QueryPortfolios : {
-				//trace("Processing " + incomingMessage);
+				trace("Processing " + incomingMessage);
 				portfolioListStream.resolve(incomingMessage);
 			}
 			case ManagePortfolio : {
-				//trace("Processing " + incomingMessage);
+				trace("Processing " + incomingMessage);
 				portfolioStream.resolve(incomingMessage);
 			}
 			case ManagePortfolioSymbol : {
-				//trace("Processing "  + incomingMessage);
+				trace("Processing "  + incomingMessage);
 				portfolioSymbolView.manage(incomingMessage);
 			}
 			case QueryPortfolioSymbol : {
-				//trace("Processing "  + incomingMessage);
+				trace("Processing "  + incomingMessage);
 				portfolioSymbolView.symbolQueryResponse.resolve(incomingMessage);
 			}
 			case ManageEntitlements:{
-				//trace("Processing " + incomingMessage);
+				trace("Processing " + incomingMessage);
 				entitlements.modelResponseStream.resolve(incomingMessage);
 			}
 			case QueryEntitlements : {
@@ -475,21 +475,21 @@ class MBooks_im {
 
 
 	private function processUndefinedCommandType(incomingMessage : Dynamic)  : Void {
-		//trace("Unhandled command type " + incomingMessage);
+		trace("Unhandled command type " + incomingMessage);
 	} 
 	
 	private function onMessage(ev: MessageEvent) : Void{
-		//trace("Received stream " + ev.data);
+		trace("Received stream " + ev.data);
 		var incomingMessage = haxe.Json.parse(ev.data);
-		//trace("Printing incoming message " + haxe.Json.stringify(incomingMessage));
+		trace("Printing incoming message " + haxe.Json.stringify(incomingMessage));
 		parseIncomingMessage(incomingMessage);
 	}
 	
 	private function processLoginResponse(lR : Login){		
-		//trace("Processing login object " + lR);
-		//trace("Processing lR status " + lR.loginStatus);
+		trace("Processing login object " + lR);
+		trace("Processing lR status " + lR.loginStatus);
 		if(lR.loginStatus == null){
-			//trace("Undefined state");
+			trace("Undefined state");
 			return;
 		}
 		var lStatus : LoginStatus = Type.createEnum(LoginStatus, lR.loginStatus);
@@ -501,7 +501,7 @@ class MBooks_im {
 			throw ("Nick name and responses dont match!!!! -> " + this.getNickName() + " not the same as " + lR.login.nickName);
 
 		}
-		//trace("Processing lStatus " + lStatus);
+		trace("Processing lStatus " + lStatus);
 		if(lStatus == UserNotFound){
 			//User not found, so enable the registration fields
 			showDivField(DIV_PASSWORD);
@@ -539,7 +539,7 @@ class MBooks_im {
 						+ "," + person.nickName;
 			showDivField(INIT_WELCOME_MESSAGE_DIV);		
 		}catch(err : Dynamic){
-			//trace(err);
+			trace(err);
 			setError(err);
 		}
 	}
@@ -548,7 +548,7 @@ class MBooks_im {
 			var person : Person = p.Right.person;
 			setInitWelcome(person);
 		}else {
-			//trace("Error processing manage user " + p);
+			trace("Error processing manage user " + p);
 			setError(p);
 		}
 	}
@@ -567,7 +567,7 @@ class MBooks_im {
 	}
 
 	private function processUserJoined(incomingMessage){
-		//trace("User joined " + Date.now());
+		trace("User joined " + Date.now());
 	}
 	private function processUserLoggedIn(incomingMessage) {
 		if(incomingMessage.userName != getNickName()){
@@ -596,7 +596,7 @@ class MBooks_im {
 	}
 	private function showDivField(fieldName : String) {
 		if(!isEntitledFor(fieldName)){
-			//trace("Not entitled for " + fieldName);
+			trace("Not entitled for " + fieldName);
 			return;
 		}
 		var div : DivElement = cast (Browser.document.getElementById(fieldName));
@@ -617,14 +617,14 @@ class MBooks_im {
 			timer = new haxe.Timer(keepAliveInterval);
 			timer.run = keepAliveFunction;
 		}else {
-			//trace("Timer already running. This should not happen");
+			trace("Timer already running. This should not happen");
 		}
 	}
 	private function disableKeepAlive() : Void {
 		if(timer == null){
-			//trace("Nothing to disable");
+			trace("Nothing to disable");
 		}else {
-			//trace("Stopping the timer");
+			trace("Stopping the timer");
 			timer.stop();
 		}
 	}
@@ -635,7 +635,7 @@ class MBooks_im {
 			, commandType : commandType
 			, keepAlive : "Ping"
 		};
-		//trace("Sending keep alive " + payload);
+		trace("Sending keep alive " + payload);
 		doSendJSON(payload);
 	}
 
@@ -643,7 +643,7 @@ class MBooks_im {
 	//Send messages
 	private function sendEvents(aMessage : Dynamic){
 		websocket.send(haxe.Json.stringify(aMessage));
-		//trace("Sent " + aMessage);
+		trace("Sent " + aMessage);
 	}
 
 
@@ -662,7 +662,7 @@ class MBooks_im {
 	* Clients could be sending json 
 	*/
 	public  function doSendJSON(aMessage : Dynamic){
-		//trace("Sending " + aMessage);
+		trace("Sending " + aMessage);
 		this.outputEventStream.resolve(aMessage);
 	}
 
@@ -740,14 +740,14 @@ class MBooks_im {
 
 	}
 	private function removeFromUsersOnline(nickName : String) : Void {
-		//trace("Deleting user from the list " + nickName);
+		trace("Deleting user from the list " + nickName);
 		var usersOnline : SelectElement = cast Browser.document.getElementById(USERS_ONLINE);
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement : OptionElement = cast Browser.document.getElementById(nickNameId);
 		if(optionElement != null){
 			usersOnline.removeChild(optionElement);
 		}else {
-			//trace("This user was already removed : ?"  + nickName);
+			trace("This user was already removed : ?"  + nickName);
 		}
 
 	}
@@ -775,41 +775,41 @@ class MBooks_im {
 	private function sendLoginBlur(ev : Event){
 		var inputElement : InputElement = cast ev.target;
 		var inputValue : String = StringTools.trim(inputElement.value);
-		//trace("Sending login information: " +  inputValue + ":");
+		trace("Sending login information: " +  inputValue + ":");
 		if((inputValue != "")) {
 			this.person.setNickName(inputElement.value);
 			var lStatus : LoginStatus = Undefined;			
 			var cType : String = Std.string(CommandType.Login);
 			var l : Login = new Login(cType, this.person, lStatus);
-			//trace("Sending login status " + l);
+			trace("Sending login status " + l);
 			doSendJSON(l);			
 		}else {
-			//trace("Not sending any login");
+			trace("Not sending any login");
 		}
 
 	}
 	//Login and other stuff
 	private function sendLogin (ev: KeyboardEvent){
 		var inputElement : InputElement = cast ev.target;
-		//trace("Inside send login " + ev.keyCode);
+		trace("Inside send login " + ev.keyCode);
 		if(Util.isSignificantWS(ev.keyCode)){
 			var inputValue : String = StringTools.trim(inputElement.value);
-			//trace("Sending login information: " +  inputValue + ":");
+			trace("Sending login information: " +  inputValue + ":");
 			if((inputValue != "")) {
 				this.person.setNickName(inputElement.value);
 				var lStatus : LoginStatus = Undefined;			
 				var cType : String = Std.string(CommandType.Login);
 				var l : Login = new Login(cType, this.person, lStatus);
-				//trace("Sending login status " + l);
+				trace("Sending login status " + l);
 				doSendJSON(l);			
 			}else {
-				//trace("Not sending any login");
+				trace("Not sending any login");
 			}
 		}
 	}
 
 	private function sendMessageFromButton(ev : Dynamic) {
-		//trace("Sending message from button " + ev);
+		trace("Sending message from button " + ev);
 		var sentTime = Date.now();
 		var payload : Dynamic = {
 			nickName : getNickName()
@@ -857,9 +857,9 @@ class MBooks_im {
 	}
 
 	private function validatePassword(ev : KeyboardEvent){
-		//trace("Password: " + getPassword() + ":");
+		trace("Password: " + getPassword() + ":");
 		if(getPassword() == ""){
-			//trace("Not sending password");
+			trace("Not sending password");
 			return;
 		}
 		if(getPassword() != this.person.password){
@@ -867,10 +867,10 @@ class MBooks_im {
 			attempts++;
 			if(attempts > maxAttempts){
 				loginAsGuest();
-				//trace("Logging in as guest");
+				trace("Logging in as guest");
 			}
 		}else {
-			//trace("Password works!");
+			trace("Password works!");
 			var userLoggedIn : Dynamic = {
 				userName : getNickName()
 				, commandType : "UserLoggedIn"
@@ -897,7 +897,7 @@ class MBooks_im {
 
 			doSendJSON(payload);
 		}else {
-			////trace("Not a terminator " + ev.keyCode);
+			//trace("Not a terminator " + ev.keyCode);
 		}
 
 	}
@@ -1012,7 +1012,7 @@ class MBooks_im {
 	private function authenticationChecks(incoming : Dynamic){
 		//Get user entitlements
 		//if user is admin, then query all entitlements.
-		//trace("Processing " + incoming);
+		trace("Processing " + incoming);
 		entitlements.queryAllEntitlements();
 	}
 

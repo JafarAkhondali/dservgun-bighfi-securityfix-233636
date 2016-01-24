@@ -63,7 +63,7 @@ class PortfolioSymbol {
 	private var model : model.PortfolioSymbol;
 	private var activePortfolio : PortfolioT;
 	public function new(m : model.PortfolioSymbol){
-		//trace("Instantiating new portfolio symbol view");
+		trace("Instantiating new portfolio symbol view");
 		model = m;
 		rowMap = new StringMap<TableRowElement>();
 		portfolioMap = new StringMap<PortfolioSymbolT>(); 
@@ -118,7 +118,7 @@ class PortfolioSymbol {
 	private function getSelectedOptionElement(inputList, multiSelect) {
 		var selectedOptions = inputList.selectedOptions;
 		if(multiSelect) {
-			//trace("Multiple selection true. What can we do here?");
+			trace("Multiple selection true. What can we do here?");
 			throw "Multiple selection list not supported for this method";
 		}else {
 			var optionElement : OptionElement = 
@@ -167,7 +167,7 @@ class PortfolioSymbol {
 		updateStreamResponse.then(updateResponse);
 		deleteStreamResponse.then(deleteResponse);
 		insertStreamResponse.then(createChart);
-		updateStreamResponse.then(updateChart);
+//		updateStreamResponse.then(updateChart);
 		deleteStreamResponse.then(deleteChart);
 		readStreamResponse.then(readResponse);
 		symbolQueryResponse = new Deferred<PortfolioSymbolQueryT>();
@@ -184,7 +184,7 @@ class PortfolioSymbol {
 	}
 
 	private function uploadPortfolio(ev : Event) {
-		//trace("Save button pressed");
+		trace("Save button pressed");
 		var files  = getUploadPortfolioFile().files;
 		for (file in files){
 			var reader = new FileReader();
@@ -200,7 +200,7 @@ class PortfolioSymbol {
 	}
 	//Assumes a header row.
 	private function parsePortfolioDetails(fileContents : String){
-		//trace("Parsing portfolio details");
+		trace("Parsing portfolio details");
 		var portfolioDetails : Array<Record> = 
 				Reader.parseCsv(fileContents);
 		var headerRead : Bool = false;
@@ -214,23 +214,23 @@ class PortfolioSymbol {
 								StringTools.trim(a[2]), 
 								StringTools.trim(a[3]));
 				}else{
-					//trace("Skipping " + aRecord);
+					trace("Skipping " + aRecord);
 				}
 			}else{
-				//trace("Invalid record length " + aRecord);
+				trace("Invalid record length " + aRecord);
 			}
 			headerRead = true;
 		}
 	}
 	private function processFileUpload(ev: Event) {
-		//trace("Processing file upload ");
+		trace("Processing file upload ");
 		try {
 			var reader : FileReader = cast ev.target;
-			//trace("Reading");
+			trace("Reading");
 			parsePortfolioDetails(reader.result);
-			//trace("Read");
+			trace("Read");
 		}catch(e : Dynamic){
-			//trace("Exception " + e);
+			trace("Exception " + e);
 		}
 	}
 	private function computeInsertIndex() {
@@ -246,9 +246,9 @@ class PortfolioSymbol {
 	}
 
 	private function processActivePortfolio(a : PortfolioT){
-		//trace("Deleting all the existing rows as active portfolio changed " + a);
+		trace("Deleting all the existing rows as active portfolio changed " + a);
 		for(key in rowMap.keys()){
-			//trace("Deleting key " + key);
+			trace("Deleting key " + key);
 			var row : TableRowElement = 
 					cast rowMap.get(key);
 			var pSymbolTable : TableElement = getPortfolioSymbolTable();
@@ -258,12 +258,12 @@ class PortfolioSymbol {
 	}
 
 	private function deleteTableRowMap(payload : PortfolioSymbolT) {
-		//trace("Deleting table row map " + payload);
+		trace("Deleting table row map " + payload);
 		var key : String = getKey(payload);
-		//trace("Deleting key " + key);
+		trace("Deleting key " + key);
 		
 		if(!rowMap.exists(key)) {
-			//trace("Nothing to delete " + payload);
+			trace("Nothing to delete " + payload);
 			return;
 		}
 		var row : TableRowElement = cast rowMap.get(key);
@@ -275,11 +275,11 @@ class PortfolioSymbol {
 		var key : String = getKey(payload);
 		var row : TableRowElement = cast rowMap.get(key);
 		if(MBooks_im.getSingleton().portfolio.activePortfolio == null){
-			//trace("Throwing message" + payload);
+			trace("Throwing message" + payload);
 			return;
 		}
 		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId){
-			//trace("Throwing message " + payload);
+			trace("Throwing message " + payload);
 			return;
 		}
 		if(row == null){
@@ -309,10 +309,10 @@ class PortfolioSymbol {
 
 	private function insertCells(aRow : TableRowElement, payload : PortfolioSymbolT) {
 		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId){
-			//trace("Throwing away payload " + payload);
+			trace("Throwing away payload " + payload);
 			return;
 		}
-		//trace("Inserting cells from payload " + payload);
+		trace("Inserting cells from payload " + payload);
 		var newCell : TableCellElement = cast (aRow.insertCell(0));
 		newCell.innerHTML = payload.symbol;
 		newCell = cast aRow.insertCell(1);
@@ -329,7 +329,7 @@ class PortfolioSymbol {
 		newCell.innerHTML = Date.now().toString();
 	}
 	private function createChart(payload : PortfolioSymbolT){
-		//trace("Creating chart");
+		trace("Creating chart");
 		sendHistoricalQuery(payload);		
 	}
 	private function sendHistoricalQuery(payload : PortfolioSymbolT){
@@ -345,29 +345,29 @@ class PortfolioSymbol {
 }
 
 	private function insertResponse(payload : PortfolioSymbolT) {
-		//trace("Inserting view " + payload);
+		trace("Inserting view " + payload);
 		//clearFields();
 		updateTableRowMap(payload);
 	}
 
 	private function updateResponse(payload : PortfolioSymbolT){
-		////trace("Updating view " + payload);
+		//trace("Updating view " + payload);
 		//clearFields();
 		updateTableRowMap(payload);
 	}
 	private function updateChart(payload : PortfolioSymbolT){
-		//trace("Updating chart");
+		trace("Updating chart " + payload);
 	}
 	private function deleteResponse(payload : PortfolioSymbolT) {
-		//trace("Deleting view "  + payload);
+		trace("Deleting view "  + payload);
 		//clearFields();
 		deleteTableRowMap(payload);
 	}
 	private function deleteChart(payload : PortfolioSymbolT){
-		//trace("Delete chart " + payload);
+		trace("Delete chart " + payload);
 	}
 	private function readResponse(payload : PortfolioSymbolT) {
-		//trace("Reading view " + payload);
+		trace("Reading view " + payload);
 		throw "Read response Not implemented";
 	}
 
@@ -378,7 +378,7 @@ class PortfolioSymbol {
 		return model.activePortfolio.portfolioId;
 	}
 	private function insertPortfolioSymbolI(aSymbol : String, aSymbolType : String, aSide: String, quantity : String){
-		//trace("Inserting portfolio symbol through upload ");
+		trace("Inserting portfolio symbol through upload ");
 		var portfolioSymbolT : PortfolioSymbolT = {
 			crudType : "Create"
 			, commandType : "ManagePortfolioSymbol"
@@ -396,9 +396,9 @@ class PortfolioSymbol {
 		model.insertStream.resolve(portfolioSymbolT);
 	}
 	private function insertPortfolioSymbol(ev : Event ){
-		//trace("Insert portfolio symbol " + ev);
-		//trace("Symbol side "  + getSymbolSideValue());
-		//trace("Symbol type "  + getSymbolTypeValue());
+		trace("Insert portfolio symbol " + ev);
+		trace("Symbol side "  + getSymbolSideValue());
+		trace("Symbol type "  + getSymbolTypeValue());
 		var portfolioSymbolT  : PortfolioSymbolT = {
 			crudType : "Create"
 			, commandType : "ManagePortfolioSymbol"
@@ -417,7 +417,7 @@ class PortfolioSymbol {
 
 	}
 	private function updatePortfolioSymbol(ev : Event) {
-		//trace("Update portfolio symbol " + ev);
+		trace("Update portfolio symbol " + ev);
 		var portfolioSymbolT  : PortfolioSymbolT = {
 			crudType : "P_Update"
 			, commandType : "ManagePortfolioSymbol"
@@ -436,7 +436,7 @@ class PortfolioSymbol {
 		
 	}
 	private function deletePortfolioSymbol(ev : Event){
-		//trace("Delete portfolio symbol " + ev);
+		trace("Delete portfolio symbol " + ev);
 		var portfolioSymbolT  : PortfolioSymbolT = {
 			crudType : "Delete"
 			, commandType : "ManagePortfolioSymbol"
@@ -471,9 +471,9 @@ class PortfolioSymbol {
 		model.readStream.resolve(portfolioSymbolT);	
 	}
 	private function updateSidesStream(symbolSide : SymbolSide) {
-		//trace("Resolving symbol side " + symbolSide);
+		trace("Resolving symbol side " + symbolSide);
 		if(symbolSide == null) {
-			//trace("Invalid symbol side ");
+			trace("Invalid symbol side ");
 			return;
 		}
 		var symbolSideList = getSymbolSideList();
@@ -495,9 +495,9 @@ class PortfolioSymbol {
 	}
 
 	private function updateTypesStream(symbolType : SymbolType) {
-		//trace("Resolving symbol type " + symbolType);
+		trace("Resolving symbol type " + symbolType);
 		if(symbolType == null) {
-			//trace ("Invalid symbol type " );
+			trace ("Invalid symbol type " );
 			return;
 		}
 		var symbolTypeList = getSymbolTypeList();
@@ -518,10 +518,10 @@ class PortfolioSymbol {
 		}
 	}
 	private function handleSymbolSideSelected(ev : Event){
-		//trace("handle symbol side selected " + ev);
+		trace("handle symbol side selected " + ev);
 	}
 	private function handleSymbolTypeSelected(ev : Event){ 
-		//trace("handle symbol type selected " + ev);
+		trace("handle symbol type selected " + ev);
 	}
 	private function getSymbolSideList() {
 		return (cast Browser.document.getElementById(SYMBOL_SIDE_LIST));
@@ -536,7 +536,7 @@ class PortfolioSymbol {
 		setSymbolIdValue("");
 	}
 	public function manage(incomingMessage1 : Dynamic) {
-		//trace("Manage portfolio symbol " + incomingMessage1);
+		trace("Manage portfolio symbol " + incomingMessage1);
 		if(incomingMessage1.Right != null) {
 			var incomingMessage = incomingMessage1.Right;
 			if(incomingMessage.crudType == "Create") {
@@ -558,12 +558,12 @@ class PortfolioSymbol {
 
 
 	private function handleQueryResponse(incomingMessage : Dynamic){
-		//trace("Processing symbol query response " + incomingMessage);
+		trace("Processing symbol query response " + incomingMessage);
 		if(incomingMessage.Left != null){
 			MBooks_im.getSingleton().applicationErrorStream.resolve(incomingMessage);
 		}else {
 			if(incomingMessage.Right.resultSet == null){
-				//trace("Result set is not defined??");
+				trace("Result set is not defined??");
 				MBooks_im.getSingleton().applicationErrorStream.resolve(incomingMessage);
 				return;
 			}
@@ -580,12 +580,12 @@ class PortfolioSymbol {
 		}
 	}
 	private function updateMarketData(incomingMessage: Dynamic){
-		//trace("Inside update market data response " + incomingMessage);
+		trace("Inside update market data response " + incomingMessage);
 		//this.updateTableRowMap(incomingMessage);
 	}
 
 	private function updateHistoricalPrice(incomingMessage : Dynamic){
-		//trace("Creating/updating chart " + incomingMessage);
+		trace("Creating/updating chart " + incomingMessage);
 	}
 	//When we allow users to move columns around, 
 	//this dictionary needs to be updated.

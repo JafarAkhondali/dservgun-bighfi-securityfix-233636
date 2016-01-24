@@ -60,12 +60,12 @@ class Entitlement {
 	}
 
 	private function updateModel(anEntitlement : EntitlementT){
-		//trace("Updating model " + anEntitlement);
+		trace("Updating model " + anEntitlement);
 		MBooks_im.getSingleton().doSendJSON(anEntitlement);
 	}
 	
 	public function queryAllEntitlements() {
-		//trace("Query all the entitlements");
+		trace("Query all the entitlements");
 		var queryEntitlements : QueryEntitlement = 
 			{
 				nickName : MBooks_im.getSingleton().getNickName()

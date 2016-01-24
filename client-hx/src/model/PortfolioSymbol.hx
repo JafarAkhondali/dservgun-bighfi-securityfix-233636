@@ -80,7 +80,7 @@ class PortfolioSymbol  {
 
 
 	public function new() {
-		//trace("Creating portfolio symbol");
+		trace("Creating portfolio symbol");
 		sidesStream = new Deferred<Dynamic>();
 		typesStream = new Deferred<Dynamic>();
 		typeStream = new Deferred<SymbolType>();
@@ -104,7 +104,7 @@ class PortfolioSymbol  {
 		if(a == null){
 			throw ("Active portfolio not defined " + a);
 		}
-		//trace("Process active portfolio " + a);
+		trace("Process active portfolio " + a);
 		this.activePortfolio = a;
 		sendPortfolioSymbolQuery();
 	}
@@ -123,7 +123,7 @@ class PortfolioSymbol  {
 	}
 
 	private function sendPayload(payload : PortfolioSymbolT) {
-		//trace("Processing sending payload "  + payload);
+		trace("Processing sending payload "  + payload);
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 
@@ -147,7 +147,7 @@ class PortfolioSymbol  {
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	public function handleSymbolSideQuery(incomingMessage : PortfolioSymbolSideQuery) {
-		//trace("Handle portfolio symbol side query" + incomingMessage);
+		trace("Handle portfolio symbol side query" + incomingMessage);
 		var resultSet : Array<Dynamic> = incomingMessage.symbolSides;
 		for (optionSymbolSide in resultSet){
 			var payload : SymbolSide = {
@@ -157,10 +157,10 @@ class PortfolioSymbol  {
 		}
 	}
 	public function handleSymbolTypeQuery(incomingMessage : PortfolioSymbolTypeQuery) {
-		//trace ("Handle portfolio symbol type query " + incomingMessage);
+		trace ("Handle portfolio symbol type query " + incomingMessage);
 		var resultSet : Array<Dynamic> = incomingMessage.symbolTypes;
 		for (optionSymbolType in resultSet) {
-			//trace("Resolving " + optionSymbolType);
+			trace("Resolving " + optionSymbolType);
 			var p : SymbolType  = {
 				symbolType : optionSymbolType
 			};

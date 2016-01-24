@@ -69,7 +69,7 @@ class Entitlement {
 	private var textFields : List<InputElement>;
 	private var entitlementMap : Map<String, model.EntitlementT>;
 	public function new(){
-		//trace("Creating Entitlement view");
+		trace("Creating Entitlement view");
 		tabNameElement = cast Browser.document.getElementById(TAB_NAME);
 		if(tabNameElement == null){
 			throw ("Element not found " + TAB_NAME) ;
@@ -130,18 +130,18 @@ class Entitlement {
 		return change;
 	}	
 	private function addEntitlementEvent(ev : Event){
-		//trace("Add entitlement clicked");
+		trace("Add entitlement clicked");
 		var change : model.EntitlementT = getModelEntitlement("Create");
 		modelStream.resolve(change);
 	}
 	private function updateEntitlementEvent(ev : Event){
-		//trace("Update entitlement clicked");
+		trace("Update entitlement clicked");
 		var change = getModelEntitlement("C_Update");
 		modelStream.resolve(change);
 
 	}
 	private function deleteEntitlementEvent(ev : Event){
-		//trace("Deleting entitlement ");
+		trace("Deleting entitlement ");
 		var change  = getModelEntitlement("Delete");
 		modelStream.resolve(change);
 	}
@@ -168,7 +168,7 @@ class Entitlement {
 	}
 
 	private function handleModelResponse(incoming : Dynamic) {
-		//trace("handling model response");
+		trace("handling model response");
 		if(incoming == null){
 			incomingMessageNull("ModelResponse");
 			return;
@@ -192,7 +192,7 @@ class Entitlement {
 	}
 
 	private function updateSelf(entitlement : model.EntitlementT){
-		//trace("Updating view " +  entitlement);
+		trace("Updating view " +  entitlement);
 		//If the crud type is Delete, then remove the element
 		//from the list. Pick the next element,
 		//replace the values with the values in that element.
@@ -233,7 +233,7 @@ class Entitlement {
 	}
 
 	private function getOptionElementKey(entitlement : model.EntitlementT){
-		//trace("Creating an option element key");
+		trace("Creating an option element key");
 		var optionElementKey : String = 
 				MANAGE_ENTITLEMENTS_COMMAND + entitlement.tabName + entitlement.sectionName;
 		return optionElementKey;
@@ -244,7 +244,7 @@ class Entitlement {
 	}
 
 	private function updateList(entitlement : model.EntitlementT){
-		//trace("Adding element to list");
+		trace("Adding element to list");
 		var optionElementKey = getOptionElementKey(entitlement);
 		var optionElement : OptionElement = cast (Browser.document.getElementById(optionElementKey));
 
@@ -269,7 +269,7 @@ class Entitlement {
 	}
 	
 	private function removeFromList(entitlement : model.EntitlementT){
-		//trace("Removing element from list");
+		trace("Removing element from list");
 		var optionElementKey = getOptionElementKey(entitlement);
 		removeElementFromList(optionElementKey);
 	}
@@ -281,7 +281,7 @@ class Entitlement {
 			throw ("Nothing to delete " + id);
 		}
 		optionElement.parentNode.removeChild(optionElement);
-		//trace("The above code should most likely work");
+		trace("The above code should most likely work");
 		for(entitlement in entitlementMap) {
 			var optionElementKey = getOptionElementKey(entitlement);
 			var optionElement : OptionElement = cast (Browser.document.getElementById(optionElementKey));
