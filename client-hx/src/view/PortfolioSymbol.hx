@@ -23,7 +23,6 @@ import js.html.HTMLCollection;
 import js.html.FileReader;
 import haxe.ds.ObjectMap;
 import haxe.ds.StringMap;
-import view.JQueryTable;
 import promhx.Stream;
 import promhx.Deferred;
 import promhx.base.EventLoop;
