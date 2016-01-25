@@ -123,17 +123,17 @@ class MBooks_im {
 		var rStream : Stream<Dynamic> = initializeElementStream(cast getRegisterElement(), "click");
 		rStream.then(registerUser);
 
-		var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "keyup");
+//		var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "keyup");
 		//TODO: Setup streams based on the type of device
 		//var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "blur");
-		kStream.then(kickUser);
+//		kStream.then(kickUser);
 		//Same as above.
-		var mStream : Stream<Dynamic> = 
-			initializeElementStream(getMessageInput(), "keyup");
-		mStream.then(sendMessage);
-		var sendMessageButton : Stream<Dynamic> = 
-			initializeElementStream(getSendMessageElement(), "click");
-		sendMessageButton.then(sendMessageFromButton);
+//		var mStream : Stream<Dynamic> = 
+//			initializeElementStream(getMessageInput(), "keyup");
+//		mStream.then(sendMessage);
+//		var sendMessageButton : Stream<Dynamic> = 
+//			initializeElementStream(getSendMessageElement(), "click");
+//		sendMessageButton.then(sendMessageFromButton);
 		userLoggedIn = new Deferred<Dynamic>();
 		userLoggedIn.then(authenticationChecks);
 		selectedCompanyStream = new Deferred<Dynamic>();
@@ -182,6 +182,7 @@ class MBooks_im {
 	private function displayUserElements(companySelected : Dynamic) {
 		trace("Displaying user elements the current user is entitled for");
 		showDivField(WORKBENCH);
+		showDivField(MESSAGING_DIV);
 	}
 	private function processSuccessfulLogin(loginEvent : Dynamic){
 		trace("Process successful login " + loginEvent);
@@ -563,6 +564,10 @@ class MBooks_im {
 	}
 	private function updateMessageHistory(currentTime : Date, localMessage : String) {
 		var textAreaElement : TextAreaElement = cast Browser.document.getElementById(MESSAGE_HISTORY);
+		if(textAreaElement == null) {
+			trace("Element not found");
+			return;
+		}
 		if(localMessage != "") {
 			textAreaElement.value = textAreaElement.value + currentTime + "@" + 
 				getNickName() + ":" + localMessage + "\n";
@@ -603,11 +608,19 @@ class MBooks_im {
 			return;
 		}
 		var div : DivElement = cast (Browser.document.getElementById(fieldName));
+		if(div == null){
+			trace("Element not found " + fieldName);
+			return;
+		}
 		div.setAttribute("style", "display:normal");
 	}
 
 	private function hideDivField(fieldName : String) {
 		var div : DivElement = cast Browser.document.getElementById(fieldName);
+		if(div == null){
+			trace("Div not found");
+			return;
+		}
 		div.setAttribute("style", "display:none");
 	}
 
@@ -730,6 +743,10 @@ class MBooks_im {
 
 	private function addToUsersOnline(nickName : String) : Void {
 		var usersOnline : SelectElement = cast Browser.document.getElementById(USERS_ONLINE);
+		if(usersOnline == null){
+			trace("Element not found ");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement : OptionElement = cast Browser.document.getElementById(nickNameId);
 		if(optionElement == null){
@@ -745,6 +762,10 @@ class MBooks_im {
 	private function removeFromUsersOnline(nickName : String) : Void {
 		trace("Deleting user from the list " + nickName);
 		var usersOnline : SelectElement = cast Browser.document.getElementById(USERS_ONLINE);
+		if(usersOnline == null){
+			trace("Element not found");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement : OptionElement = cast Browser.document.getElementById(nickNameId);
 		if(optionElement != null){
@@ -927,7 +948,7 @@ class MBooks_im {
 		if(inputElement != null){
 			inputElement.value = "";
 		}else {
-			throw "Null value for input element";
+			trace("Null value for input element");
 		}
 	}
 

@@ -99,12 +99,6 @@ var MBooks_im = function() {
 	console.log("Registering password");
 	var rStream = this.initializeElementStream(this.getRegisterElement(),"click");
 	rStream.then($bind(this,this.registerUser));
-	var kStream = this.initializeElementStream(this.getKickUserElement(),"keyup");
-	kStream.then($bind(this,this.kickUser));
-	var mStream = this.initializeElementStream(this.getMessageInput(),"keyup");
-	mStream.then($bind(this,this.sendMessage));
-	var sendMessageButton = this.initializeElementStream(this.getSendMessageElement(),"click");
-	sendMessageButton.then($bind(this,this.sendMessageFromButton));
 	this.userLoggedIn = new promhx.Deferred();
 	this.userLoggedIn.then($bind(this,this.authenticationChecks));
 	this.selectedCompanyStream = new promhx.Deferred();
@@ -169,7 +163,7 @@ MBooks_im.prototype = {
 		return js.Browser.document.getElementById(MBooks_im.APPLICATION_ERROR);
 	}
 	,clearValue: function(inputElement) {
-		if(inputElement != null) inputElement.value = ""; else throw "Null value for input element";
+		if(inputElement != null) inputElement.value = ""; else console.log("Null value for input element");
 	}
 	,registerUser: function(ev) {
 		var commandType = "ManageUser";
@@ -278,12 +272,20 @@ MBooks_im.prototype = {
 	,removeFromUsersOnline: function(nickName) {
 		console.log("Deleting user from the list " + nickName);
 		var usersOnline = js.Browser.document.getElementById(MBooks_im.USERS_ONLINE);
+		if(usersOnline == null) {
+			console.log("Element not found");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement = js.Browser.document.getElementById(nickNameId);
 		if(optionElement != null) usersOnline.removeChild(optionElement); else console.log("This user was already removed : ?" + nickName);
 	}
 	,addToUsersOnline: function(nickName) {
 		var usersOnline = js.Browser.document.getElementById(MBooks_im.USERS_ONLINE);
+		if(usersOnline == null) {
+			console.log("Element not found ");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement = js.Browser.document.getElementById(nickNameId);
 		if(optionElement == null) {
@@ -379,6 +381,10 @@ MBooks_im.prototype = {
 	}
 	,hideDivField: function(fieldName) {
 		var div = js.Browser.document.getElementById(fieldName);
+		if(div == null) {
+			console.log("Div not found");
+			return;
+		}
 		div.setAttribute("style","display:none");
 	}
 	,showDivField: function(fieldName) {
@@ -387,6 +393,10 @@ MBooks_im.prototype = {
 			return;
 		}
 		var div = js.Browser.document.getElementById(fieldName);
+		if(div == null) {
+			console.log("Element not found " + fieldName);
+			return;
+		}
 		div.setAttribute("style","display:normal");
 	}
 	,isEntitledFor: function(fieldName) {
@@ -410,6 +420,10 @@ MBooks_im.prototype = {
 	}
 	,updateMessageHistory: function(currentTime,localMessage) {
 		var textAreaElement = js.Browser.document.getElementById(MBooks_im.MESSAGE_HISTORY);
+		if(textAreaElement == null) {
+			console.log("Element not found");
+			return;
+		}
 		if(localMessage != "") textAreaElement.value = textAreaElement.value + Std.string(currentTime) + "@" + this.getNickName() + ":" + localMessage + "\n";
 	}
 	,processSendMessage: function(incomingMessage) {
@@ -725,6 +739,7 @@ MBooks_im.prototype = {
 	,displayUserElements: function(companySelected) {
 		console.log("Displaying user elements the current user is entitled for");
 		this.showDivField(MBooks_im.WORKBENCH);
+		this.showDivField(MBooks_im.MESSAGING_DIV);
 	}
 	,getGmailOauthButton: function() {
 		return js.Browser.document.getElementById(MBooks_im.SETUP_GMAIL);
