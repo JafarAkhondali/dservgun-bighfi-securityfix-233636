@@ -7,6 +7,7 @@ import js.html.InputElement;
 import js.html.TextAreaElement;
 import js.html.DOMCoreException;
 import js.html.Document;
+import js.html.LabelElement;
 import js.html.ButtonElement;
 import js.html.DivElement;
 import js.html.UListElement;
@@ -85,7 +86,8 @@ class SymbolChart {
 		}
 		
 		var dataSet = {
-			labels : labelsA
+			title : historicalPrice.symbol
+			, labels : labelsA
 			, datasets : [
 				{
 				label: "Symbol", 
@@ -122,7 +124,13 @@ class SymbolChart {
 			}
 			var element : Element = getPortfolioCharts();
 			if(element != null){
-				element.appendChild(canvasElement);	
+				var divElement : DivElement = Browser.document.createDivElement();
+				divElement.id = "div_" + key;
+				var labelElement : LabelElement = Browser.document.createLabelElement();
+				labelElement.innerHTML = historicalPrice.symbol;
+				divElement.appendChild(canvasElement);	
+				divElement.appendChild(labelElement);
+				element.appendChild(divElement);
 			}else {
 				trace("Unable to add element " + element);
 			}

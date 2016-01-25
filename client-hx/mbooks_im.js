@@ -92,6 +92,7 @@ var MBooks_im = function() {
 	this.reset();
 	this.person = new model.Person("","","","");
 	this.outputEventStream = new promhx.Deferred();
+	this.hideDivField(MBooks_im.MESSAGING_DIV);
 	console.log("Registering nickname");
 	var blurStream = this.initializeElementStream(this.getNickNameElement(),"blur");
 	blurStream.then($bind(this,this.sendLoginBlur));
@@ -272,6 +273,7 @@ MBooks_im.prototype = {
 		this.doSendJSON(payload);
 		this.initializeKeepAlive();
 		this.hideDivField(MBooks_im.KICK_USER_DIV);
+		this.hideDivField(MBooks_im.MESSAGING_DIV);
 	}
 	,removeFromUsersOnline: function(nickName) {
 		console.log("Deleting user from the list " + nickName);
@@ -709,8 +711,8 @@ MBooks_im.prototype = {
 	}
 	,processSuccessfulLogin: function(loginEvent) {
 		console.log("Process successful login " + Std.string(loginEvent));
+		this.hideDivField(MBooks_im.MESSAGING_DIV);
 		if(loginEvent.userName == this.getNickName()) {
-			this.showDivField(MBooks_im.MESSAGING_DIV);
 			MBooks_im.singleton.company = new view.Company();
 			MBooks_im.singleton.project = new model.Project(MBooks_im.singleton.company);
 			MBooks_im.singleton.ccar = new model.CCAR("","","");
@@ -5701,7 +5703,15 @@ view.SymbolChart.prototype = {
 				console.log("Error creating line chart " + Std.string(e));
 			}
 			var element = this.getPortfolioCharts();
-			if(element != null) element.appendChild(canvasElement); else console.log("Unable to add element " + Std.string(element));
+			if(element != null) {
+				var divElement = js.Browser.document.createElement("div");
+				divElement.id = "div_" + key;
+				var labelElement = js.Browser.document.createElement("label");
+				labelElement.innerHTML = historicalPrice.symbol;
+				divElement.appendChild(canvasElement);
+				divElement.appendChild(labelElement);
+				element.appendChild(divElement);
+			} else console.log("Unable to add element " + Std.string(element));
 		} else {
 			var ctx = canvasElement.getContext("2d");
 			this.updateChartData(this.getData(historicalPrice));
@@ -5721,7 +5731,7 @@ view.SymbolChart.prototype = {
 			dataA.push(i.close);
 			count = count + 1;
 		}
-		var dataSet = { labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
+		var dataSet = { title : historicalPrice.symbol, labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
 		return dataSet;
 	}
 	,createUpdateChart: function(historicalPrice) {

@@ -114,7 +114,9 @@ class MBooks_im {
 		reset();
 		person = new model.Person("", "", "", "");
 		outputEventStream = new Deferred<Dynamic>();
+		hideDivField(MESSAGING_DIV);
 		trace("Registering nickname");
+
 		var blurStream : Stream<Dynamic> = initializeElementStream(cast getNickNameElement(), "blur");
 		blurStream.then(sendLoginBlur);
 		trace("Registering password");
@@ -183,8 +185,8 @@ class MBooks_im {
 	}
 	private function processSuccessfulLogin(loginEvent : Dynamic){
 		trace("Process successful login " + loginEvent);
-		if(loginEvent.userName == getNickName()){
-			showDivField(MESSAGING_DIV);
+		hideDivField(MESSAGING_DIV);
+		if(loginEvent.userName == getNickName()){			
 			singleton.company = new view.Company();
 			singleton.project = new Project(singleton.company);
 			singleton.ccar = new CCAR("", "", "");
@@ -196,6 +198,7 @@ class MBooks_im {
 		}else {
 			trace("A new user logged in " + loginEvent);
 		}
+
 	}
 	// Connection details
 	private function connectionString() : String {
@@ -761,6 +764,7 @@ class MBooks_im {
 		doSendJSON(payload);
 		this.initializeKeepAlive();
 		this.hideDivField(KICK_USER_DIV);
+		this.hideDivField(MESSAGING_DIV);
 	}
 
 	private function getLoginRequest(nickName : String, status : LoginStatus) : Dynamic { 
