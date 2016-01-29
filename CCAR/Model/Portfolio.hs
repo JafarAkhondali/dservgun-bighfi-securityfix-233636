@@ -23,7 +23,6 @@ import Control.Concurrent.STM.Lifted
 import Control.Concurrent.Async
 import Control.Exception
 import qualified  Data.Map as IMap
-import Control.Exception
 import Control.Monad
 import Control.Monad.Logger(runStderrLoggingT)
 import Control.Monad.Trans.Maybe(runMaybeT)
@@ -328,6 +327,8 @@ queryUniqueSymbolsForCompany companyId userId = dbOps $ do
 	case x of 
 		Just y -> return y
 		Nothing -> return []
+
+
 
 
 insertPortfolio :: PortfolioT -> IO (Either T.Text (Key Portfolio) )

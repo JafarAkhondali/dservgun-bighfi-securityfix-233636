@@ -77,14 +77,24 @@ getConnectionString = do
                     ++ " " 
                     ++ "port=" ++ port)
 
-dbOps f = do 
-        connStr <- getConnectionString
-        poolSize <- getPoolSize
-        x <- runResourceT $ runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
-            liftIO $ do
-                flip runSqlPersistMPool pool f 
-        infoM "CCAR.Main.DBUtils" "Closing connection"
-        return x
+dbOp f = do 
+    connStr <- getConnectionString 
+    poolSize <- getPoolSize
+    x <- runResourceT $ runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
+        liftIO $ do
+            flip runSqlPersistMPool pool f 
+    liftIO $ infoM "CCAR.Main.DBUtils" "Closing connection"
+    x
+
+dbOps f = do
+    connStr <- getConnectionString 
+    poolSize <- getPoolSize
+    x <- runResourceT $ runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
+        liftIO $ do
+            flip runSqlPersistMPool pool f 
+    liftIO $ infoM "CCAR.Main.DBUtils" "Closing connection"
+    return x
+
 
 
 share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings] 
