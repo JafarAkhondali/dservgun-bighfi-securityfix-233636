@@ -191,7 +191,7 @@ writeOptionPricer pricer x = do
 	putStrLn $ show parsedString
 	p <- case parsedString of
 		Right x -> do 
-			p0 <- return $ parse_float $ x !! 10
+			p0 <- return $ Util.parse_float $ x !! 10
 			return pricer  {price = p0 }
 		Left _ -> return pricer
 	Logger.debugM iModuleName $ "Received " <> nextString

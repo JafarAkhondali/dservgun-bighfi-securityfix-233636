@@ -1,6 +1,6 @@
 	{--License: license.txt --}
 module CCAR.Main.Util
-	(serialize, parseDate, parse_time_interval)
+	(serialize, parseDate, parse_time_interval, parse_float)
 where
 import Data.Text as T  hiding(foldl, foldr)
 import Data.Aeson as J
@@ -41,4 +41,17 @@ parse_time_interval1 = do
 	i <- case time_interval of 
 		"millis" ->  return 1000
 		"seconds" -> return $ 10 ^ 6 
+		"minutes" -> return $ 60 * 10 ^ 6
 	return (r *i)
+
+
+
+p_f = do 
+	s <- getInput
+	case readSigned readFloat s of 
+		[(n, s')] -> n <$ setInput s'
+		_		  -> Control.Applicative.empty 
+parse_float input = 
+	case Parsec.parse p_f ("Unable to parse input " ++ (input))  input of 
+		Right x -> x 
+		Left _ -> 0.0
