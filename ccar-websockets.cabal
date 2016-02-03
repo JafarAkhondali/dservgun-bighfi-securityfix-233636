@@ -107,7 +107,7 @@ executable ccar-websockets
                      , scientific                    >= 0.3.3.8 && < 0.4
                      , bytestring                    >= 0.10.4.0 && < 0.11
                      , network                       >= 2.6.2.0 && < 2.7
-
+                     , haskell-mpi                   >= 1.4.0 && < 1.5
   -- Directories containing source files.
   -- hs-source-dirs:      
   

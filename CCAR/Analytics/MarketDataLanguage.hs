@@ -78,7 +78,23 @@ parseMDL input = case parse parseStatements "Error parsing historical"
 	Right val -> val 
 
 
-getHistoricalPrice v = dbOps $ do 
+
+-- Should we handle empty lists?probably yes.
+-- We assume that the prices are in timee series.
+getHistoricalPairs :: [HistoricalPrice] -> State.State HistoricalPrice [(HistoricalPrice,HistoricalPrice)]
+getHistoricalPairs = \x -> mapM ( \y -> do 
+				prev <- State.get 
+				State.put y
+				return (prev, y)) x
+
+getHistoricalReturns :: [(HistoricalPrice, HistoricalPrice)] -> ( Double -> Double -> Double) ->  [(UTCTime, Double)]
+getHistoricalReturns  pricePairs computeFunction =  List.map (\(x,  y) -> 
+				(historicalPriceDate y, 
+						computeFunction (historicalPriceClose x) 
+							(historicalPriceClose y))
+			) pricePairs
+
+getHistoricalPrice v = dbOps $ do
 	y <- selectList [HistoricalPriceSymbol ==. (v)] [Asc HistoricalPriceDate]
 	mapM (\a@(Entity x z) -> return z) y
 
@@ -145,6 +161,8 @@ computeHistoricalPrice aPortfolio = dbOps $ do
 		Just x -> return x
 
 
+
+data PrevState = PrevState {h :: HistoricalPrice}
 
 {-- The uuid for the portfolio. --}
 portfolioValue :: T.Text -> IO [HistoricalPrice]
