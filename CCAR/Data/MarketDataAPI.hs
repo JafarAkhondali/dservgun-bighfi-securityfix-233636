@@ -21,6 +21,8 @@ import Control.Monad.Trans(liftIO, lift)
 import Data.Monoid(mappend, (<>))
 
 
+
+
 class MarketDataServer a where 
 	{-- | A polling interval to poll for data. Non real time threads.--}
 	realtime :: a -> IO Bool 

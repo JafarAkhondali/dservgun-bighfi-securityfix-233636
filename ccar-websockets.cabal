@@ -127,15 +127,17 @@ executable ccar-websockets
                         ViewPatterns
 
   --ghc-options: -ddump-splices
+  -- no-code to speed up compilation
   ghc-options: 
-    -O2
+    -O0
     -threaded
     -eventlog
 --    -ddump-simpl
-    -fprof-auto
+    -dynamic
+    -- -fprof-auto
     -rtsopts
     "-with-rtsopts=-N "
-
+    -H6g
 -- Use this to run
 --cabal run my-project-profiling && hp2ps -e8in -c my-project-profiling.hp
 

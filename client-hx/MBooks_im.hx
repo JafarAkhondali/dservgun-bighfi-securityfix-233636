@@ -203,9 +203,7 @@ class MBooks_im {
 	}
 	// Connection details
 	private function connectionString() : String {
-		//return protocol + "://" + Browser.location.hostname + ":" + portNumber + "/chat";
 		return protocol + "://" + Browser.location.hostname + "/chat";
-		//return protocol + "://" + Browser.location.hostname;
 	}
 
 	private function connect() {

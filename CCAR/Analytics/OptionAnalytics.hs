@@ -43,6 +43,16 @@ import							Control.Exception(handle)
 import							System.Environment
 import							CCAR.Main.Util as Util(parse_time_interval)
 import							CCAR.Analytics.Server
+import							CCAR.Analytics.OptionPricer
+import							Control.Monad.Trans.Reader
+import							CCAR.Main.GroupCommunication
+import 							Control.Concurrent.Async as A (waitSTM, wait, async
+									, cancel, waitEither, waitBoth, waitAny
+                        			, concurrently,asyncThreadId)
+
+import 							GHC.Conc(labelThread)
+import 							Debug.Trace(traceEventIO)
+
 
 iModuleName = "CCAR.Analytics.OptionAnalytics"
 
@@ -67,26 +77,6 @@ optionPricer a@(OptionServer hostName port) = do
 	return $ ServerHandle h 
 
 
-data OptionPricer = OptionPricer {
-	optionSymbol :: T.Text
-	, optionType :: T.Text
-	, averaging :: T.Text 
-	, spotPrice :: Double
-	, strikePrice  :: Double
-	, riskFreeInterestRate :: Double 
-	, dividendYield :: Double
-	, volatility :: Double 
-	, timeToMaturity :: Double 
-	, randomWalks ::  Int 
-	, price :: Double
-	, optionChain :: OptionChain
-	, bidRatio :: Double
-	, commandType :: T.Text
-
-} deriving (Show, Generic, Typeable)
-
-instance ToJSON OptionPricer 
-instance FromJSON OptionPricer
 
 closeOptionPricer :: ServerHandle -> IO () 
 closeOptionPricer h = hClose (sHandle h)
@@ -120,6 +110,36 @@ parse_float_with_maybe input = do
 
 computeBidRatio :: T.Text -> Double -> Double
 computeBidRatio x y = (parse_float_with_maybe $ T.unpack x) /y 
+
+
+getPricer marketDataMap option = do 
+	y <-liftIO $ return $ Map.lookup (optionChainUnderlying option) (marketDataMap) 
+	case y of 
+		Just x -> do 
+			optionSpotPrice <- return $ historicalPriceClose x 
+			strikePrice <- return $ parse_option_strike $ T.unpack $ optionChainStrike option 
+			bidRatio <- return $ computeBidRatio (optionChainLastBid option) strikePrice
+			return $ OptionPricer (optionChainUnderlying option) 
+							(optionChainOptionType option)
+							"A"
+							optionSpotPrice
+							strikePrice
+							riskFreeInterestRate 
+							dividendYield 
+							volatility 
+							timeToMaturity 
+							randomWalks 
+							price
+							option
+							bidRatio
+							"OptionAnalytics"
+			where 
+				riskFreeInterestRate = 0.02
+				dividendYield = 0.0
+				volatility = 0.2
+				timeToMaturity = 0.25
+				randomWalks = 100000
+				price = 0.00000000000001
 
 
 analytics sHandle marketDataMap option = do 
@@ -231,21 +251,42 @@ analyticsRunner app conn nickName terminate =
     	return ()) $ do 	    
 	    sH <- optionPricer defaultOptionServer 
 	    marketDataMap <- MarketDataAPI.queryMarketData
-	    loop marketDataMap sH terminate 
-	where 
-		loop marketDataMap sH terminate = 
-				if (terminate == True) then do  
-					return () 
-				else do 
-			    	liftIO $ Logger.debugM iModuleName $ " Getting option data "  `mappend` (T.unpack nickName)
-			        opts <- getOptionMarketData nickName
-			        pricers <- Control.Monad.mapM (\y -> return $ analytics sH marketDataMap y) opts
-			        Control.Monad.mapM_ (\p1  ->  
-			        	do 
-			                delay <- analyticsPollingInterval
-			                liftIO $ threadDelay $ delay
-			                p2 <- p1
-			                liftIO $ WSConn.sendTextData conn (Util.serialize p2) ) pricers
-		        	loop marketDataMap sH terminate
+	    a <- A.async (pricerReaderThread app conn nickName marketDataMap)
+	    b <- A.async (pricerWriterThread app conn nickName marketDataMap)
+	    labelThread (A.asyncThreadId a ) ("Pricer reader thread " ++ (T.unpack nickName))
+	    labelThread (A.asyncThreadId b) ("Pricer writer thread " ++ (T.unpack nickName))
+	    A.waitAny [a, b]
+	    Logger.infoM iModuleName "Exiting pricer threads"
+
+data PricerState = PricerState{
+		app :: App
+		, conn :: WSConn.Connection
+		, nickName :: T.Text
+		, marketData :: Map T.Text HistoricalPrice
+	}
+type PriceReader = ReaderT PricerState IO 
 
 
+--pricerReaderThread :: App -> WSConn.Connection -> NickName -> IO ()
+pricerReaderThread a c n m = do 
+	x <- flip runReaderT (PricerState a c n m) $ do 
+			PricerState app conn nickName marketData <- ask
+			opts <- liftIO $ getOptionMarketData nickName
+			pricers <- Control.Monad.mapM( \x -> do 
+				pricer <- liftIO $ getPricer  marketData x 
+				conns <- atomically $ getClientState nickName app
+				Control.Monad.mapM( \c -> atomically $ writeTChan (pricerWriteChan c) pricer) conns) opts
+			return pricers
+	pricerReaderThread a c n m
+
+pricerWriterThread a c n m = do 
+	sH <- optionPricer defaultOptionServer
+	x <- flip runReaderT (PricerState a c n m) $ atomically $ do
+					clientStates <- getClientState n a 
+					case clientStates of 
+						clientState:_ -> readTChan (pricerReadChan clientState)
+	pricer2 <- writeOptionPricer x sH
+
+	liftIO $ analyticsPollingInterval >>= threadDelay
+	liftIO $ WSConn.sendTextData c (Util.serialize pricer2)
+   	pricerWriterThread a c n m
