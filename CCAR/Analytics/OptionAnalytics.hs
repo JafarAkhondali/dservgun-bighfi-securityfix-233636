@@ -52,6 +52,8 @@ import 							Control.Concurrent.Async as A (waitSTM, wait, async
 
 import 							GHC.Conc(labelThread)
 import 							Debug.Trace(traceEventIO)
+import							Control.Parallel.MPI.Simple
+
 
 
 iModuleName = "CCAR.Analytics.OptionAnalytics"

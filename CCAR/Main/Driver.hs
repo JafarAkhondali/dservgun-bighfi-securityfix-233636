@@ -424,6 +424,7 @@ processLoginMessages app conn aNickName aDictionary = do
         Just y -> return y
         Nothing -> return (GroupCommunication.Reply, 
                             ser $ appError ("Error processing login messages." :: String))
+
 processIncomingMessage :: App -> WSConn.Connection -> T.Text ->  Maybe Value -> IO (DestinationType , T.Text)
 processIncomingMessage app conn aNickName aCommand = do 
     case aCommand of 
@@ -813,11 +814,12 @@ writerThread app connection nickName terminate = do
                         _ -> do 
                             handleDisconnects app connection nickName h 
                             Logger.errorM iModuleName $ "Unknown exception " `mappend` (show h)
-                            return $ T.pack $ "Unknown exception"
-
+                            liftIO $ WSConn.sendClose connection ("Nick name processing error. Bye" :: T.Text)
+                            liftIO $ writerThread app connection nickName True -- close this thread..
+                            return $ T.pack $ "Bailing out..."
                 )
             liftIO $ Logger.debugM iModuleName ("Reading message from the connection " ++ (T.unpack msg))
-            (result, nickName) <- liftIO $ getNickName $ incomingDictionary (msg :: T.Text)
+            (result, nickName) <- liftIO $ (getNickName $ incomingDictionary (msg :: T.Text)) `catch` (\h@(SomeException e) -> return (Nothing, nickName))
             case result of 
                 Nothing -> do 
                         liftIO $ WSConn.sendClose connection ("Nick name tag is mandatory. Bye" :: T.Text)
