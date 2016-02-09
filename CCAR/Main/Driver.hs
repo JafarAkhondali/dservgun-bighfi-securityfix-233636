@@ -815,8 +815,8 @@ writerThread app connection nickName terminate = do
                             handleDisconnects app connection nickName h 
                             Logger.errorM iModuleName $ "Unknown exception " `mappend` (show h)
                             liftIO $ WSConn.sendClose connection ("Nick name processing error. Bye" :: T.Text)
-                            liftIO $ writerThread app connection nickName True -- close this thread..
-                            return $ T.pack $ "Bailing out..."
+                            writerThread app connection nickName True -- close this thread..                 
+                            return $ "Bailing out.."
                 )
             liftIO $ Logger.debugM iModuleName ("Reading message from the connection " ++ (T.unpack msg))
             (result, nickName) <- liftIO $ (getNickName $ incomingDictionary (msg :: T.Text)) `catch` (\h@(SomeException e) -> return (Nothing, nickName))

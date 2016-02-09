@@ -31,6 +31,7 @@ import							System.IO
 import							Control.Monad.IO.Class(liftIO)
 import							Control.Concurrent(threadDelay)
 import							Control.Monad
+import							Control.Monad.Trans (lift)
 import 							CCAR.Main.Application
 import 							Control.Concurrent.STM.Lifted
 import 							Network.WebSockets.Connection as WSConn
@@ -45,6 +46,7 @@ import							CCAR.Main.Util as Util(parse_time_interval)
 import							CCAR.Analytics.Server
 import							CCAR.Analytics.OptionPricer
 import							Control.Monad.Trans.Reader
+import							Control.Monad.Trans.State  as State
 import							CCAR.Main.GroupCommunication
 import 							Control.Concurrent.Async as A (waitSTM, wait, async
 									, cancel, waitEither, waitBoth, waitAny
@@ -52,7 +54,7 @@ import 							Control.Concurrent.Async as A (waitSTM, wait, async
 
 import 							GHC.Conc(labelThread)
 import 							Debug.Trace(traceEventIO)
-import							Control.Parallel.MPI.Simple
+--import							Control.Parallel.MPI.Simple
 
 
 
@@ -249,10 +251,12 @@ analyticsRunner app conn nickName terminate =
         Logger.infoM iModuleName "Analytics data thread exiting" 
         return ()
     else handle(\x@(SomeException e) -> do 
+
     	Logger.infoM iModuleName "Exiting analytics thread."
     	return ()) $ do 	    
 	    sH <- optionPricer defaultOptionServer 
 	    marketDataMap <- MarketDataAPI.queryMarketData
+
 	    a <- A.async (pricerReaderThread app conn nickName marketDataMap)
 	    b <- A.async (pricerWriterThread app conn nickName marketDataMap)
 	    labelThread (A.asyncThreadId a ) ("Pricer reader thread " ++ (T.unpack nickName))
@@ -260,28 +264,55 @@ analyticsRunner app conn nickName terminate =
 	    A.waitAny [a, b]
 	    Logger.infoM iModuleName "Exiting pricer threads"
 
+
 data PricerState = PricerState{
 		app :: App
 		, conn :: WSConn.Connection
 		, nickName :: T.Text
 		, marketData :: Map T.Text HistoricalPrice
 	}
-type PriceReader = ReaderT PricerState IO 
+type PriceReader = ReaderT PricerState (StateT Bool IO)
+type PricerConfig = Int
+newtype PricerReaderApp a = PricerReaderApp {
+		runP :: ReaderT PricerConfig (StateT Bool IO) a
+	}
+
+
 
 
 --pricerReaderThread :: App -> WSConn.Connection -> NickName -> IO ()
 pricerReaderThread a c n m = do 
-	x <- flip runReaderT (PricerState a c n m) $ do 
-			PricerState app conn nickName marketData <- ask
-			opts <- liftIO $ getOptionMarketData nickName
-			pricers <- Control.Monad.mapM( \x -> do 
-				pricer <- liftIO $ getPricer  marketData x 
-				conns <- atomically $ getClientState nickName app
-				Control.Monad.mapM( \c -> atomically $ writeTChan (pricerWriteChan c) pricer) conns) opts
-			return pricers
-	pricerReaderThread a c n m
+	(y, z) <- flip runStateT False $ do 
+				flip runReaderT (PricerState a c n m) $ do 
+					PricerState app conn nickName marketData <- ask
+					opts <- liftIO $ getOptionMarketData nickName
+					x <- lift $ State.get
+					loop opts 
+	return y 		
 
-pricerWriterThread a c n m = do 
+
+
+loop :: [OptionChain] -> ReaderT PricerState (StateT Bool IO) ()
+loop = \opts ->  do 
+		PricerState app conn nickName marketData <- ask
+		conns <- atomically $ getClientState nickName app
+		case conns of 
+			[] -> do 
+					lift . put $ True 
+					return () 
+			h:_ -> do 
+					Control.Monad.mapM( \x -> do 				
+						Control.Monad.mapM( \c -> do 
+							pricer <- liftIO $ getPricer  marketData c 
+							liftIO $ Logger.debugM iModuleName $ "Sending " <> (show pricer)
+							atomically $ writeTChan (pricerWriteChan x) pricer) opts				
+							)conns
+					return ()
+					loop opts	
+
+
+
+pricerWriterThread a c n m = do
 	sH <- optionPricer defaultOptionServer
 	x <- flip runReaderT (PricerState a c n m) $ atomically $ do
 					clientStates <- getClientState n a 
