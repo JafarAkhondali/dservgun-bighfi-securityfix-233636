@@ -35,13 +35,14 @@ import Data.Aeson.Types as AeTypes(Result(..), parse)
 import Data.Time(UTCTime, getCurrentTime)
 import GHC.Generics
 import Data.Data
+import Data.Map
 import Data.Typeable 
 import CCAR.Main.DBUtils
 import CCAR.Main.EnumeratedTypes as Et
 import CCAR.Command.ApplicationError
 import CCAR.Main.Util as Util
 import CCAR.Parser.CCARParsec
-
+import CCAR.Analytics.OptionPricer
 {- 
 	The client needs to handle
 		. Broadcast 
@@ -65,6 +66,8 @@ data ClientState = ClientState {
             , jobWriteChan :: TChan Value
             , workingDirectory :: FilePath
             , activeScenario :: [Stress]
+            , pricerReadChan :: TChan OptionPricer
+            , pricerWriteChan :: TChan OptionPricer
 	}
 
 createClientState nn aConn = do 
@@ -72,6 +75,8 @@ createClientState nn aConn = do
         r <- dupTChan w 
         jw <- newTChan 
         jwr <- dupTChan jw
+        pricerWriteChan <- newTChan 
+        pricerReadChan <- dupTChan pricerWriteChan
         return ClientState{nickName = nn 
                         , connection = aConn
                         , readChan = r 
@@ -80,7 +85,12 @@ createClientState nn aConn = do
                         , jobReadChan = jwr
                         , workingDirectory = ("." `mappend` (T.unpack nn))
                         , activeScenario = []
+                        , pricerReadChan = pricerReadChan
+                        , pricerWriteChan = pricerWriteChan
         }
+
+
+
 
 instance Show ClientState where 
     show cs = (show $ nickName cs) ++  " Connected"

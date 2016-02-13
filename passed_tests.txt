@@ -1,3 +1,4 @@
+Create Sector Shock for Consumer pct 3 % 100;
 Create Equity Shock for IBM pct 12 % 100;
 Create Equity Shock for IBM pct 12 % 100;
 Create Equity Shock for IBM pct 12 % 100;

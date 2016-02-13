@@ -36,6 +36,8 @@ type TenorValue = Rational
 data Product = Equity Underlying | CCAROption Underlying Expiration Strike| Commodity Name 
     | CurrencyPair Currency Currency | Tenor Currency [(Mat, TenorValue)]
     | TenorOptions ISO_3 Expiration Mat        
+    | Index Underlying
+    | Sector Underlying
     deriving(Show, Read, Eq, Generic, Typeable)
 
 
@@ -58,6 +60,8 @@ data Stress = EquityStress Product StressValue  | OptionStress Product StressVal
                 | EffectiveDate String
                 | Formattingg FormatString FormatType
                 | FirmDetails Abbreviation String
+                | IndexStress Product StressValue
+                | SectorStress Product StressValue 
             deriving (Eq, Show, Read, Generic, Typeable)
 
 data FormatType = DateFormat | CurrencyFormat | DateTimeFormat deriving (Eq, Show, Read, Generic, Typeable)

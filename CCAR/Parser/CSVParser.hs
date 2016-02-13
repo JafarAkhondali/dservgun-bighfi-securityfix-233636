@@ -16,6 +16,7 @@ import Monad.RWS
 
 -- RWH example.
 csvFile = endBy line eol
+
 line = sepBy cell (char '|')
 cell = quotedCell <|> many (noneOf "|\n")
 quotedCell = 

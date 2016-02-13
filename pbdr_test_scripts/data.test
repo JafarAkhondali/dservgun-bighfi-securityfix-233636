@@ -1,0 +1,266 @@
+		index : 1, 
+		profile.statistic : {
+			W : 0.967364577633004
+		}, 
+		profile.p.value : 0.0139428954912803, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 5, 
+		profile.statistic : {
+			W : 0.909254376757394
+		}, 
+		profile.p.value : 0.00000395631256578074, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 6, 
+		profile.statistic : {
+			W : 0.939780832765275
+		}, 
+		profile.p.value : 0.000186953130969989, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},Ignoring http://www.smart-earn.com/gj/5/7,Ignoring http://www.smart-earn.com/gj/5/8,{
+		index : 9, 
+		profile.statistic : {
+			W : 0.931575204391162
+		}, 
+		profile.p.value : 0.0000612090336001442, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 10, 
+		profile.statistic : {
+			W : 0.949692375922758
+		}, 
+		profile.p.value : 0.0190475218069928, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 11, 
+		profile.statistic : {
+			W : 0.935722417895064
+		}, 
+		profile.p.value : 0.000106729939921405, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 12, 
+		profile.statistic : {
+			W : 0.921686230133303
+		}, 
+		profile.p.value : 0.0000173133883933888, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 13, 
+		profile.statistic : {
+			W : 0.940324020155363
+		}, 
+		profile.p.value : 0.000201778567914372, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 14, 
+		profile.statistic : {
+			W : 0.982336472069257
+		}, 
+		profile.p.value : 0.201285425227355, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 15, 
+		profile.statistic : {
+			W : 0.973171931686644
+		}, 
+		profile.p.value : 0.0388491452130465, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 16, 
+		profile.statistic : {
+			W : 0.914418820737174
+		}, 
+		profile.p.value : 0.000007204011234647, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 17, 
+		profile.statistic : {
+			W : 0.945061442231008
+		}, 
+		profile.p.value : 0.000397893815267523, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 18, 
+		profile.statistic : {
+			W : 0.954505551222055
+		}, 
+		profile.p.value : 0.00166336315326857, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 19, 
+		profile.statistic : {
+			W : 0.960175401337251
+		}, 
+		profile.p.value : 0.00413873316248584, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 20, 
+		profile.statistic : {
+			W : 0.962939371085954
+		}, 
+		profile.p.value : 0.00655125614293463, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 21, 
+		profile.statistic : {
+			W : 0.955412698152016
+		}, 
+		profile.p.value : 0.00191927007116827, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 22, 
+		profile.statistic : {
+			W : 0.910718884943052
+		}, 
+		profile.p.value : 0.00000468027090995688, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},Ignoring http://www.smart-earn.com/gj/5/23,{
+		index : 24, 
+		profile.statistic : {
+			W : 0.93709827805166
+		}, 
+		profile.p.value : 0.00012882652094502, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 25, 
+		profile.statistic : {
+			W : 0.938178219433795
+		}, 
+		profile.p.value : 0.000149529841436932, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 26, 
+		profile.statistic : {
+			W : 0.897918913079886
+		}, 
+		profile.p.value : 0.00000113007154545004, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 27, 
+		profile.statistic : {
+			W : 0.648534438827612
+		}, 
+		profile.p.value : 3.9695637932006e-14, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 28, 
+		profile.statistic : {
+			W : 0.522871396792677
+		}, 
+		profile.p.value : 1.82830021054388e-16, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 29, 
+		profile.statistic : {
+			W : 0.912946008508601
+		}, 
+		profile.p.value : 0.00000606045363219392, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 30, 
+		profile.statistic : {
+			W : 0.958643012858567
+		}, 
+		profile.p.value : 0.00322194034374781, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},Ignoring http://www.smart-earn.com/gj/5/31,{
+		index : 32, 
+		profile.statistic : {
+			W : 0.934693814592052
+		}, 
+		profile.p.value : 0.0000928376676613478, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 33, 
+		profile.statistic : {
+			W : 0.910331986938498
+		}, 
+		profile.p.value : 0.00000447639222037133, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 34, 
+		profile.statistic : {
+			W : 0.889912588178878
+		}, 
+		profile.p.value : 4.88647113603175e-7, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 35, 
+		profile.statistic : {
+			W : 0.941402809276961
+		}, 
+		profile.p.value : 0.000235016571829822, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 36, 
+		profile.statistic : {
+			W : 0.542821921250898
+		}, 
+		profile.p.value : 3.98464205194568e-16, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 37, 
+		profile.statistic : {
+			W : 0.854547693465713
+		}, 
+		profile.p.value : 1.75248735388077e-8, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 38, 
+		profile.statistic : {
+			W : 0.870850786844886
+		}, 
+		profile.p.value : 7.58779230605007e-8, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 39, 
+		profile.statistic : {
+			W : 0.983817296660277
+		}, 
+		profile.p.value : 0.260176865871416, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 40, 
+		profile.statistic : {
+			W : 0.923470035768383
+		}, 
+		profile.p.value : 0.0000216084126704514, 
+		profile.method : Shapiro-Wilk normality test, 
+		profile.data.name : as.numeric((d[-1]))
+	},{
+		index : 41, 
+		profile.stat

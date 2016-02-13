@@ -6,6 +6,10 @@ Done : Server is currently sending the password as cleartext (which wont be an i
 ### Add a crypto hash
 To prevent saving clear text passwords in the database or filesystems.
 
+### Add terms and conditions 
+User needs to agree to certain terms and conditions before using the site. Also, present 
+the user with a multi-lingual version of the agreements form.
+
 ### Add admin profile to a user and other entitlements
 Kick user text box should only be visible to users with appropriate permissions.
 

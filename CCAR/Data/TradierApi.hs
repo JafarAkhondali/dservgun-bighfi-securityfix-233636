@@ -1,10 +1,12 @@
 module CCAR.Data.TradierApi 
-	(startup, query, QueryOptionChain, queryMarketData)
+	(startup, query, QueryOptionChain, queryMarketData, TradierMarketDataServer(..))
 where 
 
 import CCAR.Main.DBOperations (Query, query, manage, Manager)
 import Network.HTTP.Conduit 
 
+import Data.Set as Set 
+import Data.Map as Map
 -- The streaming interface
 import           Control.Monad.IO.Class  (liftIO)
 import           Data.Aeson              (Value (Object, String, Array) 
@@ -38,6 +40,7 @@ import 			Database.Persist.Postgresql as DB
 import 			Data.Time
 import			Data.Map
 import 			System.Locale(defaultTimeLocale)
+import			System.Environment(getEnv)
 import Control.Monad.IO.Class 
 import Control.Monad
 import Control.Monad.Logger 
@@ -65,7 +68,14 @@ import Data.Conduit.Binary as B (sinkFile, lines, sourceFile)
 import Data.Conduit.List as CL 
 import Data.ByteString.Char8 as BS(ByteString, pack, unpack) 
 import Data.Conduit ( ($$), (=$=), (=$), Conduit, await, yield)
-
+import CCAR.Data.MarketDataAPI as MarketDataAPI
+import CCAR.Model.Portfolio as Portfolio
+import CCAR.Model.PortfolioSymbol as PortfolioSymbol hiding (symbol)
+import CCAR.Main.Util as Util
+import Network.WebSockets.Connection as WSConn
+import CCAR.Model.CcarDataTypes
+import CCAR.Main.Application
+import Control.Concurrent.STM.Lifted
 iModuleName = "CCAR.Data.TradierApi"
 baseUrl =  "https://sandbox.tradier.com/v1"
 
@@ -135,6 +145,7 @@ getOptionChains = \x y -> do
 	Object value <- getMarketData optionChains [("symbol", Just x), ("expiration", Just y )]
 	liftIO $ Logger.debugM iModuleName ("getOptionChains " `mappend` (show x))
 	options <- return $ M.lookup "options" value 
+	liftIO $ Logger.debugM iModuleName (show options)
 	case options of 
 		Just (Object object) -> do 
 			object <- return $ M.lookup "option" object
@@ -158,9 +169,9 @@ insertOptionChain x = dbOps $ do
    		lift $ DB.insert $ OptionChain  
 			(symbol x)
 			(underlying x)
+			(T.pack $ show $ strike x)
 			(expiration x)				
 			(optionType x)
-			(T.pack $ show $ strike x)				
 			(T.pack $ show $ lastPrice x)
 			(T.pack $ show $ bidPrice x) 
 			(T.pack $ show $ askPrice x)
@@ -178,7 +189,7 @@ insertHistoricalPrice y@(MarketDataTradier date open close high low volume) symb
 		Just (Entity kid providerEntity) <- 
 			lift $ DB.getBy $ UniqueProvider provider
 		Nothing <- lift $ DB.getBy $ MarketDataIdentifier symb utcdate 
-		lift $ DB.insert $ MarketData symb 
+		lift $ DB.insert $ HistoricalPrice symb 
 						utcdate 
 						open 
 						close 
@@ -244,7 +255,7 @@ data OptionChainMarketData = OptionChainMarketData {
 instance FromJSON OptionChainMarketData where 
 	parseJSON (Object o) = OptionChainMarketData <$> 
 								o .: "symbol" <*>
-								o .: "root_symbol" <*> 
+								o .: "underlying" <*> 
 								o .: "strike" <*>
 								o .: "expiration_date" <*> 
 								o .: "option_type" <*>
@@ -339,7 +350,7 @@ insertDummyMarketData = dbOps $ do
 		Just (Entity kid providerEntity) <- 
 				lift $ DB.getBy $ UniqueProvider provider
 		y <- Control.Monad.mapM (\a @(Entity k val) -> do 
-				lift $ DB.insert $ MarketData (equitySymbolSymbol val) 
+				lift $ DB.insert $ HistoricalPrice (equitySymbolSymbol val) 
 									(time)
 									1.0
 									1.0
@@ -349,7 +360,7 @@ insertDummyMarketData = dbOps $ do
 									time 
 									kid					
 				newTime <- liftIO $ return $ addUTCTime (24 * 3600) time
-				lift $ DB.insert $ MarketData (equitySymbolSymbol val) 
+				lift $ DB.insert $ HistoricalPrice (equitySymbolSymbol val) 
 									(newTime)
 									3.0
 									3.0
@@ -364,12 +375,6 @@ insertDummyMarketData = dbOps $ do
 	return y
 
 
-queryMarketData :: IO (Map T.Text MarketData)
-queryMarketData = dbOps $ do 
-		-- A bit of a hack. Sort by ascending market data date to replace with the latest element.
-		x <- selectList [][Asc MarketDataSymbol, Asc MarketDataDate]
-		y <- Control.Monad.mapM (\a@(Entity k val) -> return (marketDataSymbol val, val)) x 
-		return $ Data.Map.fromList y 
 
 
 --TODO: Exception handling needs to be robust.
@@ -501,7 +506,8 @@ insertHistoricalIntoDb xS = do
 
 insertOptionChainsIntoDb x y = do 
 	Logger.debugM iModuleName ("Inserting " `mappend` show x `mappend` " " `mappend` show y)
-	x1 <- getOptionChains x y 
+	x1 <- getOptionChains x y
+	Logger.debugM iModuleName (show x1) 
 	case x1 of 
 		Right x2 -> do 
 				liftIO $ Logger.debugM iModuleName ("Option chains " `mappend` (show x1))
@@ -545,6 +551,101 @@ startup_d = do
 
 testOptionChain aSymbol = queryOptionChain ("test"  :: String)
 						$ toJSON $ QueryOptionChain "test" "Read" aSymbol []
+
+
+
+data TradierMarketDataServer = TradierServer 
+
+
+instance MarketDataServer TradierMarketDataServer where 
+    realtime a = return False
+    pollingInterval a = tradierPollingInterval 
+    runner i a n t = tradierRunner a n t 
+
+
+toDouble :: StressValue -> Double 
+toDouble (Percentage Positive x) =  fromRational x 
+toDouble (Percentage Negative x) =  -1 * (fromRational x)
+_                                = 0.0 -- Need to model this better.
+
+
+
+updateStressValue :: HistoricalPrice -> PortfolioSymbol -> [Stress] -> IO T.Text
+updateStressValue a b stress = do 
+        m <- return $ (historicalPriceClose a )
+        q <- return $ T.unpack (portfolioSymbolQuantity b)
+        qD <- (return (read q :: Double))  `catch` (\x@(SomeException e) -> return 0.0)
+        stressM <- return stress 
+        symbol <- return $ T.unpack $ portfolioSymbolSymbol b 
+        sVT <- Control.Monad.foldM (\sValue s -> 
+                case s of 
+                    EquityStress (Equity sym) sV -> 
+                        if sym == symbol then 
+                            return $ sValue + (toDouble sV)
+                        else 
+                            return sValue
+                    _ -> return sValue) 0.0 stressM 
+        Logger.debugM iModuleName $ "Total stress " `mappend` (show sVT)
+        return $ T.pack $ show (m * qD * (1 - sVT))
+
+
+
+-- Refactoring note: move this to market data api.
+tradierPollingInterval :: IO Int 
+tradierPollingInterval = getEnv("TRADIER_POLLING_INTERVAL") >>= \x -> return $ parse_time_interval x
+
+
+-- The method is too complex. Need to fix it. 
+-- Get all the symbols for the users portfolio,
+-- Send a portfolio update : query the portfolio object
+-- get the uuid and then map over it.
+
+tradierRunner :: App -> WSConn.Connection -> T.Text -> Bool -> IO ()
+tradierRunner app conn nickName terminate = 
+    if(terminate == True) then do 
+        Logger.infoM iModuleName "Market data thread exiting" 
+        return ()
+    else do 
+        Logger.debugM iModuleName "Waiting for data"
+        tradierPollingInterval >>= \x -> threadDelay x        
+        mySymbols <- Portfolio.queryUniqueSymbols nickName
+        marketDataMap <- MarketDataAPI.queryMarketData
+        portfolioIds <- Control.Monad.mapM (\p -> return $ portfolioSymbolPortfolio p) mySymbols
+        pSet <- return $ Set.fromList portfolioIds
+        portfoliom  <- Control.Monad.mapM (\x -> do 
+                        p <- dbOps $  DB.get x 
+                        case p of 
+                            Just x2 -> return (x, portfolioUuid x2)
+                            Nothing -> return (x, "INVALID PORTFOLIO")) 
+                        (Set.toList pSet)
+        portfolioMap <- return $ Map.fromList portfoliom
+        upd <- Control.Monad.mapM (\x -> do 
+                activeScenario <- liftIO $ atomically $ getActiveScenario app nickName 
+                Logger.infoM iModuleName $ " Active scenario " `mappend` (show activeScenario)
+                val <- return $ Map.lookup (portfolioSymbolSymbol x) marketDataMap 
+                (stressValue, p) <- case val of 
+                        Just v -> do 
+                            c <- updateStressValue v x activeScenario
+                            return (c, x {portfolioSymbolValue = T.pack $ show $ 
+                            		(historicalPriceClose v) * 
+                            			(read $ (T.unpack $ portfolioSymbolQuantity x) :: Double)}) 
+                        Nothing -> return ("0.0", x)
+                x2 <- return $ Map.lookup (portfolioSymbolPortfolio x) portfolioMap 
+                pid <- case x2 of 
+                    Nothing -> return "INVALID PORTFOLIO" 
+                    Just y -> return y                  
+                return $ daoToDto PortfolioSymbol.P_Update pid 
+                            nickName nickName nickName p stressValue
+            ) mySymbols
+
+        Control.Monad.mapM_  (\p -> do
+                liftIO $ Logger.debugM iModuleName ("test" `mappend` (show $ Util.serialize p))
+                delay <- tradierPollingInterval
+                liftIO $ threadDelay $ delay
+                liftIO $ WSConn.sendTextData conn (Util.serialize p) 
+                return p 
+                ) upd 
+        tradierRunner app conn nickName False
 
 
 

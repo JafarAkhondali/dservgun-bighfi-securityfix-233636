@@ -106,7 +106,8 @@ executable ccar-websockets
                      , vector                        >= 0.10.12.3 && < 0.11
                      , scientific                    >= 0.3.3.8 && < 0.4
                      , bytestring                    >= 0.10.4.0 && < 0.11
-
+                     , network                       >= 2.6.2.0 && < 2.7
+                     --, haskell-mpi                   >= 1.4.0 && < 1.5
   -- Directories containing source files.
   -- hs-source-dirs:      
   
@@ -126,14 +127,16 @@ executable ccar-websockets
                         ViewPatterns
 
   --ghc-options: -ddump-splices
+  -- no-code to speed up compilation
   ghc-options: 
     -O2
     -threaded
     -eventlog
 --    -ddump-simpl
     -fprof-auto
+    -rtsopts
     "-with-rtsopts=-N "
-
+    -H6g
 -- Use this to run
 --cabal run my-project-profiling && hp2ps -e8in -c my-project-profiling.hp
 

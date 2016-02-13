@@ -1,0 +1,27 @@
+Unhandled command type {
+	strikePrice : 51.5, 
+	optionSymbol : AAL, 
+	spotPrice : 43.81, 
+	optionType : call, 
+	optionChain : {
+		lastPrice : Nothing, 
+		underlying : AAL, 
+		marketDataProvider : 2, 
+		optionType : call, 
+		expiration : 2015-12-31, 
+		symbol : AAL151231C00051500, 
+		change : Nothing, 
+		openInterest : Just 0.0, 
+		strike : 51.5, 
+		lastBid : Just 0.0, 
+		lastAsk : Just 0.32
+	}, 
+	averaging : A, 
+	bidRatio : 0, 
+	volatility : 0.2, 
+	dividendYield : 0, 
+	commandType : OptionAnalytics, 
+	price : 0.002527887904309522, 
+	timeToMaturity : 0.25, 
+	riskFreeInterestRate : 0.02, 
+	randomWalks : 100000

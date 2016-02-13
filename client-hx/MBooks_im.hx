@@ -35,9 +35,9 @@ import model.Project;
 import model.CCAR;
 import model.Portfolio;
 import model.MarketDataUpdate;
-
 import view.Entitlement;
-
+import view.OptionAnalyticsView;
+import view.SymbolChart;
 import util.Util;
 import util.Config;
 import js.Browser;
@@ -49,7 +49,6 @@ import js.d3.D3;
 import js.d3.D3;
 import js.d3.scale.Scale;
 
-	import js.d3.selection.Selection;
 import js.d3.selection.Selection;
 import js.d3.layout.Layout;
 import view.Portfolio;
@@ -58,10 +57,12 @@ import view.Company;
 import massive.munit.TestRunner;
 using promhx.haxe.EventTools;
 import promhx.Deferred;
-
-
+import view.OptionAnalyticsView;
+import view.OptionAnalytics;
 class MBooks_im {
 
+	private static var SERVER_ERROR_MESSAGES_DIV_FIELD = "serverMessages";
+	private static var SERVER_ERROR : String = "ServerError";
 	private static var singleton : MBooks_im;
 	private static var MESSAGING_DIV : String = "workbench-messaging";
 	private static var GENERAL_DIV : String = "workbench-general";
@@ -71,6 +72,7 @@ class MBooks_im {
 	private static var SECURITY_DIV : String = "workbench-security";
 	private static var PORTFOLIO_DIV : String = "workbench-portfolio";
 	private static var SETUP_GMAIL  : String = "setupGmailOauth";
+	private static var WORKBENCH : String = "workbench";
 	//UI
 	private static var NICK_NAME = "nickName";
 	private static var PASSWORD = "password";
@@ -84,6 +86,7 @@ class MBooks_im {
 	private static var REGISTER = "registerInput";
 	private static var MESSAGE_HISTORY = "messageHistory";
 	private static var MESSAGE_INPUT = "messageInput";
+	private static var SEND_MESSAGE = "sendMessage";
 	private static var STATUS_MESSAGE = "statusMessage";
 	private static var KICK_USER = "kickUser";
 	private static var KICK_USER_DIV = "kickUserDiv";
@@ -106,30 +109,37 @@ class MBooks_im {
 	}
 
 	private var maxAttempts : Int = 3;
-
 	function new (){
 		trace("Calling MBooks_im");
 		reset();
 		person = new model.Person("", "", "", "");
 		outputEventStream = new Deferred<Dynamic>();
+		hideDivField(MESSAGING_DIV);
 		trace("Registering nickname");
+
 		var blurStream : Stream<Dynamic> = initializeElementStream(cast getNickNameElement(), "blur");
 		blurStream.then(sendLoginBlur);
 		trace("Registering password");
 		var rStream : Stream<Dynamic> = initializeElementStream(cast getRegisterElement(), "click");
 		rStream.then(registerUser);
 
-		var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "keyup");
-		kStream.then(kickUser);
-
-		var mStream : Stream<Dynamic> = 
-			initializeElementStream(getMessageInput(), "keyup");
-		mStream.then(sendMessage);
+//		var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "keyup");
+		//TODO: Setup streams based on the type of device
+		//var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "blur");
+//		kStream.then(kickUser);
+		//Same as above.
+//		var mStream : Stream<Dynamic> = 
+//			initializeElementStream(getMessageInput(), "keyup");
+//		mStream.then(sendMessage);
+//		var sendMessageButton : Stream<Dynamic> = 
+//			initializeElementStream(getSendMessageElement(), "click");
+//		sendMessageButton.then(sendMessageFromButton);
 		userLoggedIn = new Deferred<Dynamic>();
 		userLoggedIn.then(authenticationChecks);
 		selectedCompanyStream = new Deferred<Dynamic>();
 		assignCompanyStream = new Deferred<Dynamic> ();
 		activeCompanyStream = new Deferred<model.Company> ();
+		activeCompanyStream.then(displayUserElements);
 		portfolioListStream = new Deferred<PortfolioQuery>();
 		portfolioStream = new Deferred<Dynamic> ();
 		applicationErrorStream = new Deferred<Dynamic>();
@@ -140,8 +150,11 @@ class MBooks_im {
 		oauthStream.then(performGmailOauth);
 		entitlements = new view.Entitlement();
 		marketDataStream = new Deferred<Dynamic>();
+		historicalPriceStream = new Deferred<Dynamic>();
+		optionAnalyticsStream = new Deferred<OptionAnalytics>();
 		companyEntitlements = new view.CompanyEntitlement(entitlements, 
 			selectedCompanyStream);
+		symbolChart = new SymbolChart(historicalPriceStream);
 
 	}
 
@@ -166,9 +179,15 @@ class MBooks_im {
 		return (cast Browser.document.getElementById(SETUP_GMAIL));
 
 	}
+	private function displayUserElements(companySelected : Dynamic) {
+		trace("Displaying user elements the current user is entitled for");
+		showDivField(WORKBENCH);
+		showDivField(MESSAGING_DIV);
+	}
 	private function processSuccessfulLogin(loginEvent : Dynamic){
 		trace("Process successful login " + loginEvent);
-		if(loginEvent.userName == getNickName()){
+		hideDivField(MESSAGING_DIV);
+		if(loginEvent.userName == getNickName()){			
 			singleton.company = new view.Company();
 			singleton.project = new Project(singleton.company);
 			singleton.ccar = new CCAR("", "", "");
@@ -180,12 +199,11 @@ class MBooks_im {
 		}else {
 			trace("A new user logged in " + loginEvent);
 		}
+
 	}
 	// Connection details
 	private function connectionString() : String {
-		//return protocol + "://" + Browser.location.hostname + ":" + portNumber + "/chat";
 		return protocol + "://" + Browser.location.hostname + "/chat";
-		//return protocol + "://" + Browser.location.hostname;
 	}
 
 	private function connect() {
@@ -258,6 +276,7 @@ class MBooks_im {
 		trace("Error " + ev);
 		getOutputEventStream().end();
 		websocket.close();
+		this.applicationErrorStream.resolve("Server Not found. Please reach out to support");
 	}
 
 	// Message processing 
@@ -433,6 +452,13 @@ class MBooks_im {
 			case MarketDataUpdate : {
 				marketDataStream.resolve(incomingMessage);
 			}
+			case OptionAnalytics: {
+				optionAnalyticsStream.resolve(incomingMessage);
+			}
+			case QueryMarketData : {				
+				trace("Incoming message " + incomingMessage);
+				historicalPriceStream.resolve(incomingMessage);
+			}
 			case Undefined : {
 				processUndefinedCommandType(incomingMessage);
 				entitlements.modelResponseStream.resolve(incomingMessage);
@@ -536,6 +562,10 @@ class MBooks_im {
 	}
 	private function updateMessageHistory(currentTime : Date, localMessage : String) {
 		var textAreaElement : TextAreaElement = cast Browser.document.getElementById(MESSAGE_HISTORY);
+		if(textAreaElement == null) {
+			trace("Element not found");
+			return;
+		}
 		if(localMessage != "") {
 			textAreaElement.value = textAreaElement.value + currentTime + "@" + 
 				getNickName() + ":" + localMessage + "\n";
@@ -560,13 +590,35 @@ class MBooks_im {
 		var userNickName = incomingMessage.userName;
 		removeFromUsersOnline(userNickName);
 	}
+
+	/**
+	* Disable messaging tab for all users.
+	*/
+	private function isEntitledFor(fieldName : String){
+		if(fieldName == MESSAGING_DIV){
+			return false;
+		}
+		return true;
+	}
 	private function showDivField(fieldName : String) {
+		if(!isEntitledFor(fieldName)){
+			trace("Not entitled for " + fieldName);
+			return;
+		}
 		var div : DivElement = cast (Browser.document.getElementById(fieldName));
+		if(div == null){
+			trace("Element not found " + fieldName);
+			return;
+		}
 		div.setAttribute("style", "display:normal");
 	}
 
 	private function hideDivField(fieldName : String) {
 		var div : DivElement = cast Browser.document.getElementById(fieldName);
+		if(div == null){
+			trace("Div not found");
+			return;
+		}
 		div.setAttribute("style", "display:none");
 	}
 
@@ -633,6 +685,9 @@ class MBooks_im {
 		return getNickNameElement().value;
 	}
 
+	private function getSendMessageElement() : Element {
+		return Browser.document.getElementById(SEND_MESSAGE);
+	}
 	private function getStatusMessageElement() : Element {
 		return Browser.document.getElementById(STATUS_MESSAGE);
 	}
@@ -669,15 +724,6 @@ class MBooks_im {
 
 	}
 
-	//tabName
-	private function disableTab(tabName : String, tabSectionName : String) {
-		var element : DivElement = cast Browser.document.getElementById(tabName);
-		trace("Disabling tab " + tabName);
-		element.setAttribute("style", "display:none");
-		var containerElement = Browser.document.getElementById(tabSectionName);
-		containerElement.setAttribute("style", "display:none");
-
-	}
 	private function getMessageInput() : InputElement {
 		var inputElement : InputElement = cast Browser.document.getElementById(MESSAGE_INPUT);
 		return inputElement;
@@ -695,6 +741,10 @@ class MBooks_im {
 
 	private function addToUsersOnline(nickName : String) : Void {
 		var usersOnline : SelectElement = cast Browser.document.getElementById(USERS_ONLINE);
+		if(usersOnline == null){
+			trace("Element not found ");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement : OptionElement = cast Browser.document.getElementById(nickNameId);
 		if(optionElement == null){
@@ -710,6 +760,10 @@ class MBooks_im {
 	private function removeFromUsersOnline(nickName : String) : Void {
 		trace("Deleting user from the list " + nickName);
 		var usersOnline : SelectElement = cast Browser.document.getElementById(USERS_ONLINE);
+		if(usersOnline == null){
+			trace("Element not found");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement : OptionElement = cast Browser.document.getElementById(nickNameId);
 		if(optionElement != null){
@@ -729,6 +783,7 @@ class MBooks_im {
 		doSendJSON(payload);
 		this.initializeKeepAlive();
 		this.hideDivField(KICK_USER_DIV);
+		this.hideDivField(MESSAGING_DIV);
 	}
 
 	private function getLoginRequest(nickName : String, status : LoginStatus) : Dynamic { 
@@ -776,6 +831,27 @@ class MBooks_im {
 		}
 	}
 
+	private function sendMessageFromButton(ev : Dynamic) {
+		trace("Sending message from button " + ev);
+		var sentTime = Date.now();
+		var payload : Dynamic = {
+			nickName : getNickName()
+			, from : getNickName()
+			, to : getNickName()
+			, privateMessage : getMessage()
+			, commandType : "SendMessage"
+			, destination :  {
+				tag : "Broadcast"
+				, contents : []
+			}
+			, sentTime : sentTime
+		};
+		doSendJSON(payload);
+		updateMessageHistory(sentTime, getMessage());
+		var inputElement = getMessageInput();
+		inputElement.value= ""; //Should we handle an exception here.
+
+	}
 	private function sendMessage(ev : KeyboardEvent) {
 		var inputElement : InputElement = cast ev.target;
 		if(Util.isBackspace(ev.keyCode)){
@@ -870,21 +946,26 @@ class MBooks_im {
 		if(inputElement != null){
 			inputElement.value = "";
 		}else {
-			throw "Null value for input element";
+			trace("Null value for input element");
 		}
 	}
 
 	private function getApplicationErrorElement() {
 		return (cast (Browser.document.getElementById(APPLICATION_ERROR)));
 	}
+
+	private function setServerError(anError){
+		getServerErrorElement().value = anError;
+	}
 	private function updateErrorMessages(incomingError : Dynamic) {
 		getApplicationErrorElement().value = 
 				getApplicationErrorElement().value + ("" + incomingError);
+		showDivField(SERVER_ERROR_MESSAGES_DIV_FIELD);
+		setServerError(incomingError);
 	}
 	private function getServerErrorElement() {
 		return (cast (Browser.document.getElementById(SERVER_ERROR)));
 	}
-	private static var SERVER_ERROR : String = "serverError";
 	private static var APPLICATION_ERROR : String = "applicationError";
 	private function setError(aMessage) {
 		applicationErrorStream.resolve(aMessage);
@@ -929,14 +1010,20 @@ class MBooks_im {
 	public var activeCompanyStream(default, null) : Deferred<model.Company>;
 	public var assignCompanyStream (default, null) : Deferred<Dynamic>;
 	public var marketDataStream(default, null) : Deferred<Dynamic>;
+	public var historicalPriceStream(default, null) : Deferred<Dynamic>;
+	public var optionAnalyticsStream(default, null) : Deferred<OptionAnalytics>;
+	public var symbolChart (default, null) : SymbolChart;
 	//PortfolioQuery messages
 	public var portfolioListStream(default, null) : Deferred<PortfolioQuery>;
 	//ManagePortfolio messages.
 	public var portfolioStream (default, null) : Deferred<Dynamic>;
 	//Global error stream
 	public var applicationErrorStream(default, null) : Deferred<Dynamic>;
+	private var optionAnalyticsView : OptionAnalyticsView;
 	static function main() {
 		singleton = new MBooks_im();
+		//TODO: Fix initialization
+		singleton.optionAnalyticsView = new OptionAnalyticsView();
 		singleton.setupStreams();
 		singleton.connect();
 	}

@@ -23,7 +23,6 @@ import Control.Concurrent.STM.Lifted
 import Control.Concurrent.Async
 import Control.Exception
 import qualified  Data.Map as IMap
-import Control.Exception
 import Control.Monad
 import Control.Monad.Logger(runStderrLoggingT)
 import Control.Monad.Trans.Maybe(runMaybeT)
@@ -330,6 +329,8 @@ queryUniqueSymbolsForCompany companyId userId = dbOps $ do
 		Nothing -> return []
 
 
+
+
 insertPortfolio :: PortfolioT -> IO (Either T.Text (Key Portfolio) )
 insertPortfolio p@(PortfolioT cType 
 				_ 
@@ -409,6 +410,7 @@ deletePortfolio p@(PortfolioT cType
 			Nothing -> return $ Left $ T.pack $ "Portfolio not found " `mappend` (show p)  
 			Just(Entity pid port) -> do
 				liftIO $ Logger.debugM iModuleName $ "Deleting pid " `mappend` (show p)  
+				deleteWhere [PortfolioSymbolPortfolio ==. pid]
 				delete pid 
 				return $ Right pid
 

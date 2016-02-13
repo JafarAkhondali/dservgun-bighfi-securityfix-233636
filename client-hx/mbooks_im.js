@@ -92,21 +92,19 @@ var MBooks_im = function() {
 	this.reset();
 	this.person = new model.Person("","","","");
 	this.outputEventStream = new promhx.Deferred();
+	this.hideDivField(MBooks_im.MESSAGING_DIV);
 	console.log("Registering nickname");
 	var blurStream = this.initializeElementStream(this.getNickNameElement(),"blur");
 	blurStream.then($bind(this,this.sendLoginBlur));
 	console.log("Registering password");
 	var rStream = this.initializeElementStream(this.getRegisterElement(),"click");
 	rStream.then($bind(this,this.registerUser));
-	var kStream = this.initializeElementStream(this.getKickUserElement(),"keyup");
-	kStream.then($bind(this,this.kickUser));
-	var mStream = this.initializeElementStream(this.getMessageInput(),"keyup");
-	mStream.then($bind(this,this.sendMessage));
 	this.userLoggedIn = new promhx.Deferred();
 	this.userLoggedIn.then($bind(this,this.authenticationChecks));
 	this.selectedCompanyStream = new promhx.Deferred();
 	this.assignCompanyStream = new promhx.Deferred();
 	this.activeCompanyStream = new promhx.Deferred();
+	this.activeCompanyStream.then($bind(this,this.displayUserElements));
 	this.portfolioListStream = new promhx.Deferred();
 	this.portfolioStream = new promhx.Deferred();
 	this.applicationErrorStream = new promhx.Deferred();
@@ -116,7 +114,10 @@ var MBooks_im = function() {
 	oauthStream.then($bind(this,this.performGmailOauth));
 	this.entitlements = new view.Entitlement();
 	this.marketDataStream = new promhx.Deferred();
+	this.historicalPriceStream = new promhx.Deferred();
+	this.optionAnalyticsStream = new promhx.Deferred();
 	this.companyEntitlements = new view.CompanyEntitlement(this.entitlements,this.selectedCompanyStream);
+	this.symbolChart = new view.SymbolChart(this.historicalPriceStream);
 };
 MBooks_im.__name__ = ["MBooks_im"];
 MBooks_im.getSingleton = function() {
@@ -124,6 +125,7 @@ MBooks_im.getSingleton = function() {
 }
 MBooks_im.main = function() {
 	MBooks_im.singleton = new MBooks_im();
+	MBooks_im.singleton.optionAnalyticsView = new view.OptionAnalyticsView();
 	MBooks_im.singleton.setupStreams();
 	MBooks_im.singleton.connect();
 }
@@ -151,12 +153,17 @@ MBooks_im.prototype = {
 	}
 	,updateErrorMessages: function(incomingError) {
 		this.getApplicationErrorElement().value = this.getApplicationErrorElement().value + ("" + Std.string(incomingError));
+		this.showDivField(MBooks_im.SERVER_ERROR_MESSAGES_DIV_FIELD);
+		this.setServerError(incomingError);
+	}
+	,setServerError: function(anError) {
+		this.getServerErrorElement().value = anError;
 	}
 	,getApplicationErrorElement: function() {
 		return js.Browser.document.getElementById(MBooks_im.APPLICATION_ERROR);
 	}
 	,clearValue: function(inputElement) {
-		if(inputElement != null) inputElement.value = ""; else throw "Null value for input element";
+		if(inputElement != null) inputElement.value = ""; else console.log("Null value for input element");
 	}
 	,registerUser: function(ev) {
 		var commandType = "ManageUser";
@@ -211,6 +218,15 @@ MBooks_im.prototype = {
 			inputElement.value = "";
 		}
 	}
+	,sendMessageFromButton: function(ev) {
+		console.log("Sending message from button " + Std.string(ev));
+		var sentTime = new Date();
+		var payload = { nickName : this.getNickName(), from : this.getNickName(), to : this.getNickName(), privateMessage : this.getMessage(), commandType : "SendMessage", destination : { tag : "Broadcast", contents : []}, sentTime : sentTime};
+		this.doSendJSON(payload);
+		this.updateMessageHistory(sentTime,this.getMessage());
+		var inputElement = this.getMessageInput();
+		inputElement.value = "";
+	}
 	,sendLogin: function(ev) {
 		var inputElement = ev.target;
 		console.log("Inside send login " + ev.keyCode);
@@ -251,16 +267,25 @@ MBooks_im.prototype = {
 		this.doSendJSON(payload);
 		this.initializeKeepAlive();
 		this.hideDivField(MBooks_im.KICK_USER_DIV);
+		this.hideDivField(MBooks_im.MESSAGING_DIV);
 	}
 	,removeFromUsersOnline: function(nickName) {
 		console.log("Deleting user from the list " + nickName);
 		var usersOnline = js.Browser.document.getElementById(MBooks_im.USERS_ONLINE);
+		if(usersOnline == null) {
+			console.log("Element not found");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement = js.Browser.document.getElementById(nickNameId);
 		if(optionElement != null) usersOnline.removeChild(optionElement); else console.log("This user was already removed : ?" + nickName);
 	}
 	,addToUsersOnline: function(nickName) {
 		var usersOnline = js.Browser.document.getElementById(MBooks_im.USERS_ONLINE);
+		if(usersOnline == null) {
+			console.log("Element not found ");
+			return;
+		}
 		var nickNameId = "NICKNAME" + "_" + nickName;
 		var optionElement = js.Browser.document.getElementById(nickNameId);
 		if(optionElement == null) {
@@ -283,13 +308,6 @@ MBooks_im.prototype = {
 	,getMessageInput: function() {
 		var inputElement = js.Browser.document.getElementById(MBooks_im.MESSAGE_INPUT);
 		return inputElement;
-	}
-	,disableTab: function(tabName,tabSectionName) {
-		var element = js.Browser.document.getElementById(tabName);
-		console.log("Disabling tab " + tabName);
-		element.setAttribute("style","display:none");
-		var containerElement = js.Browser.document.getElementById(tabSectionName);
-		containerElement.setAttribute("style","display:none");
 	}
 	,getRegisterElement: function() {
 		var buttonElement = js.Browser.document.getElementById(MBooks_im.REGISTER);
@@ -322,6 +340,9 @@ MBooks_im.prototype = {
 	}
 	,getStatusMessageElement: function() {
 		return js.Browser.document.getElementById(MBooks_im.STATUS_MESSAGE);
+	}
+	,getSendMessageElement: function() {
+		return js.Browser.document.getElementById(MBooks_im.SEND_MESSAGE);
 	}
 	,getNickName: function() {
 		return this.getNickNameElement().value;
@@ -360,11 +381,27 @@ MBooks_im.prototype = {
 	}
 	,hideDivField: function(fieldName) {
 		var div = js.Browser.document.getElementById(fieldName);
+		if(div == null) {
+			console.log("Div not found");
+			return;
+		}
 		div.setAttribute("style","display:none");
 	}
 	,showDivField: function(fieldName) {
+		if(!this.isEntitledFor(fieldName)) {
+			console.log("Not entitled for " + fieldName);
+			return;
+		}
 		var div = js.Browser.document.getElementById(fieldName);
+		if(div == null) {
+			console.log("Element not found " + fieldName);
+			return;
+		}
 		div.setAttribute("style","display:normal");
+	}
+	,isEntitledFor: function(fieldName) {
+		if(fieldName == MBooks_im.MESSAGING_DIV) return false;
+		return true;
 	}
 	,processUserBanned: function(incomingMessage) {
 		var userNickName = incomingMessage.userName;
@@ -383,6 +420,10 @@ MBooks_im.prototype = {
 	}
 	,updateMessageHistory: function(currentTime,localMessage) {
 		var textAreaElement = js.Browser.document.getElementById(MBooks_im.MESSAGE_HISTORY);
+		if(textAreaElement == null) {
+			console.log("Element not found");
+			return;
+		}
 		if(localMessage != "") textAreaElement.value = textAreaElement.value + Std.string(currentTime) + "@" + this.getNickName() + ":" + localMessage + "\n";
 	}
 	,processSendMessage: function(incomingMessage) {
@@ -595,6 +636,13 @@ MBooks_im.prototype = {
 		case 33:
 			this.marketDataStream.resolve(incomingMessage);
 			break;
+		case 38:
+			this.optionAnalyticsStream.resolve(incomingMessage);
+			break;
+		case 39:
+			console.log("Incoming message " + Std.string(incomingMessage));
+			this.historicalPriceStream.resolve(incomingMessage);
+			break;
 		case 13:
 			this.processUndefinedCommandType(incomingMessage);
 			this.entitlements.modelResponseStream.resolve(incomingMessage);
@@ -621,6 +669,7 @@ MBooks_im.prototype = {
 		console.log("Error " + Std.string(ev));
 		this.getOutputEventStream().end();
 		this.websocket.close();
+		this.applicationErrorStream.resolve("Server Not found. Please reach out to support");
 	}
 	,cleanup: function() {
 		console.log("Do all of the cleanup");
@@ -676,6 +725,7 @@ MBooks_im.prototype = {
 	}
 	,processSuccessfulLogin: function(loginEvent) {
 		console.log("Process successful login " + Std.string(loginEvent));
+		this.hideDivField(MBooks_im.MESSAGING_DIV);
 		if(loginEvent.userName == this.getNickName()) {
 			MBooks_im.singleton.company = new view.Company();
 			MBooks_im.singleton.project = new model.Project(MBooks_im.singleton.company);
@@ -685,6 +735,11 @@ MBooks_im.prototype = {
 			MBooks_im.singleton.portfolioSymbolModel = new model.PortfolioSymbol();
 			MBooks_im.singleton.portfolioSymbolView = new view.PortfolioSymbol(MBooks_im.singleton.portfolioSymbolModel);
 		} else console.log("A new user logged in " + Std.string(loginEvent));
+	}
+	,displayUserElements: function(companySelected) {
+		console.log("Displaying user elements the current user is entitled for");
+		this.showDivField(MBooks_im.WORKBENCH);
+		this.showDivField(MBooks_im.MESSAGING_DIV);
 	}
 	,getGmailOauthButton: function() {
 		return js.Browser.document.getElementById(MBooks_im.SETUP_GMAIL);
@@ -1707,6 +1762,29 @@ js.d3 = {}
 js.d3._D3 = {}
 js.d3._D3.InitPriority = function() { }
 js.d3._D3.InitPriority.__name__ = ["js","d3","_D3","InitPriority"];
+js.promhx = {}
+js.promhx.JQueryTools = function() { }
+js.promhx.JQueryTools.__name__ = ["js","promhx","JQueryTools"];
+js.promhx.JQueryTools.bindStream = function(f) {
+	var def = new promhx.Deferred();
+	var str = new promhx.Stream(def);
+	f($bind(def,def.resolve));
+	return str;
+}
+js.promhx.JQueryTools.eventStream = function(jq,events) {
+	var def = new promhx.Deferred();
+	var str = new promhx.Stream(def);
+	jq.on(events,$bind(def,def.resolve));
+	return str;
+}
+js.promhx.JQueryTools.loadPromise = function(jq,url,data) {
+	var def = new promhx.Deferred();
+	var pro = new promhx.Promise(def);
+	jq.load(url,data,function(responseText,textStatus) {
+		def.resolve({ responseText : responseText, textStatus : textStatus});
+	});
+	return pro;
+}
 var massive = {}
 massive.haxe = {}
 massive.haxe.Exception = function(message,info) {
@@ -2559,7 +2637,7 @@ model.Command.__name__ = ["model","Command"];
 model.Command.prototype = {
 	__class__: model.Command
 }
-model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers"] }
+model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics","QueryMarketData"] }
 model.CommandType.Login = ["Login",0];
 model.CommandType.Login.toString = $estr;
 model.CommandType.Login.__enum__ = model.CommandType;
@@ -2674,6 +2752,12 @@ model.CommandType.QueryEntitlements.__enum__ = model.CommandType;
 model.CommandType.QueryCompanyUsers = ["QueryCompanyUsers",37];
 model.CommandType.QueryCompanyUsers.toString = $estr;
 model.CommandType.QueryCompanyUsers.__enum__ = model.CommandType;
+model.CommandType.OptionAnalytics = ["OptionAnalytics",38];
+model.CommandType.OptionAnalytics.toString = $estr;
+model.CommandType.OptionAnalytics.__enum__ = model.CommandType;
+model.CommandType.QueryMarketData = ["QueryMarketData",39];
+model.CommandType.QueryMarketData.toString = $estr;
+model.CommandType.QueryMarketData.__enum__ = model.CommandType;
 model.Company = function(n,cId,gM,ima) {
 	this.name = n;
 	this.companyId = cId;
@@ -4267,7 +4351,7 @@ view.Company = function() {
 	console.log("Instantiating company");
 	this.newCompany = true;
 	var stream = MBooks_im.getSingleton().initializeElementStream(this.getCompanySignup(),"click");
-	var cidStream = MBooks_im.getSingleton().initializeElementStream(this.getCompanyIDElement(),"keyup");
+	var cidStream = MBooks_im.getSingleton().initializeElementStream(this.getCompanyIDElement(),"blur");
 	cidStream.then($bind(this,this.chkCompanyExists));
 	stream.then($bind(this,this.saveButtonPressed));
 	this.selectListEventStream = new promhx.Deferred();
@@ -4856,6 +4940,196 @@ view.ListManager.prototype = {
 	}
 	,__class__: view.ListManager
 }
+view.OptionAnalyticsTable = function(optionType,optionColumnHeaders,symbol) {
+	console.log("Creating option analytics table " + optionType + " for  " + symbol);
+	this.optionType = optionType;
+	this.tableHeaders = optionColumnHeaders;
+	this.currentSymbol = symbol;
+	this.optionAnalyticsMap = new haxe.ds.StringMap();
+	this.optionAnalyticsMapUI = new haxe.ds.StringMap();
+};
+view.OptionAnalyticsTable.__name__ = ["view","OptionAnalyticsTable"];
+view.OptionAnalyticsTable.prototype = {
+	clearCells: function(aRow) {
+		var cells = aRow.cells;
+		var _g = 0;
+		while(_g < cells.length) {
+			var c = cells[_g];
+			++_g;
+			var cell = c;
+			aRow.deleteCell(cell.cellIndex);
+		}
+	}
+	,insertCells: function(aRow,payload) {
+		console.log("Inserting cells " + Std.string(payload));
+		var newCell = aRow.insertCell(0);
+		newCell.innerHTML = payload.optionChain.symbol;
+		newCell = aRow.insertCell(1);
+		newCell.innerHTML = payload.optionType;
+		newCell = aRow.insertCell(2);
+		newCell.innerHTML = "" + Std.string(payload.optionChain.expiration);
+		newCell = aRow.insertCell(3);
+		newCell.innerHTML = payload.optionChain.lastBid;
+		newCell = aRow.insertCell(4);
+		newCell.innerHTML = "" + payload.optionChain.lastAsk;
+		newCell = aRow.insertCell(5);
+		newCell.innerHTML = "" + payload.bidRatio;
+		newCell = aRow.insertCell(6);
+		newCell.innerHTML = "" + payload.price;
+	}
+	,updateRow: function(aRow,payload) {
+		console.log("Inserting cells for " + Std.string(payload));
+		var key = this.key(payload);
+		var optionAnalytics = this.optionAnalyticsMap.get(key);
+		if(optionAnalytics == null) {
+			this.optionAnalyticsMap.set(key,payload);
+			var tableRowElement = this.optionAnalyticsMapUI.get(key);
+			this.insertCells(tableRowElement,payload);
+		} else {
+			this.optionAnalyticsMap.set(key,payload);
+			var tableRowElement = this.optionAnalyticsMapUI.get(key);
+			this.clearCells(tableRowElement);
+			this.insertCells(tableRowElement,payload);
+		}
+	}
+	,clear: function() {
+		console.log("Clearing the table " + Std.string(this));
+		var startIndex = 1;
+		var tableRows = this.getTable().rows;
+		while(tableRows.length > 1) this.getTable().deleteRow(1);
+	}
+	,draw: function() {
+		console.log("Draw the table");
+		var sortedValues = this.sort(this.values(),$bind(this,this.sortByBidRatio));
+		var startIndex = 1;
+		var _g = 0;
+		while(_g < sortedValues.length) {
+			var val = sortedValues[_g];
+			++_g;
+			var row = this.getTable().insertRow(startIndex);
+			this.updateRow(row,val);
+			startIndex = startIndex + 1;
+		}
+	}
+	,sortByBidRatio: function(a,b) {
+		var error = a.bidRatio - b.bidRatio;
+		if(this.abs(error) < 0.00000001) return 0;
+		if(error <= 0) return -1; else if(error > 0) return 1;
+		console.log("Should never happen");
+		return 0;
+	}
+	,abs: function(a) {
+		if(a < 0) return a * -1;
+		return a;
+	}
+	,sort: function(optionAnalytics,sortFunction) {
+		console.log("Sort the rows");
+		optionAnalytics.sort(sortFunction);
+		return optionAnalytics;
+	}
+	,values: function() {
+		var elems = new Array();
+		var $it0 = this.optionAnalyticsMap.iterator();
+		while( $it0.hasNext() ) {
+			var anOpt = $it0.next();
+			elems.push(anOpt);
+		}
+		return elems;
+	}
+	,updateOptionAnalytics: function(payload) {
+		console.log("Processing update option analytics element " + Std.string(payload));
+		if(this.currentSymbol == "") {
+			console.log("Ignoring this after clear " + Std.string(payload));
+			return;
+		}
+		if(payload.optionType != this.optionType) {
+			console.log("Ignoring this option type " + Std.string(payload));
+			return;
+		}
+		if(payload.optionChain.underlying != this.currentSymbol) {
+			console.log("Ignoring this symbol " + Std.string(payload));
+			return;
+		}
+		var key = this.key(payload);
+		var row = this.optionAnalyticsMap.get(key);
+		if(row == null) {
+			row = this.getTable().insertRow(1);
+			this.insertCells(row,payload);
+		} else {
+			console.log("Clear the table and resort the elements.");
+			this.sort(this.values(),$bind(this,this.sortByBidRatio));
+			this.clear();
+			this.draw();
+		}
+	}
+	,key: function(anal) {
+		return anal.optionChain.underlying + anal.optionType + anal.optionChain.symbol + Std.string(anal.optionChain.expiration);
+	}
+	,getTable: function() {
+		var tableId = "";
+		if(this.optionType == "call") tableId = view.OptionAnalyticsTable.OPTION_CALLS_TABLE; else if(this.optionType == "put") tableId = view.OptionAnalyticsTable.OPTION_PUTS_TABLE; else return null;
+		return js.Browser.document.getElementById(tableId);
+	}
+	,reset: function() {
+		this.clear();
+		this.optionType = "";
+		this.currentSymbol = "";
+		this.optionAnalyticsMap = new haxe.ds.StringMap();
+		this.optionAnalyticsMapUI = new haxe.ds.StringMap();
+	}
+	,__class__: view.OptionAnalyticsTable
+}
+view.OptionAnalyticsView = function() {
+	var pStream = MBooks_im.getSingleton().initializeElementStream(this.getRetrieveUnderlying(),"click");
+	pStream.then($bind(this,this.populateOptionAnalyticsTables));
+	var qStream = MBooks_im.getSingleton().initializeElementStream(this.getClearUnderlying(),"click");
+	qStream.then($bind(this,this.clearOptionAnalyticsTable));
+};
+view.OptionAnalyticsView.__name__ = ["view","OptionAnalyticsView"];
+view.OptionAnalyticsView.prototype = {
+	populateOptionAnalyticsTables: function(ev) {
+		console.log("Creating puts and calls for the table " + this.getUnderlying().value);
+		this.callTable = new view.OptionAnalyticsTable("call",this.getOptionCallHeaders(),this.getUnderlying().value);
+		this.putTable = new view.OptionAnalyticsTable("put",this.getOptionPutHeaders(),this.getUnderlying().value);
+		MBooks_im.getSingleton().optionAnalyticsStream.then(($_=this.callTable,$bind($_,$_.updateOptionAnalytics)));
+		MBooks_im.getSingleton().optionAnalyticsStream.then(($_=this.putTable,$bind($_,$_.updateOptionAnalytics)));
+	}
+	,clearOptionAnalyticsTable: function(ev) {
+		this.getUnderlying().value = "";
+		this.callTable.reset();
+		this.putTable.reset();
+	}
+	,getOptionPutHeaders: function() {
+		var result = new Array();
+		result.push("Option Symbol");
+		result.push("Puts");
+		result.push("Last Bid");
+		result.push("Last Ask");
+		result.push("Bid ratio");
+		result.push("Theoretical Eu Asian Option Price");
+		return result;
+	}
+	,getOptionCallHeaders: function() {
+		var result = new Array();
+		result.push("Option Symbol");
+		result.push("Calls");
+		result.push("Last Bid");
+		result.push("Last Ask");
+		result.push("Bid ratio");
+		result.push("Theoretical Eu Asian Option Price");
+		return result;
+	}
+	,getUnderlying: function() {
+		return js.Browser.document.getElementById(view.OptionAnalyticsView.UNDERLYING);
+	}
+	,getClearUnderlying: function() {
+		return js.Browser.document.getElementById(view.OptionAnalyticsView.CLEAR_UNDERLYING);
+	}
+	,getRetrieveUnderlying: function() {
+		return js.Browser.document.getElementById(view.OptionAnalyticsView.RETRIEVE_UNDERLYING);
+	}
+	,__class__: view.OptionAnalyticsView
+}
 view.Portfolio = function() {
 	console.log("Creating new portfolio view");
 	this.activePortfolioStream = new promhx.Deferred();
@@ -5018,12 +5292,17 @@ view.PortfolioSymbol = function(m) {
 	console.log("Instantiating new portfolio symbol view");
 	this.model = m;
 	this.rowMap = new haxe.ds.StringMap();
+	this.portfolioMap = new haxe.ds.StringMap();
 	this.setupStreams();
 };
 view.PortfolioSymbol.__name__ = ["view","PortfolioSymbol"];
 view.PortfolioSymbol.prototype = {
-	updateMarketData: function(incomingMessage) {
+	updateHistoricalPrice: function(incomingMessage) {
+		console.log("Creating/updating chart " + Std.string(incomingMessage));
+	}
+	,updateMarketData: function(incomingMessage) {
 		console.log("Inside update market data response " + Std.string(incomingMessage));
+		this.updateTableRowMap(incomingMessage);
 	}
 	,handleQueryResponse: function(incomingMessage) {
 		console.log("Processing symbol query response " + Std.string(incomingMessage));
@@ -5135,17 +5414,31 @@ view.PortfolioSymbol.prototype = {
 		console.log("Reading view " + Std.string(payload));
 		throw "Read response Not implemented";
 	}
+	,deleteChart: function(payload) {
+		console.log("Delete chart " + Std.string(payload));
+	}
 	,deleteResponse: function(payload) {
 		console.log("Deleting view " + Std.string(payload));
 		this.deleteTableRowMap(payload);
 	}
+	,updateChart: function(payload) {
+		console.log("Updating chart " + Std.string(payload));
+	}
 	,updateResponse: function(payload) {
-		console.log("Updating view " + Std.string(payload));
 		this.updateTableRowMap(payload);
 	}
 	,insertResponse: function(payload) {
 		console.log("Inserting view " + Std.string(payload));
 		this.updateTableRowMap(payload);
+	}
+	,sendHistoricalQuery: function(payload) {
+		var query = "select historical for " + payload.symbol + ";";
+		var payload1 = { commandType : view.PortfolioSymbol.QUERY_MARKET_DATA, nickName : MBooks_im.getSingleton().getNickName(), symbol : query, portfolioId : payload.portfolioId, resultSet : []};
+		MBooks_im.getSingleton().doSendJSON(payload1);
+	}
+	,createChart: function(payload) {
+		console.log("Creating chart");
+		this.sendHistoricalQuery(payload);
 	}
 	,insertCells: function(aRow,payload) {
 		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId) {
@@ -5171,6 +5464,10 @@ view.PortfolioSymbol.prototype = {
 	,updateTableRowMap: function(payload) {
 		var key = this.getKey(payload);
 		var row = this.rowMap.get(key);
+		if(MBooks_im.getSingleton().portfolio.activePortfolio == null) {
+			console.log("Throwing message" + Std.string(payload));
+			return;
+		}
 		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId) {
 			console.log("Throwing message " + Std.string(payload));
 			return;
@@ -5180,6 +5477,7 @@ view.PortfolioSymbol.prototype = {
 			row = pSymbolTable.insertRow(this.computeInsertIndex());
 			this.rowMap.set(key,row);
 			this.insertCells(row,payload);
+			this.createChart(payload);
 		} else {
 			var cells = row.children;
 			var _g = 0;
@@ -5188,6 +5486,7 @@ view.PortfolioSymbol.prototype = {
 				++_g;
 				var cellI = cell;
 				var cellIndex = cellI.cellIndex;
+				this.updateChart(payload);
 				switch(cellIndex) {
 				case 0:
 					cellI.innerHTML = payload.symbol;
@@ -5301,11 +5600,15 @@ view.PortfolioSymbol.prototype = {
 		this.insertStreamResponse.then($bind(this,this.insertResponse));
 		this.updateStreamResponse.then($bind(this,this.updateResponse));
 		this.deleteStreamResponse.then($bind(this,this.deleteResponse));
+		this.insertStreamResponse.then($bind(this,this.createChart));
+		this.updateStreamResponse.then($bind(this,this.updateChart));
+		this.deleteStreamResponse.then($bind(this,this.deleteChart));
 		this.readStreamResponse.then($bind(this,this.readResponse));
 		this.symbolQueryResponse = new promhx.Deferred();
 		this.symbolQueryResponse.then($bind(this,this.handleQueryResponse));
 		MBooks_im.getSingleton().marketDataStream.then($bind(this,this.updateMarketData));
 		MBooks_im.getSingleton().portfolio.activePortfolioStream.then($bind(this,this.processActivePortfolio));
+		MBooks_im.getSingleton().historicalPriceStream.then($bind(this,this.updateHistoricalPrice));
 		var uploadPortfolioButtonStream = MBooks_im.getSingleton().initializeElementStream(this.getUploadPortfolioButton(),"click");
 		uploadPortfolioButtonStream.then($bind(this,this.uploadPortfolio));
 	}
@@ -5371,6 +5674,107 @@ view.PortfolioSymbol.prototype = {
 	}
 	,__class__: view.PortfolioSymbol
 }
+view.SymbolChart = function(historicalPriceStream) {
+	historicalPriceStream.then($bind(this,this.createUpdateChart));
+};
+view.SymbolChart.__name__ = ["view","SymbolChart"];
+view.SymbolChart.prototype = {
+	draw: function() {
+		var data = { labels : ["January","February","March","April","May","June","July"], datasets : [{ label : "My First dataset", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : [65,59,80,81,56,55,40]},{ label : "My Second dataset", fillColor : "rgba(151,187,205,0.2)", strokeColor : "rgba(151,187,205,1)", pointColor : "rgba(151,187,205,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(151,187,205,1)", data : [28,48,40,19,86,27,90]}]};
+		var canvas = js.Browser.document.createElement("canvas");
+		js.Browser.document.body.appendChild(canvas);
+		Chart.defaults.global.responsive = true;
+		var ctx = canvas.getContext("2d");
+		var lineChart = new Chart(ctx).Line(data);
+		canvas.onclick = function(evt) {
+			lineChart.addData([Math.random() * 100,Math.random() * 100],"test");
+			lineChart.update();
+		};
+	}
+	,deleteChart: function(historicalPrice) {
+		console.log("Deleting chart for price " + Std.string(historicalPrice));
+		var key = this.getKey(historicalPrice);
+		var canvasElement = js.Browser.document.getElementById(key);
+	}
+	,updateChartData: function(data) {
+		console.log("Update chart data " + Std.string(data));
+	}
+	,createCanvasElement: function(historicalPrice) {
+		var key = this.getKey(historicalPrice);
+		var canvasElement = js.Browser.document.getElementById(key);
+		if(canvasElement == null) {
+			console.log("Canvas element not found");
+			canvasElement = js.Browser.document.createElement("canvas");
+			canvasElement.id = key;
+			Chart.defaults.global.responsive = false;
+			var ctx = canvasElement.getContext("2d");
+			var dataSet = this.getData(historicalPrice);
+			var lineChart = null;
+			try {
+				var chart1 = new Chart(ctx);
+				console.log("Chart object " + Std.string(chart1));
+				lineChart = chart1.Line(dataSet);
+			} catch( e ) {
+				console.log("Error creating line chart " + Std.string(e));
+			}
+			var element = this.getPortfolioCharts();
+			if(element != null) {
+				var divElement = js.Browser.document.createElement("div");
+				divElement.id = "div_" + key;
+				var labelElement = js.Browser.document.createElement("label");
+				labelElement.innerHTML = historicalPrice.symbol;
+				divElement.appendChild(canvasElement);
+				divElement.appendChild(labelElement);
+				element.appendChild(divElement);
+			} else console.log("Unable to add element " + Std.string(element));
+		} else {
+			var ctx = canvasElement.getContext("2d");
+			this.updateChartData(this.getData(historicalPrice));
+		}
+	}
+	,getData: function(historicalPrice) {
+		var labelsA = new Array();
+		var dataA = new Array();
+		var resultSet = historicalPrice.resultSet;
+		var count = 0;
+		var _g = 0;
+		while(_g < resultSet.length) {
+			var i = resultSet[_g];
+			++_g;
+			console.log(i);
+			labelsA.push("" + count);
+			dataA.push(i.close);
+			count = count + 1;
+		}
+		var dataSet = { title : historicalPrice.symbol, labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
+		return dataSet;
+	}
+	,createUpdateChart: function(historicalPrice) {
+		console.log("Creating chart for historical price" + Std.string(historicalPrice));
+		if(historicalPrice.Right != null) {
+			if(historicalPrice.Right.query != null) {
+				var i = historicalPrice.Right.query;
+				var _g = 0;
+				while(_g < i.length) {
+					var q = i[_g];
+					++_g;
+					try {
+						this.createCanvasElement(q);
+					} catch( e ) {
+						console.log("Error adding canvas element " + Std.string(e));
+					}
+				}
+			}
+		}
+	}
+	,getKey: function(historicalPrice) {
+		return Std.string(historicalPrice.portfolioId) + "_" + Std.string(historicalPrice.symbol);
+	}
+	,getPortfolioCharts: function() {
+		return js.Browser.document.getElementById(view.SymbolChart.PORTFOLIO_CHARTS);
+	}
+	,__class__: view.SymbolChart
+}
 function $iterator(o) { if( o instanceof Array ) return function() { return HxOverrides.iter(o); }; return typeof(o.iterator) == 'function' ? $bind(o,o.iterator) : o.iterator; };
 var $_, $fid = 0;
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $fid++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; o.hx__closures__[m.__id__] = f; } return f; };
@@ -5399,6 +5803,8 @@ Bool.__ename__ = ["Bool"];
 var Class = { __name__ : ["Class"]};
 var Enum = { };
 if(typeof(JSON) != "undefined") haxe.Json = JSON;
+var q = window.jQuery;
+js.JQuery = q;
 var global = window;
 (function (global, undefined) {
     "use strict";
@@ -5619,6 +6025,8 @@ var global = window;
     }
 }(typeof global === "object" && global ? global : this));
 ;
+MBooks_im.SERVER_ERROR_MESSAGES_DIV_FIELD = "serverMessages";
+MBooks_im.SERVER_ERROR = "ServerError";
 MBooks_im.MESSAGING_DIV = "workbench-messaging";
 MBooks_im.GENERAL_DIV = "workbench-general";
 MBooks_im.COMPANY_DIV = "workbench-company";
@@ -5627,6 +6035,7 @@ MBooks_im.CCAR_DIV = "workbench-ccar";
 MBooks_im.SECURITY_DIV = "workbench-security";
 MBooks_im.PORTFOLIO_DIV = "workbench-portfolio";
 MBooks_im.SETUP_GMAIL = "setupGmailOauth";
+MBooks_im.WORKBENCH = "workbench";
 MBooks_im.NICK_NAME = "nickName";
 MBooks_im.PASSWORD = "password";
 MBooks_im.FIRST_NAME = "firstName";
@@ -5639,13 +6048,13 @@ MBooks_im.USERS_ONLINE = "usersOnline";
 MBooks_im.REGISTER = "registerInput";
 MBooks_im.MESSAGE_HISTORY = "messageHistory";
 MBooks_im.MESSAGE_INPUT = "messageInput";
+MBooks_im.SEND_MESSAGE = "sendMessage";
 MBooks_im.STATUS_MESSAGE = "statusMessage";
 MBooks_im.KICK_USER = "kickUser";
 MBooks_im.KICK_USER_DIV = "kickUserDiv";
 MBooks_im.INIT_WELCOME_MESSAGE_DIV = "initWelcomeMessageDiv";
 MBooks_im.INIT_WELCOME_MESSAGE = "initWelcomeMessage";
 MBooks_im.GOAUTH_URL = "gmail_oauthrequest";
-MBooks_im.SERVER_ERROR = "serverError";
 MBooks_im.APPLICATION_ERROR = "applicationError";
 format.csv.Reader.FETCH_SIZE = 4096;
 js.Browser.document = typeof window != "undefined" ? window.document : null;
@@ -5717,6 +6126,11 @@ view.Entitlement.ADD_ENTITLEMENT = "addEntitlement";
 view.Entitlement.UPDATE_ENTITLEMENT = "updateEntitlement";
 view.Entitlement.REMOVE_ENTITLEMENT = "removeEntitlement";
 view.Entitlement.MANAGE_ENTITLEMENTS_COMMAND = "ManageEntitlements";
+view.OptionAnalyticsTable.OPTION_CALLS_TABLE = "option_calls_table";
+view.OptionAnalyticsTable.OPTION_PUTS_TABLE = "option_put_table";
+view.OptionAnalyticsView.UNDERLYING = "underlying";
+view.OptionAnalyticsView.RETRIEVE_UNDERLYING = "retrieveUnderlying";
+view.OptionAnalyticsView.CLEAR_UNDERLYING = "clearUnderlying";
 view.Portfolio.SAVE_PORTFOLIO = "savePortfolio";
 view.Portfolio.UPDATE_PORTFOLIO = "updatePortfolio";
 view.Portfolio.DELETE_PORTFOLIO = "deletePortfolio";
@@ -5733,8 +6147,11 @@ view.PortfolioSymbol.SAVE_SYMBOL_BUTTON = "saveSymbol";
 view.PortfolioSymbol.DELETE_SYMBOL_BUTTON = "deleteSymbol";
 view.PortfolioSymbol.UPDATE_SYMBOL_BUTTON = "updateSymbol";
 view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE = "portfolioSymbolTable";
+view.PortfolioSymbol.PORTFOLIO_SYMBOL_TABLE_JQ = "portfolioSymbolTableJQ";
 view.PortfolioSymbol.UPLOAD_PORTFOLIO_FILE = "uploadPortfolioFile";
 view.PortfolioSymbol.UPLOAD_PORTFOLIO_BUTTON = "uploadPortfolioButton";
+view.PortfolioSymbol.QUERY_MARKET_DATA = "QueryMarketData";
+view.SymbolChart.PORTFOLIO_CHARTS = "portfolioCharts";
 MBooks_im.main();
 function $hxExpose(src, path) {
 	var o = typeof window != "undefined" ? window : exports;

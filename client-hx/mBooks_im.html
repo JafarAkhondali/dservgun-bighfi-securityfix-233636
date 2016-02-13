@@ -10,9 +10,12 @@
 <meta name="copyright" content="Joshua Gatcke 99lime.com All Rights Reserved" />
 <link rel="stylesheet" type="text/css" href="css/kickstart.css" media="all" />                  <!-- KICKSTART -->
 <link rel="stylesheet" type="text/css" href="style.css" media="all" />                          <!-- CUSTOM STYLES -->
-<!-- <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
- -->
- <script type="text/javascript" src="js/kickstart.js"></script>
+<script type="text/javascript" src="js/jquery-2.1.4.js"></script>
+<script type="text/javascript" src="js/kickstart.js"></script>
+<script type="text/javascript" src="js/DataTables/datatables.js"></script>
+<script type="text/javascript" src="js/Chart.js"></script>
+
+<link rel="stylesheet" type="text/css" href="js/DataTables/datatables.css"/>
 
  <!-- KICKSTART -->
 <style>
@@ -36,7 +39,7 @@
  -->
 </head>
 <body>
-	<h4 align="center"> CCAR (Comprehensive Capital Analysis and Review - Beta) </h4>
+	<h4 align="center"> Pause Portfolio (Beta) </h4>
 	<div class="grid flex" class="callout clearfix">
 		<div class="col_4">
 		<p> Note: If this is the first time, enter your nickname or an email id and 
@@ -73,6 +76,10 @@
 			</div>	
 		</form>
 		</div>
+		<div id="serverMessages" style="display:none">
+			<label for="Server Error" class="error">Connection error</label>
+			<input id="ServerError" class="error" type="text" />
+		</div>
 	</div>
 	<div class="col_4" class="callout clearfix">
 		<label for="companyList"> Company </label>
@@ -82,52 +89,43 @@
 		<img id="companySplash" height="200"/>
 
 	</div>
-	<ul id ="workbench" class="tabs col_12">
-	<li id="workbench-oauth-tab" style="display:none"><a href="#workbench-oauth"> User oauths </a></li>
-	<li id="workbench-messaging-tab"><a href="#workbench-messaging">Messaging</a></li>
-	<li id = "workbench-company-tab"><a href="#workbench-company">Manage company</a></li>
-	<li id = "workbench-project-tab"><a href="#workbench-project">Manage projects</a></li>
-	<li id = "workbench-ccar-tab"><a href="#workbench-ccar">Manage CCAR</a></li>
-    <li id ="workbench-security-tab"><a href="#workbench-security" style="display:none"> Security notes </a> </li>
-    <li id ="workbench-portfolio-tab"><a href="#workbench-portfolio"> Portfolio analysis </a> </li>
-    <li id="user-entitlements-tab"><a href="#user-entitlements" style="display:none"> Entitlements (admin only) </a> </li>
-    <li id="manage-entitlements-tab"><a href="#manage-entitlements"
-    			style="display:none"> Manage entitlements </a> </li>
-    <li id="workbench-errors-tab"> <a href="#workbench-errors"> Errors </a> </li>
-    <li id="workbench-companyusers-tab" style="display:none"> <a href="#workbench-companyusers"> Assign users to a company </a> </li>
-	<li id ="workbench-general-tab"><a href="#workbench-general">General Info </a></li>
+		<ul id ="workbench" class="tabs col_12" style="display:none">
+			<li id="workbench-oauth-tab"><a href="#workbench-oauth"> User oauths </a></li>
+			<li id="workbench-messaging-tab"><a href="#workbench-messaging">Messaging</a></li>
+			<li id = "workbench-company-tab"><a href="#workbench-company">Manage company</a></li>
+			<li id = "workbench-project-tab"><a href="#workbench-project">Manage projects</a></li>
+			<li id = "workbench-ccar-tab"><a href="#workbench-ccar">Manage CCAR</a></li>
+		    <li id ="workbench-security-tab"><a href="#workbench-security"> Security notes </a> </li>
+		    <li id ="workbench-portfolio-tab"><a href="#workbench-portfolio"> Portfolio analysis </a> </li>
+		    <li id="workbench-optionanalytics-tab"><a href="#workbench-optionanalytics"> Option analytics </a> </li>
+		    <li id="user-entitlements-tab"><a href="#user-entitlements"> Entitlements (admin only) </a> </li>
+		    <li id="manage-entitlements-tab"><a href="#manage-entitlements"> Manage entitlements </a> </li>
+		    <li id="workbench-errors-tab"> <a href="#workbench-errors"> Errors </a> </li>
+		    <li id="workbench-companyusers-tab"> <a href="#workbench-companyusers"> Assign users to a company </a> </li>
+			<li id ="workbench-general-tab"><a href="#workbench-general">General Info </a></li>
+		</ul>
 
-	</ul>
-
-	<div id="workbench-portfolio" class="tab-content col_12">
-<!-- 		<p align="center">
-			Add symbols to a portfolio. Each portfolio lists
-			a set of symbols, direction and size. 
-			Allow users to perform symbol analysis from list of available
-			analysis snippets available to the user.
-		</p>
- -->		<form class="vertical" id="portfolio">
+	<div id="workbench-portfolio" class="tab-content col_12" style="display:none">
+		<form class="vertical" id="portfolio">
 			<div class="col_4">
 				<label for="portfolioList"> Portfolios </label>
 				<select id="portfolioList">
 					<option value="0">--Choose--</option>
 				</select>
-
 				<label for="portfolioSummary"> Summary</label>
 				<textarea id="portfolioSummary"> </textarea>
 				<button id="savePortfolio" type="button"> Save Portfolio</button>
 				<button id="updatePortfolio" type="button"> Update Portfolio </button>
 				<button id="deletePortfolio" type="button"> Delete Portfolio </button>
-
+               <textarea id="scenarioText" rows="4" innerHTML="Create Equity Shock for AAOI pct 12 % 100;">
+               </textarea>				
+               	<label for="saveScenario"/>
+               	<button id="saveScenario" type="button"> Apply Stress</button>
 			</div>
 		</form>
 		<form class="vertical" id="symbol">
 			<div class="col_8">
                <label for"scenarioText"> Scenario </label>
-               <textarea id="scenarioText" rows="4">
-               </textarea>				
-               	<label for="saveScenario"/>
-               	<button id="saveScenario" type="button"> Apply Stress</button>
 				<label for="symbolID"> Symbol </label>
 				<input id="symbolID" type="text" placeholder="teva"/>
 				<label for="symbolSideID"> Side </label>
@@ -156,54 +154,89 @@
 			</div>
 		</form>
 		<div class="col_12">
-			<table id="portfolioSymbolTable" cellspacing="0" cellpadding="0">
+			<table id="portfolioSymbolTable" cellspacing="0" cellpadding="0" contentEditable="false">
 				<thead>
 					<th> Symbol</th>
 					<th> Side </th>
 					<th> Symbol type </th>
 					<th> quantity </th>
 					<th> Market value </th>
-					<th> Stress Value (tbd) </th>
+					<th> Stress Value </th>
 					<th> Last updated by you at </th>
 				</thead>				
 			</table>
-
 			<p> Portfolio analysis </p>
+			<p> Portfolio optimization analysis <p>
 			<p> Symbol analysis </p>
 		 </div>
-	    </div>
-	 </div>
+		<div class="col_4" id="portfolioCharts" align="center">
+		</div>
+	</div>
 
-	<div id="workbench-messaging" class="tab-content col_12">
+	 <div id="workbench-optionanalytics" class="tab-content col_12">
+	 		<label for="underlying"> Enter the underlying here </label>
+	 		<div class="col_12">
+	 			<input id="underlying" class="col_6"> </input>
+	 			<button id="retrieveUnderlying" type="button" class= "col_3"> Retrieve </button>
+	 			<button id="clearUnderlying" type="button" class="col_3"> Clear </button>
+	 		</div>
+	 		<div id="option_table" class="col_12">
+		 		<table id="option_calls_table" class="col_12">
+		 			<thead>
+		 				<th>Option Symbol </th>
+		 				<th> Calls </th>
+		 				<th> Expiration Date </th>
+		 				<th> Last Bid </th>
+		 				<th> Last Ask </th>
+		 				<th> Bid Ratio </th>
+		 				<th> Theoretical Eu Asian Option Price </th>
+		 			</thead>
+
+		 		</table>
+		 		<table id="option_put_table" class="col_12">
+		 			<thead>
+		 				<th> Option symbol </th>
+		 				<th> Puts </th>
+		 				<th> Expiration Date </th>
+		 				<th> Last Bid </th>
+		 				<th> Last Ask </th>
+		 				<th> Bid Ratio </th>
+		 				<th> Theoretical Eu Asian Option Price </th> 
+		 			</thead>
+		 		</table>
+	 		</div>
+	 </div>
+<!-- 
+	<div id="workbench-messaging" class="tab-content col_12" style="display:none">
 			<div class="col_12">
 				<div class="col_2">
 					<label for="usersOnline">Users Online</label>
-					<select id="usersOnline" multiple="multiple" class="fancy" style="width:180px;height:200px" >
+					<select id="usersOnline" multiple="multiple" class="fancy" style="" >
 					<option value="0">-- Users online --</option>
 					</select>
 				</div>
 				<div class="col_10">
 				<div class="col_12">
-					<label for="messageHistory">Conv</label>
-					<textarea id="messageHistory" rows="20" style="width:800px; height:200px"></textarea>
+					<label for="messageHistory">We were just chatting!</label>
+					<textarea id="messageHistory" rows="10" style=""></textarea>
 				</div>			
 
-				<div class="col_12">
+				<div class="col_10">
 						<label for="messageInput">Chat</label>
-						<input id="messageInput" style="width:800px;fontSize=large"></input>
+						<input id="messageInput" style="fontSize=large"></input>
+						<button id="sendMessage" style="display:normal"> Send </button>
 				</div>
 				<div class="col_12" id ="kickUserDiv">
 						<label for="kickUser">Kick User</label>
-						<input id="kickUser" style="width:400px"></input>
-
+						<input id="kickUser" style="display:normal"></input>
 				</div>
 				</div>
 			</div>
 	</div>
+ -->
 
 
-
-	<div id="workbench-general" class="tab-content col_12"> 
+	<div id="workbench-general" class="tab-content col_12" style="display:none"> 
 			<h3 align="center">
 				What can you do on this site: 
 			</h3>
@@ -230,7 +263,7 @@
 			</ul>
 	</div>
 
-	<div id="workbench-company" class="tab-content col_12">
+	<div id="workbench-company" class="tab-content col_12" style="display:none">
 		<div class="col_12">	
 			<form class="vertical" id="companyForm">
 				<div class="col_6">
@@ -256,7 +289,7 @@
 		</div>
 	</div>
 
-	<div id="workbench-project" class="tab-content col_12">
+	<div id="workbench-project" class="tab-content col_12" style="display:none">
 		<div class="col_6">
 			<form class="vertical" id="projectForm">
 				<div class="col_6">
@@ -407,11 +440,12 @@
 
 <div id="test"/>
 <div id="footer">
-&copy; Copyright 2014 All Rights Reserved. <a href="mailto:dinkar.ganti@gmail.com">Dinkar Ganti</a>. This site uses the following libraries to keep things simple for the users. Like them, even if you dont like this site!
+&copy; Copyright 2014 All Rights Reserved. <a href="mailto:dinkar.ganti@gmail.com">Dinkar Ganti</a>. This site uses the following libraries to keep things simple for you (insert your bug squasher image here). Like them, even if you dont like this site!
 		<a href="http://www.99lime.com">HTML KickStart</a> . 
 		<a href="http://www.yesodweb.com/">Yesod </a>. 
 		<a href="http://haxe.org/"> Haxe </a> . 
 		<a href="http://d3js.org"> D3 </a> .
+		<a href="http://julialang.org"</a>.
 
 </div>
 

@@ -5,6 +5,14 @@ import promhx.base.EventLoop;
 import model.Portfolio;
 
 
+typedef MarketDataQuery = {
+	var commandType : String;
+	var nickName : String;
+	var symbol : String;
+	var portfolioId : String;
+	var resultSet : Array<Dynamic>;
+}
+
 typedef PortfolioSymbolT =  {
 	  var crudType : String;
 	  var commandType : String;
@@ -113,6 +121,7 @@ class PortfolioSymbol  {
 		}
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
+
 	private function sendPayload(payload : PortfolioSymbolT) {
 		trace("Processing sending payload "  + payload);
 		MBooks_im.getSingleton().doSendJSON(payload);

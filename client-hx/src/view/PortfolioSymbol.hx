@@ -48,10 +48,11 @@ class PortfolioSymbol {
 	private static var DELETE_SYMBOL_BUTTON = "deleteSymbol";
 	private static var UPDATE_SYMBOL_BUTTON = "updateSymbol";
 	private static var PORTFOLIO_SYMBOL_TABLE = "portfolioSymbolTable";
+	private static var PORTFOLIO_SYMBOL_TABLE_JQ = "portfolioSymbolTableJQ";
 	private static var UPLOAD_PORTFOLIO_FILE = "uploadPortfolioFile";
 	private static var UPLOAD_PORTFOLIO_BUTTON =  "uploadPortfolioButton";
 
-
+	private static var QUERY_MARKET_DATA = "QueryMarketData";
 
 	private var insertStreamResponse(default, null) : Deferred<PortfolioSymbolT>;
 	private var updateStreamResponse(default, null) : Deferred<PortfolioSymbolT>;
@@ -64,6 +65,7 @@ class PortfolioSymbol {
 		trace("Instantiating new portfolio symbol view");
 		model = m;
 		rowMap = new StringMap<TableRowElement>();
+		portfolioMap = new StringMap<PortfolioSymbolT>(); 
 		setupStreams();
 	}
 	
@@ -163,11 +165,15 @@ class PortfolioSymbol {
 		insertStreamResponse.then(insertResponse);
 		updateStreamResponse.then(updateResponse);
 		deleteStreamResponse.then(deleteResponse);
+		insertStreamResponse.then(createChart);
+		updateStreamResponse.then(updateChart);
+		deleteStreamResponse.then(deleteChart);
 		readStreamResponse.then(readResponse);
 		symbolQueryResponse = new Deferred<PortfolioSymbolQueryT>();
 		symbolQueryResponse.then(handleQueryResponse);
 		MBooks_im.getSingleton().marketDataStream.then(updateMarketData);
 		MBooks_im.getSingleton().portfolio.activePortfolioStream.then(processActivePortfolio);
+		MBooks_im.getSingleton().historicalPriceStream.then(updateHistoricalPrice);
 		var uploadPortfolioButtonStream : Stream<Dynamic> =
 				MBooks_im.getSingleton().initializeElementStream(
 					cast getUploadPortfolioButton()
@@ -264,10 +270,13 @@ class PortfolioSymbol {
 		var pSymbolTable : TableElement = getPortfolioSymbolTable();
 		pSymbolTable.deleteRow(row.rowIndex);
 	}
-
 	private function updateTableRowMap(payload : PortfolioSymbolT) {
 		var key : String = getKey(payload);
 		var row : TableRowElement = cast rowMap.get(key);
+		if(MBooks_im.getSingleton().portfolio.activePortfolio == null){
+			trace("Throwing message" + payload);
+			return;
+		}
 		if(payload.portfolioId != MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId){
 			trace("Throwing message " + payload);
 			return;
@@ -277,11 +286,15 @@ class PortfolioSymbol {
 			row = cast(pSymbolTable.insertRow(computeInsertIndex()));
 			rowMap.set(key, row);
 			insertCells(row, payload);
+			//insertStreamResponse.resolve(payload);			
+			createChart(payload);
 		}else {
 			var cells : HTMLCollection = row.children;
 			for(cell in cells){
 				var cellI : TableCellElement = cast cell;
 				var cellIndex : Int = cellI.cellIndex;
+				//updateStreamResponse.resolve(payload);
+				updateChart(payload);
 				switch(cellIndex) {
 					case 0 : cellI.innerHTML = payload.symbol;
 					case 1 : cellI.innerHTML = payload.side;
@@ -316,6 +329,22 @@ class PortfolioSymbol {
 		newCell = cast aRow.insertCell(6);
 		newCell.innerHTML = Date.now().toString();
 	}
+	private function createChart(payload : PortfolioSymbolT){
+		trace("Creating chart");
+		sendHistoricalQuery(payload);		
+	}
+	private function sendHistoricalQuery(payload : PortfolioSymbolT){
+	var query : String = "select historical for " + payload.symbol + ";";
+	var payload : MarketDataQuery = {
+		commandType : QUERY_MARKET_DATA
+		, nickName : MBooks_im.getSingleton().getNickName()
+		, symbol : query
+		, portfolioId : payload.portfolioId
+		, resultSet : []
+	};
+	MBooks_im.getSingleton().doSendJSON(payload);
+}
+
 	private function insertResponse(payload : PortfolioSymbolT) {
 		trace("Inserting view " + payload);
 		//clearFields();
@@ -323,16 +352,21 @@ class PortfolioSymbol {
 	}
 
 	private function updateResponse(payload : PortfolioSymbolT){
-		trace("Updating view " + payload);
+		//trace("Updating view " + payload);
 		//clearFields();
 		updateTableRowMap(payload);
+	}
+	private function updateChart(payload : PortfolioSymbolT){
+		trace("Updating chart " + payload);
 	}
 	private function deleteResponse(payload : PortfolioSymbolT) {
 		trace("Deleting view "  + payload);
 		//clearFields();
 		deleteTableRowMap(payload);
 	}
-
+	private function deleteChart(payload : PortfolioSymbolT){
+		trace("Delete chart " + payload);
+	}
 	private function readResponse(payload : PortfolioSymbolT) {
 		trace("Reading view " + payload);
 		throw "Read response Not implemented";
@@ -545,15 +579,18 @@ class PortfolioSymbol {
 			}
 
 		}
-
 	}
 	private function updateMarketData(incomingMessage: Dynamic){
 		trace("Inside update market data response " + incomingMessage);
-		//this.updateTableRowMap(incomingMessage);
+		this.updateTableRowMap(incomingMessage);
+	}
 
+	private function updateHistoricalPrice(incomingMessage : Dynamic){
+		trace("Creating/updating chart " + incomingMessage);
 	}
 	//When we allow users to move columns around, 
 	//this dictionary needs to be updated.
 	private var columnIndexMap : ObjectMap<String, Int>;
 	private var rowMap : StringMap<TableRowElement>;
+	public var portfolioMap(default, null) : StringMap<PortfolioSymbolT>;
 }

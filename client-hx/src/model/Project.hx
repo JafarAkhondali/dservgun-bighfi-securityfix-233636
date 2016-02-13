@@ -121,7 +121,6 @@ class Project {
 			}catch(err : Dynamic) {
 				trace("Error checking company " + err);
 			}
-
 	}
 
 	private function getProjectsListElement() : SelectElement {
@@ -154,6 +153,7 @@ class Project {
 			}
 		}
 	}
+
 	private function getCompanyListElement() : SelectElement {
 		return (cast Browser.document.getElementById(COMPANY_LIST));
 	}
