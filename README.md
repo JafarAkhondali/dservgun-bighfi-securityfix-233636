@@ -1,32 +1,25 @@
 ## Realtime information system
 
-<a href="https://assembly.com/ccar-websockets/bounties?utm_campaign=assemblage&utm_source=ccar-websockets&utm_medium=repo_badge"><img src="https://asm-badger.herokuapp.com/ccar-websockets/badges/tasks.svg" height="24px" alt="Open Tasks" /></a>
-
-#### Realtime information system
 
 
-This is a product being built by the Assembly community. You can help push this idea forward by visiting [https://assembly.com/ccar-websockets](https://assembly.com/ccar-websockets).
-
-#### How Assembly Works
-
-Assembly products are like open-source and made with contributions from the community. Assembly handles the boring stuff like hosting, support, financing, legal, etc. Once the product launches we collect the revenue and split the profits amongst the contributors.
-
-Visit [https://assembly.com](https://assembly.com) to learn more.
-=======
-
+#### Stackage installation
+sudo apt-get update
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository -y ppa:hvr/ghc
+sudo apt-get update
+sudo apt-get install -y cabal-install-1.20 ghc-7.8.4
+cat >> ~/.bashrc <<EOF
+export PATH=~/.cabal/bin:/opt/cabal/1.20/bin:/opt/ghc/7.8.4/bin:$PATH
+EOF
+export PATH=~/.cabal/bin:/opt/cabal/1.20/bin:/opt/ghc/7.8.4/bin:$PATH
+cabal update
+cabal install alex happy
 
 #### Beta. 
 
 
-Compilers/libraries
-================
-The versions listed are the ones on my host. Most of the chnages will be backward compatible, so if you 
-have downloaded a leter version, things will most likely work.
-* ghci: > 7.6.3 && < 7.7
-* cabal:  > 1.20 && < 1.21
 
 * haxe : 3.0.0
-
 
 * Haxe Libraries:
 * mlib: [2.0.2]
@@ -36,11 +29,6 @@ have downloaded a leter version, things will most likely work.
 * hamcrest: [1.2.1]
 * mcover: [2.1.1]
 
-
-Installation of the yesod toolchain
-====================================
-* $ cabal sandbox init
-* $ cabal install yesod-core --max-backjumps=-1 --reorder-goals --reinstall
 
 
 Installation using stack
