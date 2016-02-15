@@ -2,7 +2,7 @@
 
 
 
-#### Stackage installation[https://www.stackage.org/install#ubuntu]
+#### [Stackage installation](https://www.stackage.org/install#ubuntu)
 sudo apt-get update
 sudo apt-get install -y software-properties-common
 sudo add-apt-repository -y ppa:hvr/ghc
