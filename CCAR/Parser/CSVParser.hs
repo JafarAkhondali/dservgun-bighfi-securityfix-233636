@@ -5,15 +5,11 @@ module CCAR.Parser.CSVParser
 		, ParseError
 	) where 
 import Text.ParserCombinators.Parsec
-import Control.Monad.Lift 
+{-import Control.Monad.Lift 
 import Control.Monad.Lift.Base
 import Control.Monad.Lift.IO 
-import Control.Monad.Lift.Layer
 import Control.Monad.Lift.Top 
-import Monad.Abort 
-import Monad.ST 
-import Monad.RWS 
-
+-}
 -- RWH example.
 csvFile = endBy line eol
 
