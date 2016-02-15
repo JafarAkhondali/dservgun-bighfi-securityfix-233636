@@ -265,13 +265,13 @@ analyticsRunner app conn nickName terminate =
 	    Logger.infoM iModuleName "Exiting pricer threads"
 
 
-data PricerState = PricerState{
+data PricerConfiguration = PricerConfiguration{
 		app :: App
 		, conn :: WSConn.Connection
 		, nickName :: T.Text
 		, marketData :: Map T.Text HistoricalPrice
 	}
-type PriceReader = ReaderT PricerState (StateT Bool IO)
+type PriceReader = ReaderT PricerConfiguration (StateT Bool IO)
 type PricerConfig = Int
 newtype PricerReaderApp a = PricerReaderApp {
 		runP :: ReaderT PricerConfig (StateT Bool IO) a
@@ -283,8 +283,8 @@ newtype PricerReaderApp a = PricerReaderApp {
 --pricerReaderThread :: App -> WSConn.Connection -> NickName -> IO ()
 pricerReaderThread a c n m = do 
 	(y, z) <- flip runStateT False $ do 
-				flip runReaderT (PricerState a c n m) $ do 
-					PricerState app conn nickName marketData <- ask
+				flip runReaderT (PricerConfiguration a c n m) $ do 
+					PricerConfiguration app conn nickName marketData <- ask
 					opts <- liftIO $ getOptionMarketData nickName
 					x <- lift $ State.get
 					loop opts 
@@ -292,9 +292,9 @@ pricerReaderThread a c n m = do
 
 
 
-loop :: [OptionChain] -> ReaderT PricerState (StateT Bool IO) ()
+loop :: [OptionChain] -> ReaderT PricerConfiguration (StateT Bool IO) ()
 loop = \opts ->  do 
-		PricerState app conn nickName marketData <- ask
+		PricerConfiguration app conn nickName marketData <- ask
 		conns <- atomically $ getClientState nickName app
 		case conns of 
 			[] -> do 
@@ -314,12 +314,12 @@ loop = \opts ->  do
 
 pricerWriterThread a c n m = do
 	sH <- optionPricer defaultOptionServer
-	x <- flip runReaderT (PricerState a c n m) $ atomically $ do
-					clientStates <- getClientState n a 
-					case clientStates of 
-						clientState:_ -> readTChan (pricerReadChan clientState)
-	pricer2 <- writeOptionPricer x sH
-
-	liftIO $ analyticsPollingInterval >>= threadDelay
-	liftIO $ WSConn.sendTextData c (Util.serialize pricer2)
-   	pricerWriterThread a c n m
+	flip runReaderT (PricerConfiguration a c n m) $ do 
+					x <- atomically $ do
+							clientStates <- getClientState n a 
+							case clientStates of 
+								clientState:_ -> readTChan (pricerReadChan clientState)
+					pricer2 <- liftIO $ writeOptionPricer x sH
+					liftIO $ analyticsPollingInterval >>= threadDelay
+					liftIO $ WSConn.sendTextData c (Util.serialize pricer2)
+	pricerWriterThread a c n m

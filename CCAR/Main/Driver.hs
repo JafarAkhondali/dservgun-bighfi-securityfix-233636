@@ -904,7 +904,10 @@ driver = do
     _ <- Logger.updateGlobalLogger "CCAR" $ Logger.setLevel 
                                         Log.DEBUG . setHandlers[lh]
     
-    Logger.debugM "CCAR" "Starting yesod.."                                    
+    _ <- Logger.updateGlobalLogger "CCAR.Analytics.OptionAnalytics" $ Logger.setLevel 
+                                        Log.INFO . setHandlers[lh]                                        
+    Logger.debugM "CCAR" "Starting yesod.."
+
     connStr <- getConnectionString
     poolSize <- getPoolSize
     runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
