@@ -54,8 +54,7 @@ import 							Control.Concurrent.Async as A (waitSTM, wait, async
 
 import 							GHC.Conc(labelThread)
 import 							Debug.Trace(traceEventIO)
---import							Control.Parallel.MPI.Simple
-
+import 							Control.Parallel.MPI.Simple as MPISimple (Rank, mpiWorld, commWorld, unitTag, send, init, recv, barrier)
 
 
 iModuleName = "CCAR.Analytics.OptionAnalytics"
@@ -206,6 +205,9 @@ toCSV (OptionPricer a b c
 				, show f, show g 
 				, show h , show i 
 				, show j, show k] 
+
+
+
 writeOptionPricer :: OptionPricer -> ServerHandle -> IO OptionPricer
 writeOptionPricer pricer x = do 
 	hPutStrLn (sHandle x) (toCSV pricer)
@@ -251,18 +253,17 @@ analyticsRunner app conn nickName terminate =
         Logger.infoM iModuleName "Analytics data thread exiting" 
         return ()
     else handle(\x@(SomeException e) -> do 
-
-    	Logger.infoM iModuleName "Exiting analytics thread."
-    	return ()) $ do 	    
-	    sH <- optionPricer defaultOptionServer 
-	    marketDataMap <- MarketDataAPI.queryMarketData
-
-	    a <- A.async (pricerReaderThread app conn nickName marketDataMap)
-	    b <- A.async (pricerWriterThread app conn nickName marketDataMap)
-	    labelThread (A.asyncThreadId a ) ("Pricer reader thread " ++ (T.unpack nickName))
-	    labelThread (A.asyncThreadId b) ("Pricer writer thread " ++ (T.unpack nickName))
-	    A.waitAny [a, b]
-	    Logger.infoM iModuleName "Exiting pricer threads"
+    	Logger.infoM iModuleName $ "Exiting analytics thread." <> (show x)
+    	return ()) $ do 	    	    
+		    sH <- optionPricer defaultOptionServer
+		    marketDataMap <- MarketDataAPI.queryMarketData
+		    a <- A.async (pricerReaderThread app conn nickName marketDataMap)
+		    b <- A.async (mpiProcessor app conn nickName marketDataMap)
+			
+		    labelThread (A.asyncThreadId a ) ("Pricer reader thread " ++ (T.unpack nickName))
+		    -- labelThread (A.asyncThreadId b) ("Pricer writer thread " ++ (T.unpack nickName))
+		    A.waitAny [a, b]
+		    Logger.infoM iModuleName "Exiting pricer threads"
 
 
 data PricerConfiguration = PricerConfiguration{
@@ -270,6 +271,7 @@ data PricerConfiguration = PricerConfiguration{
 		, conn :: WSConn.Connection
 		, nickName :: T.Text
 		, marketData :: Map T.Text HistoricalPrice
+		, useMPI :: Bool
 	}
 type PriceReader = ReaderT PricerConfiguration (StateT Bool IO)
 type PricerConfig = Int
@@ -283,8 +285,8 @@ newtype PricerReaderApp a = PricerReaderApp {
 --pricerReaderThread :: App -> WSConn.Connection -> NickName -> IO ()
 pricerReaderThread a c n m = do 
 	(y, z) <- flip runStateT False $ do 
-				flip runReaderT (PricerConfiguration a c n m) $ do 
-					PricerConfiguration app conn nickName marketData <- ask
+				flip runReaderT (PricerConfiguration a c n m True) $ do 
+					PricerConfiguration app conn nickName marketData mpi<- ask
 					opts <- liftIO $ getOptionMarketData nickName
 					x <- lift $ State.get
 					loop opts 
@@ -292,9 +294,11 @@ pricerReaderThread a c n m = do
 
 
 
+
+
 loop :: [OptionChain] -> ReaderT PricerConfiguration (StateT Bool IO) ()
 loop = \opts ->  do 
-		PricerConfiguration app conn nickName marketData <- ask
+		PricerConfiguration app conn nickName marketData mpi <- ask
 		conns <- atomically $ getClientState nickName app
 		case conns of 
 			[] -> do 
@@ -311,15 +315,75 @@ loop = \opts ->  do
 					loop opts	
 
 
+defaultPricerConfiguration a c n m = PricerConfiguration a c n m True
+
+
 
 pricerWriterThread a c n m = do
 	sH <- optionPricer defaultOptionServer
-	flip runReaderT (PricerConfiguration a c n m) $ do 
-					x <- atomically $ do
-							clientStates <- getClientState n a 
-							case clientStates of 
-								clientState:_ -> readTChan (pricerReadChan clientState)
-					pricer2 <- liftIO $ writeOptionPricer x sH
-					liftIO $ analyticsPollingInterval >>= threadDelay
-					liftIO $ WSConn.sendTextData c (Util.serialize pricer2)
+	flip runReaderT (PricerConfiguration a c n m True) $ do 
+			x <- atomically $ do
+					clientStates <- getClientState n a 
+					case clientStates of 
+						clientState:_ -> readTChan (pricerReadChan clientState)
+			PricerConfiguration a c n m mpi <- ask
+			pricer2 <- if mpi then 
+							return ()
+						else do 
+							pricer2 <- liftIO $ writeOptionPricer x sH
+							liftIO $ analyticsPollingInterval >>= threadDelay
+							liftIO $ WSConn.sendTextData c (Util.serialize pricer2)
+			return pricer2
 	pricerWriterThread a c n m
+
+
+
+mpiProcessor :: App -> Connection -> Text -> Map Text HistoricalPrice -> IO()
+mpiProcessor a c n m = mpiWorld $ \size rank -> do 
+	loop a c n m size rank 
+	where 
+		loop a c n m = \size rank -> do 
+			Logger.infoM iModuleName "Sending mpi messages"
+			pricer <- atomically $ do
+					clientStates <- getClientState n a 
+					case clientStates of 
+						clientState:_ -> readTChan (pricerReadChan clientState)
+			case rank of 
+				0 -> MPISimple.send commWorld 1 unitTag (toCSV pricer) 
+				1 -> do 
+					(msg, status) <- MPISimple.recv commWorld 0 unitTag
+					parsedString <- return $ fromCSV msg
+					p <- case parsedString of
+						Right x -> do 
+							p0 <- return $ Util.parse_float $ x !! 10
+							return pricer  {price = p0 }
+						Left _ -> return pricer
+					liftIO $ analyticsPollingInterval >>= threadDelay						
+					WSConn.sendTextData c (Util.serialize p)
+				_ -> return ()
+			loop a c n m size rank
+
+
+writeMPIThread :: OptionPricer -> ReaderT PricerConfiguration IO ()
+writeMPIThread = \pricer -> do 
+	PricerConfiguration app conn nickName marketData mpi <- ask
+
+	liftIO $ Logger.infoM iModuleName $ "Sending mpi send " <> (show mpi)
+	liftIO $ mpiWorld $ \_size rank -> do 
+		let root = 0
+		Logger.infoM iModuleName "Entering barrier"
+		MPISimple.barrier commWorld
+		Logger.infoM iModuleName "Barrier cleared"
+		case rank of 
+			0 -> MPISimple.send commWorld 1 unitTag (toCSV pricer) 
+			1 -> do 
+				(msg, status) <- MPISimple.recv commWorld 0 unitTag
+				parsedString <- return $ fromCSV msg
+				p <- case parsedString of
+					Right x -> do 
+						p0 <- return $ Util.parse_float $ x !! 10
+						return pricer  {price = p0 }
+					Left _ -> return pricer
+				WSConn.sendTextData conn (Util.serialize p)
+			_ -> return ()
+

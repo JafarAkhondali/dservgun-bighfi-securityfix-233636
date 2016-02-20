@@ -89,7 +89,8 @@ import Network.HTTP.Conduit
 import Network.HTTP.Types as W 
 import GHC.Conc(labelThread)
 import Debug.Trace(traceEventIO)
-import CCAR.Analytics.MarketDataLanguage(evalMDL)
+import                          CCAR.Analytics.MarketDataLanguage(evalMDL)
+import                          Control.Parallel.MPI.Simple as MPISimple (Rank, mpiWorld, commWorld, unitTag, send, init, recv, barrier)
 
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
@@ -905,7 +906,7 @@ driver = do
                                         Log.DEBUG . setHandlers[lh]
     
     _ <- Logger.updateGlobalLogger "CCAR.Analytics.OptionAnalytics" $ Logger.setLevel 
-                                        Log.INFO . setHandlers[lh]                                        
+                                        Log.DEBUG . setHandlers[lh]                                        
     Logger.debugM "CCAR" "Starting yesod.."
 
     connStr <- getConnectionString

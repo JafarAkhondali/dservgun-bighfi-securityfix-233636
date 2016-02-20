@@ -1,6 +1,7 @@
 push!(LOAD_PATH,"./")
 include("asian-option.jl")
 import JSON
+import MPI
 import AsianOption
 portNumber = 20000
 
@@ -35,5 +36,45 @@ function server(aPortNumber)
   end
 end
 
+function mpiServer()
+  println("Starting mpiserver...")
+  MPI.Init()
+  println ("MPI server initialized");
+  comm = MPI.COMM_WORLD
+  MPI.Barrier(comm)
+  rank = MPI.Comm_rank(comm)
+  size = MPI.Comm_size(comm)
+  root = 0
+  println ("Rank and size $rank, $size")
+  # Root is the producer.
+  @async begin 
+    try 
+      while true
+        if rank == 1 
+          println("Receiving message from server");
+          recv_mesg = MPI.recv(root, 0, comm)
+          println("Received $recv_mesg")
+          obj = processCommand(recv_mesg)
+          MPI.send(obj, root, defaultTag, comm)
+        else 
+          ## Debug println("Not our rank. NOP")
+        end
+      end
+    catch err 
+      println("mpi server exited with error $err")
+    end
+  end
+end
 
-server(portNumber)
+
+function main() 
+  @async server(portNumber)
+  @async mpiServer()
+  while true
+    print(".")
+    sleep(2)
+  end
+  MPI.Finalize()
+end
+
+main()
