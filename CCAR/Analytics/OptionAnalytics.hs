@@ -55,7 +55,8 @@ import 							Control.Concurrent.Async as A (waitSTM, wait, async
 import 							GHC.Conc(labelThread)
 import 							Debug.Trace(traceEventIO)
 import 							Control.Parallel.MPI.Simple as MPISimple (Rank, mpiWorld, commWorld, unitTag, send, init, recv, barrier)
-
+import							Control.Parallel.MPI.Fast as MPIFast
+import							CCAR.Transport.MPI(sendString, recvString)
 
 iModuleName = "CCAR.Analytics.OptionAnalytics"
 
@@ -153,7 +154,6 @@ analytics sHandle marketDataMap option = do
 			Logger.debugM iModuleName $ show option	
 			strikePrice <- return $ 
 					parse_option_strike $ T.unpack $ optionChainStrike option
-
 			bidRatio <- return $ computeBidRatio (optionChainLastBid option) strikePrice
 			Logger.debugM iModuleName ("BidRatio " `mappend` (show bidRatio))
 			pricer <- return $ OptionPricer (optionChainUnderlying option) 
@@ -171,7 +171,6 @@ analytics sHandle marketDataMap option = do
 							bidRatio
 							"OptionAnalytics"
 			writeOptionPricer pricer sHandle
-
 	where 
 		riskFreeInterestRate = 0.02
 		dividendYield = 0.0
@@ -339,7 +338,7 @@ pricerWriterThread a c n m = do
 
 
 mpiProcessor :: App -> Connection -> Text -> Map Text HistoricalPrice -> IO()
-mpiProcessor a c n m = mpiWorld $ \size rank -> do 
+mpiProcessor a c n m = mpi $ \size rank -> do 
 	loop a c n m size rank 
 	where 
 		loop a c n m = \size rank -> do 
@@ -349,9 +348,12 @@ mpiProcessor a c n m = mpiWorld $ \size rank -> do
 					case clientStates of 
 						clientState:_ -> readTChan (pricerReadChan clientState)
 			case rank of 
-				0 -> MPISimple.send commWorld 1 unitTag (toCSV pricer) 
+				0 -> do 
+					sendMsg <- sendString (toCSVPricer)
+					MPIFast.send commWorld 1 unitTag sendMsg
 				1 -> do 
-					(msg, status) <- MPISimple.recv commWorld 0 unitTag
+					(recvMsg :: ArrayMessage, status) <- 
+						intoNewArray(1, defaultBufSize) $ recv commWorld 0 unitTag
 					parsedString <- return $ fromCSV msg
 					p <- case parsedString of
 						Right x -> do 
