@@ -906,7 +906,7 @@ driver = do
                                         Log.DEBUG . setHandlers[lh]
     
     _ <- Logger.updateGlobalLogger "CCAR.Analytics.OptionAnalytics" $ Logger.setLevel 
-                                        Log.DEBUG . setHandlers[lh]                                        
+                                        Log.INFO . setHandlers[lh]                                        
     Logger.debugM "CCAR" "Starting yesod.."
 
     connStr <- getConnectionString

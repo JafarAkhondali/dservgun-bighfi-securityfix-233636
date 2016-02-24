@@ -45,6 +45,10 @@ function mpiServer()
   rank = MPI.Comm_rank(comm)
   size = MPI.Comm_size(comm)
   root = 0
+  N = 80 # This number is shared between the client and server.
+  recv_msg = Array(Char, N)
+  send_msg = Array(Char, N)
+
   println ("Rank and size $rank, $size")
   # Root is the producer.
   @async begin 
@@ -52,10 +56,11 @@ function mpiServer()
       while true
         if rank == 1 
           println("Receiving message from server");
-          recv_mesg = MPI.recv(root, 0, comm)
+          recv_mesg = MPI.recv!(recv_msg, root, 0, comm)
           println("Received $recv_mesg")
           obj = processCommand(recv_mesg)
-          MPI.send(obj, root, defaultTag, comm)
+          send_msg = rpad(obj, N, ' ')
+          MPI.send(send_msg, root, defaultTag, comm)
         else 
           ## Debug println("Not our rank. NOP")
         end
@@ -68,13 +73,7 @@ end
 
 
 function main() 
-  @async server(portNumber)
-  @async mpiServer()
-  while true
-    print(".")
-    sleep(2)
-  end
-  MPI.Finalize()
+  server(portNumber)
 end
 
 main()

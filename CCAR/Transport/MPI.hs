@@ -1,5 +1,5 @@
 module CCAR.Transport.MPI
-	(ArrayMessage
+	(ArrayMessage(..)
 	, sendString
 	, defaultBufSize)
 
@@ -37,8 +37,10 @@ type PadReader = ReaderT (MessageDetails) IO
 -- Pad the string with spaces
 
 {-sendString :: String -> ReaderT (MessageDetails) IO (StorableArray Int Char)-}
-sendString aString = do
-	a@(MessageDetails payload padChar bufSize) <- ask
-	return $ toPaddedString $ a {payload = aString}
+sendString aString = do 
+	a <- flip runReaderT defaultMessageDetails $ do 
+		a@(MessageDetails payload padChar bufSize) <- ask
+		return $ toPaddedString $ a {payload = aString}
+	newListArray (1, defaultBufSize) a 
 	
 

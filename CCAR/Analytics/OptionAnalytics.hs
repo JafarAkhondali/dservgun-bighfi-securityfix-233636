@@ -54,9 +54,9 @@ import 							Control.Concurrent.Async as A (waitSTM, wait, async
 
 import 							GHC.Conc(labelThread)
 import 							Debug.Trace(traceEventIO)
-import 							Control.Parallel.MPI.Simple as MPISimple (Rank, mpiWorld, commWorld, unitTag, send, init, recv, barrier)
 import							Control.Parallel.MPI.Fast as MPIFast
-import							CCAR.Transport.MPI(sendString, recvString)
+import							CCAR.Transport.MPI(sendString, ArrayMessage(..), defaultBufSize)
+import							Data.Array.Storable 
 
 iModuleName = "CCAR.Analytics.OptionAnalytics"
 
@@ -213,7 +213,7 @@ writeOptionPricer pricer x = do
 	hFlush (sHandle x)
 	nextString <- hGetLine (sHandle x)
 	parsedString <- return $ fromCSV nextString
-	putStrLn $ show parsedString
+	Logger.infoM iModuleName (show parsedString)
 	p <- case parsedString of
 		Right x -> do 
 			p0 <- return $ Util.parse_float $ x !! 10
@@ -257,10 +257,10 @@ analyticsRunner app conn nickName terminate =
 		    sH <- optionPricer defaultOptionServer
 		    marketDataMap <- MarketDataAPI.queryMarketData
 		    a <- A.async (pricerReaderThread app conn nickName marketDataMap)
-		    b <- A.async (mpiProcessor app conn nickName marketDataMap)
+		    b <- A.async (pricerWriterThread app conn nickName marketDataMap)
 			
 		    labelThread (A.asyncThreadId a ) ("Pricer reader thread " ++ (T.unpack nickName))
-		    -- labelThread (A.asyncThreadId b) ("Pricer writer thread " ++ (T.unpack nickName))
+		    labelThread (A.asyncThreadId b) ("Pricer writer thread " ++ (T.unpack nickName))
 		    A.waitAny [a, b]
 		    Logger.infoM iModuleName "Exiting pricer threads"
 
@@ -293,8 +293,6 @@ pricerReaderThread a c n m = do
 
 
 
-
-
 loop :: [OptionChain] -> ReaderT PricerConfiguration (StateT Bool IO) ()
 loop = \opts ->  do 
 		PricerConfiguration app conn nickName marketData mpi <- ask
@@ -320,28 +318,27 @@ defaultPricerConfiguration a c n m = PricerConfiguration a c n m True
 
 pricerWriterThread a c n m = do
 	sH <- optionPricer defaultOptionServer
-	flip runReaderT (PricerConfiguration a c n m True) $ do 
+	flip runReaderT (PricerConfiguration a c n m False) $ do 
 			x <- atomically $ do
 					clientStates <- getClientState n a 
 					case clientStates of 
 						clientState:_ -> readTChan (pricerReadChan clientState)
 			PricerConfiguration a c n m mpi <- ask
-			pricer2 <- if mpi then 
-							return ()
-						else do 
-							pricer2 <- liftIO $ writeOptionPricer x sH
-							liftIO $ analyticsPollingInterval >>= threadDelay
-							liftIO $ WSConn.sendTextData c (Util.serialize pricer2)
+			pricer2 <- liftIO $ writeOptionPricer x sH
+			liftIO $ analyticsPollingInterval >>= threadDelay
+			liftIO $ WSConn.sendTextData c (Util.serialize pricer2)
 			return pricer2
 	pricerWriterThread a c n m
 
 
 
 mpiProcessor :: App -> Connection -> Text -> Map Text HistoricalPrice -> IO()
-mpiProcessor a c n m = mpi $ \size rank -> do 
-	loop a c n m size rank 
+mpiProcessor a c n m = mpi $ do
+	Logger.infoM iModuleName "Starting mpi processor thread"
+	rank <- commRank commWorld
+	loop a c n m rank
 	where 
-		loop a c n m = \size rank -> do 
+		loop a c n m = \rank -> do 
 			Logger.infoM iModuleName "Sending mpi messages"
 			pricer <- atomically $ do
 					clientStates <- getClientState n a 
@@ -349,12 +346,15 @@ mpiProcessor a c n m = mpi $ \size rank -> do
 						clientState:_ -> readTChan (pricerReadChan clientState)
 			case rank of 
 				0 -> do 
-					sendMsg <- sendString (toCSVPricer)
-					MPIFast.send commWorld 1 unitTag sendMsg
+					Logger.infoM iModuleName $ "sending string.." ++ (toCSV pricer)
+					sendString (toCSV pricer) >>= \x -> 
+						MPIFast.send commWorld 1 2 (x :: ArrayMessage)
 				1 -> do 
+					Logger.infoM iModuleName $ "Receiving string"
 					(recvMsg :: ArrayMessage, status) <- 
-						intoNewArray(1, defaultBufSize) $ recv commWorld 0 unitTag
-					parsedString <- return $ fromCSV msg
+						intoNewArray(1, defaultBufSize) $ MPIFast.recv commWorld 0 2
+					st <- getElems recvMsg
+					parsedString <- return $ fromCSV st
 					p <- case parsedString of
 						Right x -> do 
 							p0 <- return $ Util.parse_float $ x !! 10
@@ -363,29 +363,8 @@ mpiProcessor a c n m = mpi $ \size rank -> do
 					liftIO $ analyticsPollingInterval >>= threadDelay						
 					WSConn.sendTextData c (Util.serialize p)
 				_ -> return ()
-			loop a c n m size rank
+			loop a c n m rank
 
 
 writeMPIThread :: OptionPricer -> ReaderT PricerConfiguration IO ()
-writeMPIThread = \pricer -> do 
-	PricerConfiguration app conn nickName marketData mpi <- ask
-
-	liftIO $ Logger.infoM iModuleName $ "Sending mpi send " <> (show mpi)
-	liftIO $ mpiWorld $ \_size rank -> do 
-		let root = 0
-		Logger.infoM iModuleName "Entering barrier"
-		MPISimple.barrier commWorld
-		Logger.infoM iModuleName "Barrier cleared"
-		case rank of 
-			0 -> MPISimple.send commWorld 1 unitTag (toCSV pricer) 
-			1 -> do 
-				(msg, status) <- MPISimple.recv commWorld 0 unitTag
-				parsedString <- return $ fromCSV msg
-				p <- case parsedString of
-					Right x -> do 
-						p0 <- return $ Util.parse_float $ x !! 10
-						return pricer  {price = p0 }
-					Left _ -> return pricer
-				WSConn.sendTextData conn (Util.serialize p)
-			_ -> return ()
-
+writeMPIThread = undefined
