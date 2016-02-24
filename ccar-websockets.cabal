@@ -132,12 +132,13 @@ executable ccar-websockets
   ghc-options: 
     -O2
     -threaded
-    -eventlog
+--    -eventlog
 --    -ddump-simpl
+--    -prof
     -fprof-auto
+    -caf-all 
     -rtsopts
     "-with-rtsopts=-N "
-    -H6g
 -- Use this to run
 --cabal run my-project-profiling && hp2ps -e8in -c my-project-profiling.hp
 

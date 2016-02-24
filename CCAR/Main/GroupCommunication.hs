@@ -66,8 +66,7 @@ data ClientState = ClientState {
             , jobWriteChan :: TChan Value
             , workingDirectory :: FilePath
             , activeScenario :: [Stress]
-            , pricerReadChan :: TChan OptionPricer
-            , pricerWriteChan :: TChan OptionPricer
+            , pricerReadQueue :: TBQueue OptionPricer
 	}
 
 createClientState nn aConn = do 
@@ -75,8 +74,7 @@ createClientState nn aConn = do
         r <- dupTChan w 
         jw <- newTChan 
         jwr <- dupTChan jw
-        pricerWriteChan <- newTChan 
-        pricerReadChan <- dupTChan pricerWriteChan
+        pricerReadQueue <- newTBQueue 5 
         return ClientState{nickName = nn 
                         , connection = aConn
                         , readChan = r 
@@ -85,8 +83,7 @@ createClientState nn aConn = do
                         , jobReadChan = jwr
                         , workingDirectory = ("." `mappend` (T.unpack nn))
                         , activeScenario = []
-                        , pricerReadChan = pricerReadChan
-                        , pricerWriteChan = pricerWriteChan
+                        , pricerReadQueue = pricerReadQueue
         }
 
 

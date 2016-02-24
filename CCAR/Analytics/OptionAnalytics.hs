@@ -306,7 +306,7 @@ loop = \opts ->  do
 						Control.Monad.mapM( \c -> do 
 							pricer <- liftIO $ getPricer  marketData c 
 							liftIO $ Logger.debugM iModuleName $ "Sending " <> (show pricer)
-							atomically $ writeTChan (pricerWriteChan x) pricer) opts				
+							atomically $ writeTBQueue (pricerReadQueue x) pricer) opts				
 							)conns
 					return ()
 					loop opts	
@@ -322,7 +322,7 @@ pricerWriterThread a c n m = do
 			x <- atomically $ do
 					clientStates <- getClientState n a 
 					case clientStates of 
-						clientState:_ -> readTChan (pricerReadChan clientState)
+						clientState:_ -> readTBQueue (pricerReadQueue clientState)
 			PricerConfiguration a c n m mpi <- ask
 			pricer2 <- liftIO $ writeOptionPricer x sH
 			liftIO $ analyticsPollingInterval >>= threadDelay
@@ -343,7 +343,7 @@ mpiProcessor a c n m = mpi $ do
 			pricer <- atomically $ do
 					clientStates <- getClientState n a 
 					case clientStates of 
-						clientState:_ -> readTChan (pricerReadChan clientState)
+						clientState:_ -> readTBQueue (pricerReadQueue clientState)
 			case rank of 
 				0 -> do 
 					Logger.infoM iModuleName $ "sending string.." ++ (toCSV pricer)
