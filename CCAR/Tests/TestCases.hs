@@ -1,4 +1,4 @@
-
+module CCAR.Tests.TestCases where 
 import CCAR.Main.DBUtils
 import GHC.Generics
 import Data.Aeson as J
@@ -30,11 +30,6 @@ import Data.Conduit
 -}
 import GHC.Generics
 import GHC.IO.Exception
-import Control.Monad.Lift 
-import Control.Monad.Lift.IO 
-import Control.Monad.Lift.Layer 
-import Control.Monad.Lift.Top 
-import Monad.Error 
 
 import Data.Data
 import Data.Monoid (mappend)
@@ -53,6 +48,7 @@ import CCAR.Model.PortfolioSymbol as PortfolioSymbol
 -- For haskell shell
 import HSH
 import System.IO(openFile, writeFile, IOMode(..))
+import Test.HUnit
 
 class ModelHeader a where
 	updateUUID ::  a -> IO a 
@@ -95,3 +91,5 @@ testCase4 = do
 		Right pid -> PortfolioSymbol.testInsertNew 1 pid 
 		{-Left _ -> return $ Left $ "Failed insert"-}
 
+
+testCase5 = TestCase $ assertFailure "Failed"

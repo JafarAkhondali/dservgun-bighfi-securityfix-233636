@@ -47,3 +47,4 @@ foreign import ccall "math.h sin"
 fastsin :: Double -> Double 
 fastsin x = realToFrac (c_sin (realToFrac x))
 
+
