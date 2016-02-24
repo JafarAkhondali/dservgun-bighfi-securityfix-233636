@@ -26,3 +26,4 @@ data OptionPricer = OptionPricer {
 
 instance ToJSON OptionPricer 
 instance FromJSON OptionPricer
+
