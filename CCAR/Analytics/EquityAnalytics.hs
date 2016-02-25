@@ -1,6 +1,5 @@
 module CCAR.Analytics.EquityAnalytics
-	(change
-	, testChange)
+	(computeChange, computeLogChange)
  where
 
 import 							Data.Bits
@@ -46,4 +45,16 @@ change (x: xs) = do
 	put (x, (x, prev) : l) 
 	change xs
 
-testChange = flip runState (0, []) (change [0, 1, 2, 3])
+
+computeChange =  \x -> flip execState (0, []) $ change x
+
+
+computeLogChange input = List.map (\(x, y) -> log(fromIntegral y / (fromIntegral x ))) 
+							$ List.filter ( \(x, y) -> (x /= 0) && (y /= 0)) 
+								changeArray 
+						 where 
+						 	(_, changeArray) = computeChange input
+
+
+
+
