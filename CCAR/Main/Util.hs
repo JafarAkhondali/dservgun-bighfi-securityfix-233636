@@ -1,6 +1,6 @@
 	{--License: license.txt --}
 module CCAR.Main.Util
-	(serialize, parseDate, parse_time_interval, parse_float)
+	(serialize, parseDate, parse_time_interval, parse_float, getPastDate)
 where
 import Data.Text as T  hiding(foldl, foldr)
 import Data.Aeson as J
@@ -18,6 +18,12 @@ import Control.Applicative
 serialize :: (ToJSON a) => a -> T.Text 
 serialize  = L.toStrict . E.decodeUtf8 . En.encode  
 
+
+getPastDate anInteger = \x -> return $ UTCTime (utctDay x) (neg anInteger) 
+	where 
+		neg x
+			| x >= 0 = (-1) * x 
+			| x < 0  = x
 
 parseDate (Just aDate) = parseTime Loc.defaultTimeLocale (Loc.rfc822DateFormat) (aDate)
 

@@ -1,5 +1,5 @@
 module CCAR.Analytics.EquityAnalytics
-	(computeChange, computeLogChange)
+	(computeLogChange, computePctChange, computeChange)
  where
 
 import 							Data.Bits
@@ -34,13 +34,24 @@ iModuleName  = "CCAR.Analytics.EquityAnalytics"
 	and b = beta. The equation is statistically computed with an error or 
 	unexplained returns.
 	time interval. --}
-beta :: (EquitySymbol, EquitySymbol, UTCTime, UTCTime) -> Double
-beta = undefined
+beta :: Text -> Text -> UTCTime -> UTCTime -> IO ([Double], [Double])
+beta equity benchmark startDate endDate= do 
+	symbol <- symbolClose equity startDate endDate 
+	benSymbol <- symbolClose benchmark startDate endDate
+	return (symbol, benSymbol)
 
 
-change  :: [Int] -> State (Int, [(Int, Int)]) ()
+symbolClose :: Text -> UTCTime -> UTCTime -> IO [(Double)]
+symbolClose aSymbol startDate endDate = dbOps $ do 
+	symbols <- selectList [HistoricalPriceSymbol ==. aSymbol
+						, HistoricalPriceDate >=. startDate
+						, HistoricalPriceDate <=. endDate] [Asc HistoricalPriceDate]
+	x <- mapM(\x@(Entity id historicalPrice) -> return $ (historicalPriceClose historicalPrice)) symbols 
+	return (computeLogChange x)
+
+change  :: [a]-> State (a , [(a , a)]) ()
 change [] = return ()
-change (x: xs) = do 
+change (x: xs) = do
 	(prev, l) <- State.get 
 	put (x, (x, prev) : l) 
 	change xs
@@ -48,13 +59,15 @@ change (x: xs) = do
 
 computeChange =  \x -> flip execState (0, []) $ change x
 
-
-computeLogChange input = List.map (\(x, y) -> log(fromIntegral y / (fromIntegral x ))) 
-							$ List.filter ( \(x, y) -> (x /= 0) && (y /= 0)) 
-								changeArray 
-						 where 
-						 	(_, changeArray) = computeChange input
-
-
+logEvaluator prev current = log (prev/current)
+pctEvaluotor prev current = (prev - current ) * 100 / current
+computeLogChange input = computeChangeI input logEvaluator
+computePctChange input = computeChangeI input pctEvaluotor
+computeChangeI input evaluotorFunction = 
+	List.map (\(x, y) -> (evaluotorFunction y x)) 
+	$ List.filter ( \(x, y) -> (x /= 0) && (y /= 0)) 
+		changeArray 
+	where 
+		(_, changeArray) = computeChange input
 
 

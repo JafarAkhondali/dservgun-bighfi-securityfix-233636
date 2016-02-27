@@ -13,4 +13,6 @@ testCase1 = do
 	assertBool "Last number should be 3 " (l == 3)
 
 
-testCase2 = return $ computeLogChange [0, 1, 2, 3]
+testCase2 = return $ computeLogChange ([0, 1, 2, 3]) 
+
+testCase3 = return $ computePctChange ([0, 1, 2, 3])

@@ -343,6 +343,7 @@ expirationDate n = do
 defaultExpirationDate = expirationDate 0
 
 
+
 insertDummyMarketData = dbOps $ do
 	time <- liftIO $ getCurrentTime 
 	y <- runMaybeT $ do 
