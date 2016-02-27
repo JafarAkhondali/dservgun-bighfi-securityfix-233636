@@ -34,11 +34,11 @@ iModuleName  = "CCAR.Analytics.EquityAnalytics"
 	and b = beta. The equation is statistically computed with an error or 
 	unexplained returns.
 	time interval. --}
-beta :: Text -> Text -> UTCTime -> UTCTime -> IO ([Double], [Double])
+beta :: Text -> Text -> UTCTime -> UTCTime -> IO [(Double, Double)]
 beta equity benchmark startDate endDate= do 
 	symbol <- symbolClose equity startDate endDate 
 	benSymbol <- symbolClose benchmark startDate endDate
-	return (symbol, benSymbol)
+	return $ List.zip symbol benSymbol
 
 
 symbolClose :: Text -> UTCTime -> UTCTime -> IO [(Double)]
