@@ -24,24 +24,36 @@ import							CCAR.Data.MarketDataAPI as MarketDataAPI
 														, queryOptionMarketData
 														, MarketDataServer(..))
 import							Control.Monad.State as State
-import 							Data.Time
+import 							Data.Time(parseTime, UTCTime, LocalTime)
+import							System.Locale(defaultTimeLocale, TimeLocale(..))
 import							Data.Functor.Identity as Identity
 import            				Math.Combinatorics.Exact.Binomial 
-
+import							Control.Monad.Trans.Maybe
 
 iModuleName  = "CCAR.Analytics.EquityAnalytics"
 
+
+
+getUTCTime :: Text -> Maybe UTCTime
+getUTCTime startDate = parseTime defaultTimeLocale (dateFmt defaultTimeLocale) (T.unpack startDate)
 {-- Beta is computed as a magnitude of the change, it is roughly defined as follows
 	y = a + bx 
 	where a = alpha
 	and b = beta. The equation is statistically computed with an error or 
 	unexplained returns.
 	time interval. --}
-beta :: Text -> Text -> UTCTime -> UTCTime -> IO [(Double, Double)]
-beta equity benchmark startDate endDate= do 
-	symbol <- symbolClose equity startDate endDate 
-	benSymbol <- symbolClose benchmark startDate endDate
-	return $ List.zip symbol benSymbol
+--beta :: Text -> Text -> Text -> Text -> IO (Double, Double, [Double], [Double])
+beta equity benchmark startDate endDate= runMaybeT $ do
+		fTimeFormat <- return "%m/%d/%Y"
+		liftIO $ putStrLn $ "Parsing date " ++ (T.unpack startDate)
+		Just sDate <- return $ parseTime defaultTimeLocale fTimeFormat (T.unpack startDate)
+		liftIO $ putStrLn $ (show sDate)
+		Just eDate <- return $ parseTime defaultTimeLocale fTimeFormat (T.unpack endDate)
+		liftIO $ putStrLn $ (show eDate)
+
+		symbol <- liftIO $ symbolClose equity sDate eDate
+		benSymbol <- liftIO $ symbolClose benchmark sDate eDate
+		return $ (linearRegression benSymbol symbol , symbol, benSymbol)
 
 
 symbolClose :: Text -> UTCTime -> UTCTime -> IO [(Double)]
@@ -62,8 +74,8 @@ change (x: xs) = do
 
 computeChange =  \x -> flip execState (0, []) $ change x
 
-logEvaluator prev current = log (prev/current)
-pctEvaluotor prev current = (prev - current ) * 100 / current
+logEvaluator prev current = (log prev)/(log current)
+pctEvaluotor prev current = (current - prev ) * 100/ prev
 computeLogChange input = computeChangeI input logEvaluator
 computePctChange input = computeChangeI input pctEvaluotor
 computeChangeI input evaluotorFunction = 

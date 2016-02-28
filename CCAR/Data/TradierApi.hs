@@ -528,14 +528,17 @@ setupSymbols aFileName = do
 					=$= saveHistoricalData
 					=$= saveOptionChains 
 					=$ consume
-	liftIO $ Logger.infoM iModuleName $ "Setup completeded " `mappend` aFileName
+	liftIO $ Logger.infoM iModuleName $ "Setup completed " `mappend` aFileName
 
 
 startup = do 
 	dataDirectory <- getEnv("DATA_DIRECTORY")
+	nasdaq_fileName <- getEnv("NASDAQ_LISTED_SYMBOL_FILE")
+	other_fileName <- getEnv("OTHER_LISTED_SYMBOL_FILE")
+
 	insertTradierProvider 
-	x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "nasdaq_listed.txt"]
-	y <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "other_listed.txt"]
+	x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), T.pack $ nasdaq_fileName]
+	y <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), T.pack $ other_fileName]
 	setupSymbols x 
 	setupSymbols y 
 

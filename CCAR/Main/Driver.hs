@@ -894,7 +894,7 @@ getHomeR = do
         |]
 
 
-    
+
 driver :: IO ()
 driver = do
     sH <- openFile "debug.log" WriteMode
@@ -915,7 +915,7 @@ driver = do
         liftIO $ do
             flip runSqlPersistMPool pool $ do
                 runMigration ccarModel
-    c <- A.async $ Country.startup
+    --c <- A.async $ Country.startup
     t <- A.async $ do 
         TradierApi.startup
     chan <- atomically newBroadcastTChan
