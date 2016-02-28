@@ -111,6 +111,8 @@ executable ccar-websockets
                      , HUnit                         >= 1.2.5.2 && < 1.3
                      , bindings-DSL                  >= 1.0.22 && < 1.1
                      , time                          >= 1.4.2 && < 1.5
+                     , exact-combinatorics           >= 0.2.0.8 && < 0.3
+                     , erf                           >= 2.0.0.0 && < 2.1
 
   -- Directories containing source files.
   -- hs-source-dirs: 
