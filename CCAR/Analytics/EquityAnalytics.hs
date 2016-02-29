@@ -53,7 +53,7 @@ beta equity benchmark startDate endDate= runMaybeT $ do
 
 		symbol <- liftIO $ symbolClose equity sDate eDate
 		benSymbol <- liftIO $ symbolClose benchmark sDate eDate
-		return $ (linearRegression benSymbol symbol , symbol, benSymbol)
+		return $ (linearRegression symbol benSymbol, symbol, benSymbol)
 
 
 symbolClose :: Text -> UTCTime -> UTCTime -> IO [(Double)]
@@ -141,6 +141,6 @@ linearRegression x y = (gradient, intercept)
 	where
 		xavg = average x 
 		yavg = average y 
-		gradient = covariance x y / (variance x)
+		gradient = covariance x y / (variance y)
 		intercept = yavg - (gradient * xavg)
 		
