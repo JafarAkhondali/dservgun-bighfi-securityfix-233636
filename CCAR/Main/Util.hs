@@ -1,6 +1,6 @@
 	{--License: license.txt --}
 module CCAR.Main.Util
-	(serialize, parseDate, parse_time_interval, parse_float, getPastDate)
+	(serialize, parseDate, parse_time_interval, parse_float, getPastDate, getUTCTime, processError)
 where
 import Data.Text as T  hiding(foldl, foldr)
 import Data.Aeson as J
@@ -61,3 +61,13 @@ parse_float input =
 	case Parsec.parse p_f ("Unable to parse input " ++ (input))  input of 
 		Right x -> x 
 		Left _ -> 0.0
+
+
+{--| Convert a simple text date to utc time.--}
+getUTCTime :: T.Text -> Maybe UTCTime
+getUTCTime startDate = parseTime defaultTimeLocale (dateFmt defaultTimeLocale) (T.unpack startDate)
+
+
+processError :: Maybe a -> T.Text -> Either T.Text a 
+processError Nothing msg =  Left msg
+processError (Just x) _ =  Right x 

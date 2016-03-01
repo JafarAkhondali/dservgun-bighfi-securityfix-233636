@@ -7,6 +7,7 @@ module CCAR.Model.PortfolioSymbol (
 	, testInsertNew 
 	, CRUD(..)
 	, PortfolioSymbolT(..)
+	, getPortfolioSymbols
 	) where 
 import CCAR.Main.DBUtils
 import GHC.Generics
@@ -86,6 +87,7 @@ data PortfolioSymbolT = PortfolioSymbolT {
 } deriving (Show, Read, Eq, Data, Generic, Typeable)
 
 
+
 instance ToJSON PortfolioSymbolT where 
 	toJSON pS1@(PortfolioSymbolT crType coType portId symbol quantity side symbolType value 
 						sVal cr up nickName)= 
@@ -147,6 +149,20 @@ instance FromJSON PortfolioSymbolQueryT where
 								a .: "nickName"
 	parseJSON _ 	= Appl.empty
 
+
+type PortfolioUUID = T.Text
+
+-- | Return portfolio symbols for a given portfolio UUID.
+getPortfolioSymbols :: PortfolioUUID -> IO (Either T.Text [(T.Text, Double)])
+getPortfolioSymbols pUUID = dbOps $ do
+	result <- runMaybeT $ do 
+			Just (Entity pID pValue) <- lift $ getBy $ UniquePortfolio pUUID 
+			entList <- lift $ selectList [PortfolioSymbolPortfolio ==. pID] [Asc PortfolioSymbolSymbol] 
+			return $ Prelude.map (\a@(Entity k value) -> (portfolioSymbolSymbol value
+														 , Util.parse_float $ T.unpack $ 
+														 		portfolioSymbolQuantity value)) entList
+
+	return $ processError result $ T.intercalate ":" ["Error processing getPortfolioSymbols", pUUID]
 queryPortfolioSymbol :: PortfolioSymbolQueryT -> IO (Either T.Text PortfolioSymbolQueryT) 
 queryPortfolioSymbol p@(PortfolioSymbolQueryT cType 
 						pUUID 
@@ -447,7 +463,4 @@ testInsertNew index pId = do
 	return xo
 instance ToJSON CRUD 
 instance FromJSON CRUD
-
-
-
 

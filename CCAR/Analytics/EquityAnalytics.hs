@@ -29,32 +29,64 @@ import							System.Locale(defaultTimeLocale, TimeLocale(..))
 import							Data.Functor.Identity as Identity
 import            				Math.Combinatorics.Exact.Binomial 
 import							Control.Monad.Trans.Maybe
-
+import							CCAR.Main.Util(getUTCTime)
+import 							Control.Monad.Trans.Reader
+import							CCAR.Model.PortfolioSymbol(getPortfolioSymbols)
 iModuleName  = "CCAR.Analytics.EquityAnalytics"
 
 
+data BetaParameters = BetaParameters {
+			equitySymbol :: T.Text
+			, benchmarkSymbol :: T.Text
+			, startDate :: T.Text
+			, endDate :: T.Text
+		} deriving (Show, Eq)
 
-getUTCTime :: Text -> Maybe UTCTime
-getUTCTime startDate = parseTime defaultTimeLocale (dateFmt defaultTimeLocale) (T.unpack startDate)
-{-- Beta is computed as a magnitude of the change, it is roughly defined as follows
-	y = a + bx 
-	where a = alpha
-	and b = beta. The equation is statistically computed with an error or 
-	unexplained returns.
-	time interval. --}
---beta :: Text -> Text -> Text -> Text -> IO (Double, Double, [Double], [Double])
-beta equity benchmark startDate endDate= runMaybeT $ do
-		fTimeFormat <- return "%m/%d/%Y"
-		liftIO $ putStrLn $ "Parsing date " ++ (T.unpack startDate)
-		Just sDate <- return $ parseTime defaultTimeLocale fTimeFormat (T.unpack startDate)
-		liftIO $ putStrLn $ (show sDate)
-		Just eDate <- return $ parseTime defaultTimeLocale fTimeFormat (T.unpack endDate)
-		liftIO $ putStrLn $ (show eDate)
+data BetaResult = BetaResult {
+		gradient :: Gradient
+		, intercept :: Intercept 
+		, symbolRawData :: [Double]
+		, benchmarkRawdata :: [Double]
+	} deriving (Show, Eq)
 
-		symbol <- liftIO $ symbolClose equity sDate eDate
-		benSymbol <- liftIO $ symbolClose benchmark sDate eDate
-		return $ (linearRegression symbol benSymbol, symbol, benSymbol)
+type BetaFormula = ReaderT BetaParameters  IO (Either Text BetaResult)
 
+
+
+
+portfolioBeta :: Text -> Text -> Text -> Text -> IO (Either Text Gradient) 
+portfolioBeta portfolioId benchmark startDate endDate = do
+	portfolioSymbols <- getPortfolioSymbols portfolioId
+	result <- case portfolioSymbols of 
+					Left x -> return []
+					Right pS -> do 
+						x <- return $ List.foldl' (\acc (_,cur) -> (acc + cur)) 0.0 pS
+						y <- return $ List.map (\(sym, qty) -> (sym, qty * 100/x )) pS
+						putStrLn "Before calling beta..."
+						return y
+	weightedBeta <- mapM (\(sym, weight) -> do 
+				(gradient, intercept) <- beta sym benchmark startDate endDate 
+				return $ gradient * weight) result 
+	totalWeight <- foldM (\acc cur -> return $ acc + cur) 0.0 $ List.filter (\x -> not . isNaN $  x ) weightedBeta
+	return $ Right totalWeight
+
+
+
+
+beta :: Text -> Text -> Text -> Text -> IO (Gradient, Intercept)
+beta equity benchmark startDate endDate= do 
+	res <- runMaybeT $ do
+		flip runReaderT (BetaParameters equity benchmark startDate endDate) $ do 
+			BetaParameters e b st end <- ask
+			fTimeFormat <- return "%m/%d/%Y"
+			Just sDate <- return $ parseTime defaultTimeLocale fTimeFormat (T.unpack st )
+			Just eDate <- return $ parseTime defaultTimeLocale fTimeFormat (T.unpack end)
+			symbol <- liftIO $ symbolClose e sDate eDate
+			benSymbol <- liftIO $ symbolClose b sDate eDate
+			return (linearRegression symbol benSymbol)
+	case res of
+		Nothing -> return (-1, -1)
+		Just x -> return x
 
 symbolClose :: Text -> UTCTime -> UTCTime -> IO [(Double)]
 symbolClose aSymbol startDate endDate = dbOps $ do 
@@ -91,9 +123,7 @@ computeChangeI input evaluotorFunction =
 average ::(Fractional a, Real a1) => [a1] -> a 
 average xs = realToFrac (sum xs) / fromIntegral (List.length xs)
 
-{-- Probability mass function to compute some mass histogram for a probability
-	
- --}
+{-- Probability mass function to compute some mass histogram for a probability--}
 probabilityMassFunction :: Integral a => a -> a -> Double -> Double 
 probabilityMassFunction k n p = (fromIntegral (n `choose` k)) * (p^k) * ((1 - p)^(n - k))
 
@@ -143,4 +173,6 @@ linearRegression x y = (gradient, intercept)
 		yavg = average y 
 		gradient = covariance x y / (variance y)
 		intercept = yavg - (gradient * xavg)
-		
+
+
+testPBeta = portfolioBeta  "72e4540c-a4c6-11e5-8001-ecf4bb2e10a3" "SPY" "01/03/2016" "02/26/2016"
