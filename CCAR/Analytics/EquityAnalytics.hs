@@ -18,7 +18,7 @@ import 							CCAR.Parser.CSVParser as CSVParser
 import 							System.Log.Logger as Logger
 import 							CCAR.Main.DBUtils 
 import							CCAR.Data.Stats
-import 							Database.Persist
+import 							Database.Persist as Persist
 import 							Database.Persist.TH 
 import							CCAR.Data.MarketDataAPI as MarketDataAPI 
 														(queryMarketData
@@ -88,6 +88,8 @@ beta equity benchmark startDate endDate= do
 		Nothing -> return (-1, -1)
 		Just x -> return x
 
+
+
 symbolClose :: Text -> UTCTime -> UTCTime -> IO [(Double)]
 symbolClose aSymbol startDate endDate = dbOps $ do 
 	symbols <- selectList [HistoricalPriceSymbol ==. aSymbol
@@ -97,5 +99,23 @@ symbolClose aSymbol startDate endDate = dbOps $ do
 	return (computeLogChange x)
 
 
+{-- Return the benchmark for the symbol --}
+benchmarkFor :: Text -> IO [Text]
+benchmarkFor aSymbol = dbOps $ do
+	symbols <- selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkBenchmark]
+	x <- mapM (\x@(Entity id bench) -> return $ equityBenchmarkBenchmark bench) symbols
+	return x
 
 testPBeta = portfolioBeta  "72e4540c-a4c6-11e5-8001-ecf4bb2e10a3" "SPY" "01/03/2016" "02/26/2016"
+
+insertB (EquityBenchmark symbol benchmark) = do 
+	exists <- getBy $ UniqueBenchmark symbol benchmark
+	case exists of
+		Nothing -> do 
+			_ <- Persist.insert $ EquityBenchmark symbol benchmark					
+			return symbol
+		Just x -> do 
+			liftIO $ Logger.debugM iModuleName $ T.unpack $ T.intercalate ":" ["Benchmark exists", symbol, benchmark] 
+			return symbol
+startup = dbOps $ do 
+	insertB $ EquityBenchmark "AAPL" "SPY"

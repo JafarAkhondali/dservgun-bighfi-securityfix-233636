@@ -18,6 +18,7 @@ import Database.Persist.Postgresql as Postgresql
 import Database.Persist.TH 
 import CCAR.Main.DBUtils
 import CCAR.Command.ApplicationError 
+import Data.List as List(intercalate)
 import Data.Text as T 
 import qualified CCAR.Main.EnumeratedTypes as EnumeratedTypes 
 import qualified CCAR.Main.GroupCommunication as GC
@@ -64,7 +65,6 @@ saveLine = do
 				Right x -> do 
 					_ <- liftIO $ insertLine x			
 					return x
-
 			yield $ BS.pack  $ (show oString) ++ "\n"
 			saveLine 
 
@@ -127,34 +127,14 @@ insertLine aLine =
 
 
 
---setupCountries :: FilePath -> IO [Key Country]
-{-parseCountries aHandle dbFunction = do 
-	inputLine <- hGetContents aHandle 
-	parsedOutput <- return $ CSVParser.parseCSV inputLine
-	x <- case parsedOutput of 
-		Left e -> do 
-					putStrLn "Error processing file" 
-					print e
-		Right (h:r) ->  Control.Monad.mapM_ (\line -> do 
-							print line
-							dbFunction line) r  
-	return x
--}
 deleteCountries = conduitBasedDelete
-
-
-
-{-setupCountriesOld aFileName = do 
-	handle <- openFile aFileName ReadMode 
-	parseCountries handle insertLine
--}
 setupCountries = conduitBasedSetup
-
-
 cleanupCountries aFileName = conduitBasedDelete
 	
 
 
 startup = do 
-	dataDirectory <- getEnv("DATA_DIRECTORY");
-	setupCountries (dataDirectory ++ "/" ++ "Country.csv")
+	dataDirectory <-getEnv("DATA_DIRECTORY");
+	countryFile <- getEnv("COUNTRY_FILE");
+	setupCountries $ List.intercalate "/" [dataDirectory, countryFile]
+	--setupCountries (dataDirectory ++ "/" ++ "Country.csv")

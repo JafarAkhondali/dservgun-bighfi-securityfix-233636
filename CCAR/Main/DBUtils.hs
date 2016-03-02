@@ -555,12 +555,13 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             roundLotSize Int -- 6
             UniqueEquitySymbol symbol
             deriving Show Eq
+            
         -- List of benchmark symbols for each symbol
         -- for example AAPL -> SPY 
-        
         EquityBenchmark json 
             symbol Text 
             benchmark Text
+            UniqueBenchmark symbol benchmark
             deriving Show Eq
         EquitySector json 
             name Text 
