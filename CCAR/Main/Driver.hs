@@ -74,7 +74,7 @@ import CCAR.Data.TradierApi as TradierApi
 import CCAR.Analytics.OptionAnalytics as OptionAnalytics
 import CCAR.Model.Login as Login
 import CCAR.Model.UserOperations as UserOperations
-import CCAR.Model.PortfolioStress as PortfolioStress
+import CCAR.Analytics.EquityAnalytics as EquityAnalytics (startup)
 -- logging
 import System.Log.Formatter as LogFormatter
 import System.Log.Handler(setFormatter)
@@ -915,9 +915,9 @@ driver = do
         liftIO $ do
             flip runSqlPersistMPool pool $ do
                 runMigration ccarModel
+    b <- A.async $ EquityAnalytics.startup
     c <- A.async $ Country.startup
-    t <- A.async $ do 
-        TradierApi.startup
+    t <- A.async $ TradierApi.startup
     chan <- atomically newBroadcastTChan
 --    static@(Static settings) <- static "static"
     nickNameMap <- newTVarIO $ IMap.empty

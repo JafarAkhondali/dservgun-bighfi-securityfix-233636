@@ -1,5 +1,5 @@
 module CCAR.Analytics.EquityAnalytics
-	(computeLogChange, computePctChange, computeChange)
+	(computeLogChange, computePctChange, computeChange, startup)
  where
 
 import 							Data.Bits
@@ -51,11 +51,17 @@ data BetaResult = BetaResult {
 
 type BetaFormula = ReaderT BetaParameters  IO (Either Text BetaResult)
 
+getBenchmark :: Text -> IO Text
+getBenchmark aSymbol = dbOps $ do 
+	benchmarks <- selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkSymbol] 
+	x <- mapM (\x@(Entity id benchmarkSymbol) -> return $ equityBenchmarkBenchmark benchmarkSymbol) benchmarks
+	y <- case x of 
+			[] -> return "SPY"
+			h : _ -> return h 
+	return y 
 
-
-
---portfolioBeta :: Text -> Text -> Text -> Text -> IO (Either Text Gradient) 
-portfolioBeta portfolioId benchmark startDate endDate = do
+--portfolioBeta :: Text -> Text -> Text -> IO (Either Text Gradient) 
+portfolioBeta portfolioId startDate endDate = do
 	portfolioSymbols <- getPortfolioSymbols portfolioId
 	result <- case portfolioSymbols of 
 					Left x -> return []
@@ -65,7 +71,10 @@ portfolioBeta portfolioId benchmark startDate endDate = do
 						putStrLn "Before calling beta..."
 						return y
 	weightedBeta <- mapM (\(sym, weight) -> do 
+				benchmark <- getBenchmark sym
+				
 				(gradient, intercept) <- beta sym benchmark startDate endDate 
+
 				return $ gradient * weight) result 
 	totalWeight <- foldM (\acc cur -> return $ acc + cur) 0.0 $ List.filter (\x -> not . isNaN $  x ) weightedBeta
 	return $ Right (totalWeight, weightedBeta, result)
@@ -106,7 +115,7 @@ benchmarkFor aSymbol = dbOps $ do
 	x <- mapM (\x@(Entity id bench) -> return $ equityBenchmarkBenchmark bench) symbols
 	return x
 
-testPBeta = portfolioBeta  "72e4540c-a4c6-11e5-8001-ecf4bb2e10a3" "SPY" "01/03/2016" "02/26/2016"
+
 
 insertB (EquityBenchmark symbol benchmark) = do 
 	exists <- getBy $ UniqueBenchmark symbol benchmark
@@ -117,5 +126,7 @@ insertB (EquityBenchmark symbol benchmark) = do
 		Just x -> do 
 			liftIO $ Logger.debugM iModuleName $ T.unpack $ T.intercalate ":" ["Benchmark exists", symbol, benchmark] 
 			return symbol
+
+
 startup = dbOps $ do 
 	insertB $ EquityBenchmark "AAPL" "SPY"
