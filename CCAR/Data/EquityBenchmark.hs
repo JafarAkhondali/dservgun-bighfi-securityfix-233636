@@ -16,6 +16,7 @@ import CCAR.Main.DBUtils
 
 import Control.Monad.Trans.Maybe
 import Control.Monad.IO.Class
+import Control.Monad.Trans(lift)
 
 readLines :: (Monad m, MonadIO m) => Conduit BS.ByteString m (Either ParseError [String])
 readLines = undefined
@@ -30,7 +31,10 @@ type Benchmark = T.Text
 --persistEquityBenchmark ::  Symbol -> Benchmark -> IO EquityBenchmark
 persistEquityBenchmark s b = dbOps $ do 
 	x <- runMaybeT $ do 
-			liftIO $ do  
-				Nothing <- getBy $ UniqueBenchmark s b 
-				return $ DB.insert $ EquityBenchmark s b 
+				Nothing <- lift $ getBy $ UniqueBenchmark s b 
+				lift $ DB.insert $ EquityBenchmark s b 
+				return s
 	return x
+
+
+startup = undefined
