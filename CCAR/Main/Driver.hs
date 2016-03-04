@@ -91,7 +91,7 @@ import GHC.Conc(labelThread)
 import Debug.Trace(traceEventIO)
 import                          CCAR.Analytics.MarketDataLanguage(evalMDL)
 import                          Control.Parallel.MPI.Simple as MPISimple (Rank, mpiWorld, commWorld, unitTag, send, init, recv, barrier)
-
+import                          CCAR.Data.EquityBenchmark as EquityBenchmark
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
 
@@ -918,6 +918,7 @@ driver = do
     b <- A.async $ EquityAnalytics.startup
     c <- A.async $ Country.startup
     t <- A.async $ TradierApi.startup
+    u <- A.async $ EquityBenchmark.startup
     chan <- atomically newBroadcastTChan
 --    static@(Static settings) <- static "static"
     nickNameMap <- newTVarIO $ IMap.empty

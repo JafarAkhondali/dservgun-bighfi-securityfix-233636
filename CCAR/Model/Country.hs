@@ -80,7 +80,7 @@ deleteLine  = do
 					return x
 
 			yield $ BS.pack  $ (show oString) ++ "\n"
-			saveLine 
+			deleteLine 
 
 
 conduitBasedSetup aFileName = runResourceT $ 
@@ -102,15 +102,12 @@ type ISO_2 = T.Text
 type Name = T.Text 
 type Domain = T.Text 
 
-add :: ISO_3 -> ISO_2 -> Name -> Domain -> IO (Key Country)
+add :: ISO_3 -> ISO_2 -> Name -> Domain -> IO (Maybe ISO_3)
 add a b c d = dbOps $ do 
-	country <- getBy $ UniqueISO3 a
-	case country of 
-		Nothing -> insert $ Country c a b d 
-		Just (Entity k v) -> do 
-			liftIO $ Logger.debugM iModuleName 
-					("Country " ++ (T.unpack c)  ++ " already exists")
-			return k
+	runMaybeT $ do 
+		Nothing <- lift $ getBy $ UniqueISO3 a 
+		lift $ insert $ Country c a b d 
+		return a 
 
 remove aCountryCode	= dbOps $ deleteBy $ UniqueISO3 aCountryCode
 
@@ -134,7 +131,6 @@ cleanupCountries aFileName = conduitBasedDelete
 
 
 startup = do 
-	dataDirectory <-getEnv("DATA_DIRECTORY");
+	dataDirectory <- getEnv("DATA_DIRECTORY");
 	countryFile <- getEnv("COUNTRY_FILE");
 	setupCountries $ List.intercalate "/" [dataDirectory, countryFile]
-	--setupCountries (dataDirectory ++ "/" ++ "Country.csv")
