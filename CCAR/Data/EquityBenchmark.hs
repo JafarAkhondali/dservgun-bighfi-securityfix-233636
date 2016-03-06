@@ -1,17 +1,18 @@
 module CCAR.Data.EquityBenchmark
-	(startup) where 
+	(startup, cleanup) where 
 
 import Data.Text as T
-import CCAR.Parser.CSVParser as CSVParser(parseCSV, ParseError, parseLine)
+import CCAR.Parser.CSVParser as CSVParser(parseCSV, 
+		ParseError, parseLine, readLines)
 import System.IO 
 import System.Environment(getEnv)
-import Data.Conduit ( ($$), (=$=), (=$), Conduit, await, yield)
+import Data.Conduit ( ($$), (=$=), (=$), Conduit, await, yield, awaitForever, Sink)
 import Data.Conduit.Binary as B (sinkFile, lines, sourceFile) 
-import Data.Conduit.List as CL 
+import Data.Conduit.List as CL
 import Data.ByteString.Char8 as BS(ByteString, pack, unpack) 
 import Database.Persist as DB
 import Database.Persist.TH 
-import CCAR.Parser.CSVParser as CSVParser(parseCSV, ParseError, parseLine)
+import CCAR.Parser.CSVParser as CSVParser(parseCSV, ParseError, parseLine, stripHeader)
 import CCAR.Main.DBUtils
 import Data.List as List
 import Control.Monad.Trans.Maybe
@@ -19,14 +20,9 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans(lift)
 import Control.Monad.Trans.Resource(runResourceT)
 
-readLines :: (Monad m, MonadIO m) => Conduit BS.ByteString m (Either ParseError [String])
-readLines = do 
-	client <- await 
-	case client of 
-		Nothing -> return () 
-		Just aByteString -> do 
-			yield $ CSVParser.parseLine $ BS.unpack aByteString 
-			readLines
+
+
+
 
 saveLine :: (Monad m, MonadIO m) => Conduit (Either ParseError [String]) m (ByteString)
 saveLine =  do 
@@ -41,6 +37,7 @@ saveLine =  do
 					return x
 			yield $ BS.pack $ (show a) ++ "\n"
 			saveLine
+
 deleteLine :: (Monad m, MonadIO m) => Conduit (Either ParseError [String]) m (ByteString)
 deleteLine = do 
 	client <- await
@@ -57,9 +54,9 @@ deleteLine = do
 			deleteLine 
 
 
-
 type Symbol = T.Text
 type Benchmark = T.Text
+
 persistEquityBenchmark ::  Symbol -> Benchmark -> IO (Maybe Symbol)
 persistEquityBenchmark s b = dbOps $ do 
 	x <- runMaybeT $ do 
@@ -68,15 +65,26 @@ persistEquityBenchmark s b = dbOps $ do
 		return s
 	return x
 
--- unpersistEquityBenchmark :: Symbol -> Benchmark -> 
+
+unpersistEquityBenchmark :: Symbol -> Benchmark -> IO ()
 unpersistEquityBenchmark = \sym ben -> dbOps $ 
 								DB.deleteBy $ UniqueBenchmark sym ben
 
-setupBenchmarkFile aFileName = runResourceT $ 
-	B.sourceFile aFileName $$ B.lines =$= readLines =$= saveLine =$ consume
+
+setupBenchmarks aFileName = runResourceT $ 
+	B.sourceFile aFileName $$ B.lines =$= stripHeader =$= readLines =$= saveLine =$ consume
+
+deleteBenchmarks aFileName = runResourceT $ 
+	B.sourceFile aFileName $$ B.lines =$= stripHeader =$= readLines =$= deleteLine =$ consume
 
 
-startup = do 
+processorI = \f -> do 
 	dataDirectory <- getEnv("DATA_DIRECTORY")
 	equityBenchmarkFile <- getEnv("EQUITY_BENCHMARK_FILE");
-	setupBenchmarkFile $ List.intercalate "/" [dataDirectory, equityBenchmarkFile]
+	f $ List.intercalate "/" [dataDirectory, equityBenchmarkFile]
+
+cleanup = processorI deleteBenchmarks
+
+startup = processorI setupBenchmarks
+
+
