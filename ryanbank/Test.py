@@ -10,6 +10,9 @@ import pickle
 import shutil
 import HDFWriter
 import CSVWriter
+import cProfile
+import pstats
+import StringIO
 
 def pickleFileName(mode) :
 	return open("TEST_HDF_CSV_WRITE", mode)
@@ -19,18 +22,26 @@ def cleanup():
 		logging.debug("Cleaning  up files")
 		namespace = pickle.load(pickleFileName("rb"))
 		fileName = os.path.join (".", namespace.file)
-		if os.path.isdir(fileName):
-			logging.warn("Deleting directory " + fileName)
-			shutil.rmtree(fileName)
-		else:
-			os.unlink(fileName)
-			logging.warn("Deleting file " + fileName)
-
+		csvFileName = os.path.join (".", namespace.file +  ".csv")
+		hdf5FileName = os.path.join(".", namespace.file + ".hdf5")
+		if os.path.isdir(csvFileName):
+			logging.warn("Deleting directory " + csvFileName)
+			shutil.rmtree(csvFileName)
+		
+		os.unlink(hdf5FileName)
+		logging.warn("Deleting file " + hdf5FileName)
 		logging.info("Cleaning up from previous run " + str(namespace))
 	except:
 		logging.error(traceback.format_exc())
 
 
+def print_profile(header, profile):
+	''' Prints the profile information. Using \'cumulative\' flag '''
+	s = StringIO.StringIO()
+	sortby = 'cumulative'
+	ps = pstats.Stats(profile, stream=s).sort_stats(sortby)
+	ps.print_stats()
+	return header + "\n" + s.getvalue()
 
 
 # Combine keys to tag a pnl vector
@@ -80,18 +91,33 @@ def parseArguments() :
 	result = parser.parse_args();
 	pickle.dump(result, pickleFileName("wb"));
 	return parser.parse_args()
-def main():
+def main_csv(namespace) :
 	logging.basicConfig(level=logging.INFO)
 	defaultMode = "a"
+	CSVWriter.insert(namespace.file + ".csv", namespace.chunkSize, namespace.headers)
+
+def main_hdf5(namespace):
+	logging.basicConfig(level=logging.INFO)
+	defaultMode = "a"
+	HDFWriter.insert(namespace.file + ".hdf5", defaultMode, namespace.chunkSize, namespace.headers)
+
+def main():
 	cleanup()
 	namespace = parseArguments();
-	
-	if (namespace.hdf5 == True): 
-		HDFWriter.insert(namespace.file, defaultMode, namespace.chunkSize, namespace.headers)
-	else:
-		CSVWriter.insert(namespace.file, namespace.chunkSize, namespace.headers)
-	#read(namespace.file, "r", namespace.chunkSize, namespace.headers)
+	pr = cProfile.Profile();
+	pr.enable()
+	main_csv(namespace)
+	pr.disable()
+	print (print_profile("Profile for csv files", pr))
+	pr = cProfile.Profile()
+	pr.enable()
+	main_hdf5(namespace)
+	pr.disable()
+	print (print_profile("Profile for hdf5 files" , pr))
+
+
 if __name__ == '__main__':
 	logging.info("Time taken " + str(timeit(main, number = 1)))
+	# Also collect and generate the profile information
 
 

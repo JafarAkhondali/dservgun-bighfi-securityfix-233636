@@ -1,6 +1,4 @@
  
-echo "Creating csv files"
-python Test.py --file test.csv --chunkSize 20000 --headers 10
-echo "Creating hdf5"
- python Test.py --file test.hdf5 --hdf5 --chunkSize 20000 --headers 10
+# Create a file with profiling output for csv and hdf5 file types
+python Test.py --file test --chunkSize 20000 --headers 10
 
