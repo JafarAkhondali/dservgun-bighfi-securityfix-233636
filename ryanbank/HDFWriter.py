@@ -11,13 +11,13 @@ import shutil
 import common
 #Write data into hdf5.
 
-'''
-Create a h5 file. Modes are passed to the h5 library.
-'''
+
+# Create an hd5 file. Modes are passed to the h5 library as is.
 def createFile(aFileName, mode):
 	f = h5py.File(aFileName, mode)
 	return f
 
+# Close the file handle, when done
 def closeFile(aFileHandle):
 	logging.debug("Closing file " + str(aFileHandle))
 	aFileHandle.close()
