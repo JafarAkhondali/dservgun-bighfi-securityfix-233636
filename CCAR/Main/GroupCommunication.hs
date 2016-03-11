@@ -31,7 +31,7 @@ import Data.Text.Lazy.Encoding as E
 import Data.Aeson as J
 import Control.Applicative as Appl
 import Data.Aeson.Encode as En
-import Data.Aeson.Types as AeTypes(Result(..), parse)
+import Data.Aeson.Types as AeTypes(Result(..), parse, Parser)
 import Data.Time(UTCTime, getCurrentTime)
 import GHC.Generics
 import Data.Data
@@ -69,6 +69,8 @@ data ClientState = ClientState {
             , pricerReadQueue :: TBQueue OptionPricer
 	}
 
+
+createClientState :: ClientIdentifier -> WSConn.Connection -> STM ClientState
 createClientState nn aConn = do 
         w <- newTChan
         r <- dupTChan w 
@@ -109,15 +111,15 @@ createBroadcastMessage (MessageP fr to pM _ Et.Broadcast currentTime) = Just $
 createBroadcastMessage (MessageP fr to pM _ _ aTime)            = Nothing 
 
 createPersistentMessage :: SendMessage -> MessageP 
-createPersistentMessage cm@(SendMessage fr to pM destination currentTime) = do
-		case destination of 
-			CCAR.Main.GroupCommunication.Reply -> 
-					MessageP fr to pM Et.Undecided Et.Reply currentTime 
-			_ 	  -> 
-					MessageP fr to pM Et.Undecided Et.Broadcast currentTime
+createPersistentMessage cm@(SendMessage fr to pM destination currentTime) = 
+        MessageP fr to pM Et.Undecided replyType currentTime 
+        where replyType = 
+		      case destination of 
+			         CCAR.Main.GroupCommunication.Reply -> Et.Reply					
+			         _ 	  -> Et.Broadcast
 
 getAllMessages :: Int -> IO [Entity MessageP]
-getAllMessages limit = dbOps $ selectList [] [Asc MessagePSentTime]
+getAllMessages limit = dbOps $ selectList [] [Asc MessagePSentTime, LimitTo limit]
 
 saveMessage :: SendMessage -> IO (Key MessageP) 
 saveMessage c = dbOps $ do 
@@ -129,32 +131,33 @@ saveMessage c = dbOps $ do
 getMessageHistory :: Int -> IO [T.Text]
 getMessageHistory limit = do
     allM <- getAllMessages limit
-    messages <- mapM (\(Entity y x) -> do 
+    messages <- mapM (\(Entity _ x) -> do 
                             m <- return $ createBroadcastMessage x
                             case m of
                                 Just m1 -> return $ Util.serialize m1
                                 Nothing -> return "") allM
     return messages
 
-
-process (cm@(SendMessage f t m d time)) = do
-
+process :: SendMessage -> IO (DestinationType, Value)
+process = \(cm@(SendMessage _ _ _ d _)) -> do
     (x,y) <- case d of 
         CCAR.Main.GroupCommunication.Broadcast -> do 
-        	saveMessage cm 
+        	_ <- saveMessage cm 
         	return (CCAR.Main.GroupCommunication.Broadcast,  cm)
         _ -> return (CCAR.Main.GroupCommunication.Reply,  cm) 
     return (x, toJSON y)
 
 
 
-
+genSendMessage :: SendMessage -> Value
 genSendMessage (SendMessage f t m d sT) = object ["from" .= f
                     , "to" .= t
                     , "privateMessage" .= m
                     , "commandType" .= ("SendMessage" :: T.Text)
                     , "destination" .= d
                     , "sentTime" .= sT]
+
+parseSendMessage :: Object -> AeTypes.Parser SendMessage 
 parseSendMessage v = SendMessage <$> 
                     v .: "from" <*>
                     v .: "to" <*>
@@ -162,14 +165,16 @@ parseSendMessage v = SendMessage <$>
                     v .: "destination" <*>
                     v .: "sentTime"
 
-
+processSendMessage :: Value -> IO (DestinationType, Value)
 processSendMessage (Object a) = 
         case (parse parseSendMessage a) of
             Success r ->  process r 
             Error s -> return (CCAR.Main.GroupCommunication.Reply, 
             			toJSON $ appError $ "Sending message failed " ++ s ++ (show a))
+processSendMessage _ = return (CCAR.Main.GroupCommunication.Reply, 
+                        toJSON $ appError ("Invalid message in processSendMessage" :: T.Text))
 
-
+testMessages :: IO Value
 testMessages = do 
     currentTime <- getCurrentTime 
     x <- return $ toJSON $ SendMessage "a" "b" "c" CCAR.Main.GroupCommunication.Reply currentTime

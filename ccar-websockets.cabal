@@ -141,6 +141,7 @@ executable ccar-websockets
 --    -eventlog
 --    -ddump-simpl
 --    -prof
+    -Wall
     -fprof-auto
     -caf-all 
     -rtsopts
