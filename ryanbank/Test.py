@@ -35,12 +35,12 @@ def cleanup():
 		logging.error(traceback.format_exc())
 
 
-def print_profile(header, profile):
+def print_profile(header, profile, noCalls):
 	''' Prints the profile information. Using \'cumulative\' flag '''
 	s = StringIO.StringIO()
 	sortby = 'cumulative'
 	ps = pstats.Stats(profile, stream=s).sort_stats(sortby)
-	ps.print_stats()
+	ps.print_stats(noCalls)
 	return header + "\n" + s.getvalue()
 
 
@@ -102,18 +102,19 @@ def main_hdf5(namespace):
 	HDFWriter.insert(namespace.file + ".hdf5", defaultMode, namespace.chunkSize, namespace.headers)
 
 def main():
+	numberOfCalls = 50
 	cleanup()
 	namespace = parseArguments();
 	pr = cProfile.Profile();
 	pr.enable()
 	main_csv(namespace)
 	pr.disable()
-	print (print_profile("Profile for csv files", pr))
+	print (print_profile("h2. Profile for csv files", pr, numberOfCalls))
 	pr = cProfile.Profile()
 	pr.enable()
 	main_hdf5(namespace)
 	pr.disable()
-	print (print_profile("Profile for hdf5 files" , pr))
+	print (print_profile("h2. Profile for hdf5 files" , pr, numberOfCalls))
 
 
 if __name__ == '__main__':
