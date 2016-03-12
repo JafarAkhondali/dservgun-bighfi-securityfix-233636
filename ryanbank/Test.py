@@ -39,10 +39,11 @@ def print_profile(header, profile, noCalls):
 	''' Prints the profile information. Using \'cumulative\' flag '''
 	s = StringIO.StringIO()
 	sortby = 'cumulative'
-	ps = pstats.Stats(profile, stream=s).sort_stats(sortby)
+	ps = pstats.Stats(profile, stream=s).strip_dirs().sort_stats(sortby)
 	ps.print_stats(noCalls)
+	s.seek(0); # Reset 
 	for line in s:
-		line = line + "  "
+		line = line + "\r\n  "
 	header = header + "\n" + "==============================" + "\n" 
 	return header + "\r\n" + s.getvalue()
 
