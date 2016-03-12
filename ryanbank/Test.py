@@ -41,7 +41,10 @@ def print_profile(header, profile, noCalls):
 	sortby = 'cumulative'
 	ps = pstats.Stats(profile, stream=s).sort_stats(sortby)
 	ps.print_stats(noCalls)
-	return header + "\n" + s.getvalue()
+	for line in s:
+		line = line + "  "
+	header = header + "\n" + "==============================" + "\n" 
+	return header + "\r\n" + s.getvalue()
 
 
 # Combine keys to tag a pnl vector
@@ -109,12 +112,12 @@ def main():
 	pr.enable()
 	main_csv(namespace)
 	pr.disable()
-	print (print_profile("h2. Profile for csv files", pr, numberOfCalls))
+	print (print_profile("Profile for csv files", pr, numberOfCalls))
 	pr = cProfile.Profile()
 	pr.enable()
 	main_hdf5(namespace)
 	pr.disable()
-	print (print_profile("h2. Profile for hdf5 files" , pr, numberOfCalls))
+	print (print_profile("Profile for hdf5 files" , pr, numberOfCalls))
 
 
 if __name__ == '__main__':
