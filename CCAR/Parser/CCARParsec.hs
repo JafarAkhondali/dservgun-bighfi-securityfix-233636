@@ -8,6 +8,7 @@ import Data.Text as Text
 import CCAR.Model.CcarDataTypes
 import CCAR.Model.Maturity
 import Control.Monad
+import Control.Monad.IO.Class(liftIO)
 syntaxError i = CCARError $ Text.append "Invalid symbol " i 
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_-"
@@ -17,12 +18,12 @@ readExprTree :: Text -> [Stress]
 readExprTree input = case parse parseStatements (Text.unpack $ msg $ syntaxError input)
                             (Text.unpack input) of
     Left err -> []
-    Right val -> val 
+    Right (val, pos) -> val 
 
 readExpr :: Text -> Value
 readExpr input = case parse (parseStatements) (Text.unpack $ msg $ syntaxError input) (Text.unpack input) of 
-    Left err ->  toJSON $ syntaxError input
-    Right val -> toJSON val
+    Left parseError ->  toJSON $ syntaxError (pack $ show $ errorPos parseError)
+    Right (val, pos) -> toJSON val
 
 
 
@@ -260,7 +261,8 @@ parseRatesVegaStress = do
 
 parserError :: Parser Stress 
 parserError = do
-    return $ StressError $ syntaxError "Unknown error"
+    pos <- getPosition
+    return . StressError . syntaxError . pack $ show pos
 parseExpr :: Parser Stress
 parseExpr = do 
         try parseEquityStress <|> try parseCurrencyStress
@@ -271,10 +273,11 @@ parseExpr = do
         <|> try parseSectorStress
         <|> parserError
 
-parseStatements :: Parser[Stress]
+parseStatements :: Parser([Stress], SourcePos)
 parseStatements = do            
             x <- endBy parseExpr eol
-            return x
+            pos <- getPosition
+            return (x, pos)
 
 eol :: Parser String
 eol = do 

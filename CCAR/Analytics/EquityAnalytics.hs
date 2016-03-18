@@ -51,12 +51,24 @@ data BetaResult = BetaResult {
 
 type BetaFormula = ReaderT BetaParameters  IO (Either Text BetaResult)
 
+
+
+-- | Return the benchmark for the sector. For example, AAPL should return MDY or something like that
+getSectorBenchmark :: Text -> IO Text
+getSectorBenchmark aSymbol = dbOps $ do
+	benchmarks <- selectList [SectorBenchmarkSymbol ==. aSymbol] [Asc SectorBenchmarkSymbol]
+	x <- return $ List.map(\x@(Entity id sectorSymbol) -> sectorBenchmarkBenchmark sectorSymbol) benchmarks
+	y <- case x of 
+		[] -> return ("Sector not found" :: Text)
+		h : _ -> return h
+	return y
+
 getBenchmark :: Text -> IO Text
 getBenchmark aSymbol = dbOps $ do 
 	benchmarks <- selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkSymbol] 
-	x <- mapM (\x@(Entity id benchmarkSymbol) -> return $ equityBenchmarkBenchmark benchmarkSymbol) benchmarks
+	x <- return $ List.map (\x@(Entity id benchmarkSymbol) -> equityBenchmarkBenchmark benchmarkSymbol) benchmarks
 	y <- case x of 
-			[] -> return "SPY"
+			[] -> return "Benchmark not found"
 			h : _ -> return h 
 	return y 
 
@@ -71,7 +83,7 @@ portfolioBeta portfolioId startDate endDate = do
 						putStrLn "Before calling beta..."
 						return y
 	weightedBeta <- mapM (\(sym, weight) -> do 
-				benchmark <- getBenchmark sym
+				benchmark <- getSectorBenchmark sym
 				
 				(gradient, intercept) <- beta sym benchmark startDate endDate 
 
