@@ -1,5 +1,5 @@
 module CCAR.Analytics.EquityAnalytics
-	(computeLogChange, computePctChange, computeChange, startup)
+	(computeLogChange, computePctChange, computeChange, startup, portfolioBeta)
  where
 
 import 							Data.Bits
@@ -72,24 +72,23 @@ getBenchmark aSymbol = dbOps $ do
 			h : _ -> return h 
 	return y 
 
---portfolioBeta :: Text -> Text -> Text -> IO (Either Text Gradient) 
+type PortfolioUUID = Text
+portfolioBeta :: PortfolioUUID -> Text -> Text -> IO (Either Text 
+							([(Text, CCAR.Data.Stats.Gradient, Double)]
+           					, [(Text, Double, Double)]))
 portfolioBeta portfolioId startDate endDate = do
 	portfolioSymbols <- getPortfolioSymbols portfolioId
 	result <- case portfolioSymbols of 
 					Left x -> return []
-					Right pS -> do 
-						x <- return $ List.foldl' (\acc (_,cur) -> (acc + cur)) 0.0 pS
-						y <- return $ List.map (\(sym, qty) -> (sym, qty * 100/x )) pS
-						putStrLn "Before calling beta..."
-						return y
-	weightedBeta <- mapM (\(sym, weight) -> do 
-				benchmark <- getSectorBenchmark sym
-				
-				(gradient, intercept) <- beta sym benchmark startDate endDate 
+					Right pS -> do return $ List.map (\(sym, qty) -> (sym, qty * 100/(totalQty pS), qty)) pS
+	weightedBeta <- mapM (\(sym, weight, qty) -> do 
+					benchmark <- getSectorBenchmark sym				
+					(gradient, intercept) <- beta sym benchmark startDate endDate
+					return $ (benchmark, gradient * weight, qty)) result 
+	return $ Right (weightedBeta, result)
+	where 
+		totalQty ps = List.foldl' (\acc (_, cur) -> acc + cur) 0.0 ps 
 
-				return $ gradient * weight) result 
-	totalWeight <- foldM (\acc cur -> return $ acc + cur) 0.0 $ List.filter (\x -> not . isNaN $  x ) weightedBeta
-	return $ Right (totalWeight, weightedBeta, result)
 
 
 
