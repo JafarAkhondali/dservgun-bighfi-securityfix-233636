@@ -4,53 +4,50 @@ import sys # To process command line arguments.
 import logging
 import os
 import traceback
+import argparse
 from timeit import timeit
+import pickle
+import shutil
+import HDFWriter
+import CSVWriter
+import cProfile
+import pstats
+import StringIO
 
-def headers(headerSize): 
-	result = []
-	for i in range(1, headerSize):
-		iS = str(i)
-		result.append(("col" + iS , "Header" + iS))
-	logging.debug(result);
-	return result
+def pickleFileName(mode) :
+	return open("TEST_HDF_CSV_WRITE", mode)
 
-"""
-Create a h5 file. Modes are passed to the h5 library.
-"""
-def createFile(aFileName, mode):
-	f = h5py.File(aFileName, mode)
-	return f
+def cleanup():
+	try :
+		logging.debug("Cleaning  up files")
+		namespace = pickle.load(pickleFileName("rb"))
+		fileName = os.path.join (".", namespace.file)
+		csvFileName = os.path.join (".", namespace.file +  ".csv")
+		hdf5FileName = os.path.join(".", namespace.file + ".hdf5")
+		if os.path.isdir(csvFileName):
+			logging.warn("Deleting directory " + csvFileName)
+			shutil.rmtree(csvFileName)
+		
+		os.unlink(hdf5FileName)
+		logging.warn("Deleting file " + hdf5FileName)
+		logging.info("Cleaning up from previous run " + str(namespace))
+	except:
+		logging.error(traceback.format_exc())
 
-def closeFile(aFileHandle):
-	logging.debug("Closing file " + str(aFileHandle))
-	aFileHandle.close()
 
-def getGroup(aFile, aGroupName, aGroupTag):
-	return aFile[aGroupName];
-"""
-Create a group for an hdf5 file. 
-"""
-def createGroup(aFile, aGroupName, aGroupTag):
-	logging.debug("Creating group " + aGroupName + " " + aGroupTag);
-	subGroup = aFile.create_group(aGroupName)
-	subGroup.attrs[aGroupName] = aGroupTag;
-	return subGroup;
+def print_profile(header, profile, noCalls):
+	''' Prints the profile information. Using \'cumulative\' flag '''
+	s = StringIO.StringIO()
+	sortby = 'cumulative'
+	ps = pstats.Stats(profile, stream=s).strip_dirs().sort_stats(sortby)
+	ps.print_stats(noCalls)
+	s.seek(0); # Reset 
+	for line in s:
+		line = line + "\r\n  "
+	header = header + "\n" + "==============================" + "\n" 
+	return header + "\r\n" + s.getvalue()
 
-# A test utility that generates a dataset of a given size and
-# associates the specified node.
-def createDataSet(aNode, aSize):
-	logging.debug("Creating dataset " + str(aSize))
-	arr = np.random.rand(aSize, 1);
-	aNode["pnl"] = arr
 
-def createChunkedDataSet(aNode, aSize):
-	logging.debug("Creating dataset " + str(aSize))
-	arr = np.random.rand(aSize, 1);
-	dsName = "chunked";
-	chunkSize = min(aSize, 1000)
-	aDataSet = aNode.create_dataset(dsName, (aSize, 1), data = arr, dtype='f', chunks=(chunkSize, 1))
-
-	
 # Combine keys to tag a pnl vector
 def combineKeys(key1, key2, pnl1):
 	pass
@@ -76,48 +73,56 @@ def summaryPnl(pnlList):
 			currentList = mplus(prevList, currentList)
 	return currentList
 
-def insert(aFile, defaultMode, args) :
-	f = createFile(aFile, defaultMode)
-	try: 
-		flushCounter = 50;
-		currentCounter = 0;
-		hs = headers(int(args[3]))
-		for (x, y) in hs :
-			if(currentCounter % flushCounter == 0) :
-				logging.debug("Flushing " + str(f));
-				f.flush()
-			currentCounter = currentCounter + 1
-			group = createGroup(f, x, y);
-			createChunkedDataSet(group, int(args[2]))
-		
-	except:
-		logging.error(traceback.format_exc())
-		logging.error("Error creating dataset. Deleting file");
-		os.remove(os.path.join(".", args[1]))
 
-def read(aFileName, readMode, args):
-	hs = headers(int(args[3]))
-	f = createFile(aFileName, readMode);
-	for (x, y) in hs: 
-		g = getGroup(f, x, y);
-		chk = g['chunked']
-		(rows, cols) = chk.shape
-		for a in range(0, rows):
-			for b in range(0, cols):
-				logging.debug("Assigning values for " + str(chk[a][b]));
-				chk[a][b] = 42.123
-		logging.debug ("chk shape " + str(chk.shape))
-		logging.debug("Reading chunk" + str(chk))
-	f.flush()
-	closeFile(f)
 
-def main():
+
+
+
+
+'''
+To use the hdf5 option, being boolean, the canonical way of calling the script is as follows
+---- To use hdf5 file: 
+python Test.py --file test.hdf5 --hdf5 --chunkSize 1024 --headers 10
+---- To switch hdf5 off
+python Test.py --file test.hdf5 --chunkSize 1024 --headers 10
+'''
+def parseArguments() :
+	parser = argparse.ArgumentParser(description = "A simple utility to compare file systems: hdf5 and a flat file.");
+	parser.add_argument("--file", help="Data file")
+	parser.add_argument("--hdf5", help="Save in hdf5 or as a csv file", action='store_true', default=False)
+	parser.add_argument("--chunkSize", type=int, help="pnl vector size")
+	parser.add_argument("--headers", type=int, help="risk factors")
+	result = parser.parse_args();
+	pickle.dump(result, pickleFileName("wb"));
+	return parser.parse_args()
+def main_csv(namespace) :
 	logging.basicConfig(level=logging.INFO)
 	defaultMode = "a"
-	args = sys.argv
-	insert(args[1], defaultMode, args)
-	read(args[1], "r", args)
+	CSVWriter.insert(namespace.file + ".csv", namespace.chunkSize, namespace.headers)
+
+def main_hdf5(namespace):
+	logging.basicConfig(level=logging.INFO)
+	defaultMode = "a"
+	HDFWriter.insert(namespace.file + ".hdf5", defaultMode, namespace.chunkSize, namespace.headers)
+
+def main():
+	numberOfCalls = 50
+	cleanup()
+	namespace = parseArguments();
+	pr = cProfile.Profile();
+	pr.enable()
+	main_csv(namespace)
+	pr.disable()
+	print (print_profile("Profile for csv files", pr, numberOfCalls))
+	pr = cProfile.Profile()
+	pr.enable()
+	main_hdf5(namespace)
+	pr.disable()
+	print (print_profile("Profile for hdf5 files" , pr, numberOfCalls))
+
+
 if __name__ == '__main__':
 	logging.info("Time taken " + str(timeit(main, number = 1)))
+	# Also collect and generate the profile information
 
 
