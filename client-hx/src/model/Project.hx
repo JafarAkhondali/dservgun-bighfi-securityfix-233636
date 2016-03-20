@@ -96,6 +96,12 @@ class Project {
 			company.getSelectListEventStream().then(processCompanyList);
 			projectStream = new Deferred<Dynamic>();
 			projectStream.then(processProjectList);
+			var companySelectStream : Stream<Dynamic> = 
+				MBooks_im.getSingleton().initializeElementStream(
+					cast getCompanyListElement(), 
+					"change"
+				);
+			companySelectStream.then(processCompanySelected);
 		}catch(err : Dynamic){
 			trace("Error creating project " + err);
 		}
@@ -158,10 +164,25 @@ class Project {
 		return (cast Browser.document.getElementById(COMPANY_LIST));
 	}
 
+	private function processCompanySelected(ev : Event){
+		trace("Company selected" + " " + ev.target + " " + ev);
+		var companyList : SelectElement = cast event.target;
+		for (company in companyList.selectedOptions){
+			var cOption : OptionElement = cast company;	
+			trace("Reading company information for " + selectedId);
+			company.read(cOption.id);
+			getProjectList(cOption.id);	
+			//Globally sets the company that was selected.
+			MBooks_im.getSingleton().selectedCompanyStream.resolve(selectedId);		
+		}
+	}
+
+
 	public function processCompanyList(incomingMessage : Dynamic) {
 		trace("Processing company list " + incomingMessage);
 		var companies = incomingMessage.company;
 		var companiesSelectElement : SelectElement = getCompanyListElement();
+
 		var cArray : Array<Dynamic> = incomingMessage.company;
 		for(company in cArray){
 			var companyID  = company.companyID;
@@ -174,12 +195,6 @@ class Project {
 						cast Browser.document.createOptionElement();
 				optionElement.id = companyID;
 				optionElement.text = companyName;
-				var optionSelectedStream = 
-					MBooks_im.getSingleton().initializeElementStream(
-						cast optionElement
-						, "click"
-					);
-				optionSelectedStream.then(processCompanySelected);
 				companiesSelectElement.appendChild(optionElement);
 			}else {
 				trace("Element exists " + companyID);
@@ -252,18 +267,6 @@ class Project {
 		getProjectDetailsElement().value = details;
 	}
 
-	private function processCompanySelected(ev : Event){
-		trace("Company selected" + " " + ev.target + " " + ev);
-
-		var selectionElement : OptionElement 
-				= cast ev.target;
-		var selectedId = selectionElement.id;
-		trace("Reading company information for " + selectedId);
-		company.read(selectedId);
-		getProjectList(selectedId);	
-		//Globally sets the company that was selected.
-		MBooks_im.getSingleton().selectedCompanyStream.resolve(selectedId);		
-	}
 
 
 	private function getProjectList(companyId: String) {
