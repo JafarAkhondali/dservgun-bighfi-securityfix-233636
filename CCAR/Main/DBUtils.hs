@@ -563,6 +563,12 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             benchmark Text
             UniqueBenchmark symbol benchmark
             deriving Show Eq
+        SectorBenchmark json 
+            symbol Text 
+            benchmark Text 
+            UniqueSectorBenchmark symbol benchmark
+            deriving Show Eq
+
         EquitySector json 
             name Text 
             description Text 

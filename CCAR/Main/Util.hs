@@ -1,6 +1,10 @@
 	{--License: license.txt --}
 module CCAR.Main.Util
-	(serialize, parseDate, parse_time_interval, parse_float, getPastDate, getUTCTime, processError)
+	(serialize, parseDate 
+		, parse_time_interval
+		, parse_float
+		, getPastDate, getUTCTime
+		, processError)
 where
 import Data.Text as T  hiding(foldl, foldr)
 import Data.Aeson as J
@@ -12,9 +16,14 @@ import Data.Text.Lazy as L hiding(foldl, foldr)
 import System.Locale as Loc 
 import Data.Time
 import Network.HTTP.Client as HttpClient
+import Data.Conduit
+import Data.Conduit.Lift
+import Control.Monad.State
 import Numeric
 import Text.ParserCombinators.Parsec as Parsec
 import Control.Applicative
+import Control.Monad.State as State (State, get, put, modify, runState, execState, evalState)
+
 serialize :: (ToJSON a) => a -> T.Text 
 serialize  = L.toStrict . E.decodeUtf8 . En.encode  
 
@@ -71,3 +80,6 @@ getUTCTime startDate = parseTime defaultTimeLocale (dateFmt defaultTimeLocale) (
 processError :: Maybe a -> T.Text -> Either T.Text a 
 processError Nothing msg =  Left msg
 processError (Just x) _ =  Right x 
+
+
+

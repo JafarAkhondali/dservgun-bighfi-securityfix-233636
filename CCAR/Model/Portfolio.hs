@@ -9,6 +9,7 @@ module CCAR.Model.Portfolio (
 	, manageSearch
 	, testInsertPortfolio
 	, testQueryPortfolios
+	, PortfolioUUID
 	) where 
 import CCAR.Main.DBUtils
 import GHC.Generics
