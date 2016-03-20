@@ -2973,6 +2973,8 @@ model.Project = function(companyI) {
 		this.company.getSelectListEventStream().then($bind(this,this.processCompanyList));
 		this.projectStream = new promhx.Deferred();
 		this.projectStream.then($bind(this,this.processProjectList));
+		var companySelectStream = MBooks_im.getSingleton().initializeElementStream(this.getCompanyListElement(),"change");
+		companySelectStream.then($bind(this,this.processCompanySelected));
 	} catch( err ) {
 		console.log("Error creating project " + Std.string(err));
 	}
@@ -3052,15 +3054,6 @@ model.Project.prototype = {
 		var payload = { nickName : MBooks_im.getSingleton().getNickName(), commandType : "SelectActiveProjects", companyId : companyId};
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
-	,processCompanySelected: function(ev) {
-		console.log("Company selected" + " " + Std.string(ev.target) + " " + Std.string(ev));
-		var selectionElement = ev.target;
-		var selectedId = selectionElement.id;
-		console.log("Reading company information for " + selectedId);
-		this.company.read(selectedId);
-		this.getProjectList(selectedId);
-		MBooks_im.getSingleton().selectedCompanyStream.resolve(selectedId);
-	}
 	,setProjectDetails: function(details) {
 		this.getProjectDetailsElement().value = details;
 	}
@@ -3132,12 +3125,24 @@ model.Project.prototype = {
 				optionElement = js.Browser.document.createElement("option");
 				optionElement.id = companyID;
 				optionElement.text = companyName;
-				var optionSelectedStream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
-				optionSelectedStream.then($bind(this,this.processCompanySelected));
 				companiesSelectElement.appendChild(optionElement);
 			} else console.log("Element exists " + companyID);
 		}
 		console.log("Completed processing companies");
+	}
+	,processCompanySelected: function(ev) {
+		console.log("Company selected" + " " + Std.string(ev.target) + " " + Std.string(ev));
+		var companyList = ev.target;
+		var _g = 0, _g1 = companyList.selectedOptions;
+		while(_g < _g1.length) {
+			var cList = _g1[_g];
+			++_g;
+			var cOption = cList;
+			console.log("Reading company information for " + cOption.id);
+			this.company.read(cOption.id);
+			this.getProjectList(cOption.id);
+			MBooks_im.getSingleton().selectedCompanyStream.resolve(cOption.id);
+		}
 	}
 	,getCompanyListElement: function() {
 		return js.Browser.document.getElementById(model.Project.COMPANY_LIST);

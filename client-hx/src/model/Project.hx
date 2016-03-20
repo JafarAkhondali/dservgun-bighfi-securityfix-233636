@@ -166,14 +166,14 @@ class Project {
 
 	private function processCompanySelected(ev : Event){
 		trace("Company selected" + " " + ev.target + " " + ev);
-		var companyList : SelectElement = cast event.target;
-		for (company in companyList.selectedOptions){
-			var cOption : OptionElement = cast company;	
-			trace("Reading company information for " + selectedId);
-			company.read(cOption.id);
+		var companyList : SelectElement = cast ev.target;
+		for (cList in companyList.selectedOptions){
+			var cOption : OptionElement = cast cList;	
+			trace("Reading company information for " + cOption.id);
+			this.company.read(cOption.id);
 			getProjectList(cOption.id);	
 			//Globally sets the company that was selected.
-			MBooks_im.getSingleton().selectedCompanyStream.resolve(selectedId);		
+			MBooks_im.getSingleton().selectedCompanyStream.resolve(cOption.id);		
 		}
 	}
 
