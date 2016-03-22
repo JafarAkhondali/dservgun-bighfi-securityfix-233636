@@ -102,6 +102,12 @@ class Project {
 					"change"
 				);
 			companySelectStream.then(processCompanySelected);
+			var projectSelectedStream : Stream<Dynamic> = 
+				MBooks_im.getSingleton().initializeElementStream(
+					cast getProjectsListElement(),
+					"change"
+					);
+			projectSelectedStream.then(processProjectSelected);			
 		}catch(err : Dynamic){
 			trace("Error creating project " + err);
 		}
@@ -132,7 +138,6 @@ class Project {
 	private function getProjectsListElement() : SelectElement {
 		return (cast Browser.document.getElementById(PROJECT_LIST));
 	}
-
 	public function processProjectList(incomingMessage : Dynamic) {
 		trace("Project list " + incomingMessage);
 		var projects = incomingMessage.projects;
@@ -149,12 +154,6 @@ class Project {
 					cast (Browser.document.createOptionElement());
 				optionElement.id = projectId;
 				optionElement.text = projectSummary;
-				var projectSelectedStream = 
-					MBooks_im.getSingleton().initializeElementStream(
-						cast optionElement,
-						"click"
-						);
-				projectSelectedStream.then(processProjectSelected);
 				projectList.appendChild(optionElement);
 			}
 		}
@@ -162,6 +161,15 @@ class Project {
 
 	private function getCompanyListElement() : SelectElement {
 		return (cast Browser.document.getElementById(COMPANY_LIST));
+	}
+
+	private function processProjectSelected(ev : Event) {
+		trace ("Project selected " + ev.target);
+		var selectionElement : SelectElement =  cast ev.target;
+		for (a in selectionElement.selectedOptions){
+			var selectionId : OptionElement = cast a;
+			sendReadRequest(selectionId.id);			
+		}
 	}
 
 	private function processCompanySelected(ev : Event){
@@ -279,13 +287,6 @@ class Project {
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}	
 
-	private function processProjectSelected(ev : Event) {
-		trace ("Project selected " + ev.target);
-		var selectionElement :OptionElement  = 
-			cast ev.target;
-		var selectionId = selectionElement.id;
-		sendReadRequest(selectionId);
-	}
 
 	public function processManageProject(incomingMessage){
 		trace("Process manage Projects  ");

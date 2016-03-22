@@ -186,6 +186,20 @@ class ProjectWorkbench {
 				);
 		executeWorkbenchButtonStream.then(executeWorkbench);
 
+		var supportedScriptListStream = 
+			MBooks_im.getSingleton().initializeElementStream(
+				cast getSupportedScriptsListElement()
+				, "change"
+				);
+		supportedScriptListStream.then(processScriptTypeSelected);
+
+		var optionSelectedStream = 
+			MBooks_im.getSingleton().initializeElementStream(
+				cast getProjectWorkbenchListElement()
+				, "change"
+			);
+		optionSelectedStream.then(processWorkbenchSelected);
+
 		this.selectedProject = project;
 		this.selectedScriptType = "UnsupportedScriptType";
 		supportedScriptsStream = new Deferred<QuerySupportedScript>();
@@ -561,13 +575,6 @@ class ProjectWorkbench {
 				optionElement.id = sType;
 				optionElement.text = sType;
 				supportedScriptListElement.appendChild(optionElement);
-				var supportedScriptListStream = 
-					MBooks_im.getSingleton().initializeElementStream(
-						cast optionElement
-						, "click"
-						);
-				supportedScriptListStream.then(processScriptTypeSelected);
-
 
 			}else {
 				trace("Option element exists " + sType);
@@ -613,12 +620,6 @@ class ProjectWorkbench {
 			optionElement = cast (Browser.document.createOptionElement());
 			optionElement.id = wId;
 			optionElement.text = wId;
-			var optionSelectedStream = 
-				MBooks_im.getSingleton().initializeElementStream(
-					cast optionElement
-					, "click"
-				);
-			optionSelectedStream.then(processWorkbenchSelected);
 			workbenchesUI.appendChild(optionElement);
 		}else {
 			trace("Element already exists " + wId);
@@ -652,10 +653,13 @@ class ProjectWorkbench {
 		}
 	}
 	private function processWorkbenchSelected(ev : Event) {
-		var selectionElement : OptionElement =
+		var selectionElement : SelectElement =
 			cast ev.target;
-		var selectionId = selectionElement.id;
-		read(selectionId);
+		for(anOption in selectionElement.selectedOptions){
+			var option : OptionElement = cast anOption;
+			var selectionId = option.id;
+			read(selectionId);			
+		}
 	}
 
 	private function processManageWorkbench(incomingMessage : PrjWorkbench) {
@@ -758,9 +762,15 @@ class ProjectWorkbench {
 	private function processScriptTypeSelected(ev : Event) {
 		trace("Script type selected " + ev);
 		try {
-			var selectionElement : OptionElement = 
-				cast ev.target;
-			selectedScriptType = selectionElement.id;
+
+			var selectionElement : SelectElement = cast ev.target;
+			for(option in selectionElement.selectedOptions){
+				var cOption : OptionElement = cast option;
+				selectedScriptType = cOption.id;
+			}
+			
+		}catch(err: Dynamic) {
+			trace("Error " + err);
 		}
 
 	}

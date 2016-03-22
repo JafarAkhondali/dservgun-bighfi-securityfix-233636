@@ -60,6 +60,7 @@ class Entitlement {
 	private var updateEntitlementButton : ButtonElement;
 	private var deleteEntitlementButton : ButtonElement;
 	private var entitlementsList : SelectElement;
+	private var entitlementListStream : Stream<Dynamic>;
 	public var queryEntitlementResponse(default, null) : Deferred<model.QueryEntitlement>;
 	public var modelResponseStream(default, null) : Deferred<model.EntitlementT>;
 	public var modelStream(default, null) : Deferred<model.EntitlementT>;
@@ -85,10 +86,6 @@ class Entitlement {
 		textFields.add(sectionNameElement);
 		textFields.add(tabNameElement);
 
-		entitlementsList = cast Browser.document.getElementById(ENTITLEMENT_LIST);
-		if(entitlementsList == null){
-			throw ("Element not found  " + ENTITLEMENT_LIST);
-		}
 
 		//changes from external source.
 		modelStream = new Deferred<model.EntitlementT>();
@@ -242,23 +239,32 @@ class Entitlement {
 	private function printListText(entitlement){
 		return entitlement.tabName + "->" + entitlement.sectionName;
 	}
+	private function initializeEntitlementListStream() {
+		entitlementsList = cast Browser.document.getElementById(ENTITLEMENT_LIST);
+		if(entitlementsList == null){
+			throw ("Element not found  " + ENTITLEMENT_LIST);
+		}
+		if(entitlementListStream == null){
+			entitlementListStream = 
+				MBooks_im.getSingleton().initializeElementStream(
+					cast entitlementsList
+					, "change"
+				);
+			entitlementListStream.then(handleEntitlementSelected);
 
+		}
+
+	}
 	private function updateList(entitlement : model.EntitlementT){
 		trace("Adding element to list");
 		var optionElementKey = getOptionElementKey(entitlement);
 		var optionElement : OptionElement = cast (Browser.document.getElementById(optionElementKey));
-
+		initializeEntitlementListStream();
 		if(optionElement == null){
 			entitlementMap[optionElementKey] = entitlement;
 			optionElement = cast (Browser.document.createOptionElement());
 			optionElement.id = optionElementKey;
 			optionElement.text = printListText(entitlement);
-			var stream = 
-				MBooks_im.getSingleton().initializeElementStream(
-					cast optionElement
-					, "click"
-				);
-			stream.then(handleEntitlementSelected);
 			entitlementsList.appendChild(optionElement);		
 
 		}else {
@@ -307,20 +313,24 @@ class Entitlement {
 	}
 
 	private function handleEntitlementSelected(ev : Event){
-		var element : OptionElement = cast ev.target;
-		var optionElementKey = element.id;
-		var entitlement : model.EntitlementT = entitlementMap[optionElementKey];
-		if(entitlement == null){
-			throw ("Entitlement not found");
+		var element : SelectElement = cast ev.target;
+		for (anOption in element) {
+			var option : OptionElement = cast anOption;
+			var optionElementKey = option.id;
+			var entitlement : model.EntitlementT = entitlementMap[optionElementKey];
+			if(entitlement == null){
+				throw ("Entitlement not found");
+			}
+			entitlement.crudType = "Read";
+			if (entitlement.nickName == null){
+				entitlement.nickName = MBooks_im.getSingleton().getNickName();
+			}
+			if (entitlement.commandType == null){
+				entitlement.commandType = MANAGE_ENTITLEMENTS_COMMAND;
+			}
+			modelStream.resolve(entitlement);		
 		}
-		entitlement.crudType = "Read";
-		if (entitlement.nickName == null){
-			entitlement.nickName = MBooks_im.getSingleton().getNickName();
-		}
-		if (entitlement.commandType == null){
-			entitlement.commandType = MANAGE_ENTITLEMENTS_COMMAND;
-		}
-		modelStream.resolve(entitlement);	
+	
 	}
 
 }

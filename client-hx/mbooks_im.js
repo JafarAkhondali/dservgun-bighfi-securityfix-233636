@@ -2975,6 +2975,8 @@ model.Project = function(companyI) {
 		this.projectStream.then($bind(this,this.processProjectList));
 		var companySelectStream = MBooks_im.getSingleton().initializeElementStream(this.getCompanyListElement(),"change");
 		companySelectStream.then($bind(this,this.processCompanySelected));
+		var projectSelectedStream = MBooks_im.getSingleton().initializeElementStream(this.getProjectsListElement(),"change");
+		projectSelectedStream.then($bind(this,this.processProjectSelected));
 	} catch( err ) {
 		console.log("Error creating project " + Std.string(err));
 	}
@@ -3042,12 +3044,6 @@ model.Project.prototype = {
 		} catch( err ) {
 			throw err;
 		}
-	}
-	,processProjectSelected: function(ev) {
-		console.log("Project selected " + Std.string(ev.target));
-		var selectionElement = ev.target;
-		var selectionId = selectionElement.id;
-		this.sendReadRequest(selectionId);
 	}
 	,getProjectList: function(companyId) {
 		console.log("Processing select all projects " + companyId);
@@ -3144,6 +3140,17 @@ model.Project.prototype = {
 			MBooks_im.getSingleton().selectedCompanyStream.resolve(cOption.id);
 		}
 	}
+	,processProjectSelected: function(ev) {
+		console.log("Project selected " + Std.string(ev.target));
+		var selectionElement = ev.target;
+		var _g = 0, _g1 = selectionElement.selectedOptions;
+		while(_g < _g1.length) {
+			var a = _g1[_g];
+			++_g;
+			var selectionId = a;
+			this.sendReadRequest(selectionId.id);
+		}
+	}
 	,getCompanyListElement: function() {
 		return js.Browser.document.getElementById(model.Project.COMPANY_LIST);
 	}
@@ -3164,8 +3171,6 @@ model.Project.prototype = {
 				optionElement = js.Browser.document.createElement("option");
 				optionElement.id = projectId;
 				optionElement.text = projectSummary;
-				var projectSelectedStream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
-				projectSelectedStream.then($bind(this,this.processProjectSelected));
 				projectList.appendChild(optionElement);
 			}
 		}
@@ -3243,6 +3248,10 @@ model.ProjectWorkbench = function(project) {
 	clearFieldsStream.then($bind(this,this.clearFields));
 	var executeWorkbenchButtonStream = MBooks_im.getSingleton().initializeElementStream(this.getExecuteWorkbench(),"click");
 	executeWorkbenchButtonStream.then($bind(this,this.executeWorkbench));
+	var supportedScriptListStream = MBooks_im.getSingleton().initializeElementStream(this.getSupportedScriptsListElement(),"change");
+	supportedScriptListStream.then($bind(this,this.processScriptTypeSelected));
+	var optionSelectedStream = MBooks_im.getSingleton().initializeElementStream(this.getProjectWorkbenchListElement(),"change");
+	optionSelectedStream.then($bind(this,this.processWorkbenchSelected));
 	this.selectedProject = project;
 	this.selectedScriptType = "UnsupportedScriptType";
 	this.supportedScriptsStream = new promhx.Deferred();
@@ -3262,8 +3271,18 @@ model.ProjectWorkbench.getDynamic = function(name) {
 model.ProjectWorkbench.prototype = {
 	processScriptTypeSelected: function(ev) {
 		console.log("Script type selected " + Std.string(ev));
-		var selectionElement = ev.target;
-		this.selectedScriptType = selectionElement.id;
+		try {
+			var selectionElement = ev.target;
+			var _g = 0, _g1 = selectionElement.selectedOptions;
+			while(_g < _g1.length) {
+				var option = _g1[_g];
+				++_g;
+				var cOption = option;
+				this.selectedScriptType = cOption.id;
+			}
+		} catch( err ) {
+			console.log("Error " + Std.string(err));
+		}
 	}
 	,handleThreeJSJSON: function(scriptData) {
 		console.log("Processing three js json loading");
@@ -3300,8 +3319,14 @@ model.ProjectWorkbench.prototype = {
 	}
 	,processWorkbenchSelected: function(ev) {
 		var selectionElement = ev.target;
-		var selectionId = selectionElement.id;
-		this.read(selectionId);
+		var _g = 0, _g1 = selectionElement.selectedOptions;
+		while(_g < _g1.length) {
+			var anOption = _g1[_g];
+			++_g;
+			var option = anOption;
+			var selectionId = option.id;
+			this.read(selectionId);
+		}
 	}
 	,deleteFromActiveWorkbenches: function(workbenchesUI,wrk) {
 		var optionElement = js.Browser.document.getElementById(wrk.workbenchId);
@@ -3331,8 +3356,6 @@ model.ProjectWorkbench.prototype = {
 			optionElement = js.Browser.document.createElement("option");
 			optionElement.id = wId;
 			optionElement.text = wId;
-			var optionSelectedStream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
-			optionSelectedStream.then($bind(this,this.processWorkbenchSelected));
 			workbenchesUI.appendChild(optionElement);
 		} else console.log("Element already exists " + wId);
 		optionElement.selected = true;
@@ -3366,8 +3389,6 @@ model.ProjectWorkbench.prototype = {
 				optionElement.id = sType;
 				optionElement.text = sType;
 				supportedScriptListElement.appendChild(optionElement);
-				var supportedScriptListStream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
-				supportedScriptListStream.then($bind(this,this.processScriptTypeSelected));
 			} else console.log("Option element exists " + sType);
 		}
 		this.queryWorkbenches();
@@ -4673,8 +4694,6 @@ view.Entitlement = function() {
 	this.textFields = new List();
 	this.textFields.add(this.sectionNameElement);
 	this.textFields.add(this.tabNameElement);
-	this.entitlementsList = js.Browser.document.getElementById(view.Entitlement.ENTITLEMENT_LIST);
-	if(this.entitlementsList == null) throw "Element not found  " + view.Entitlement.ENTITLEMENT_LIST;
 	this.modelStream = new promhx.Deferred();
 	this.view = new promhx.Deferred();
 	this.modelResponseStream = new promhx.Deferred();
@@ -4691,13 +4710,19 @@ view.Entitlement.__name__ = ["view","Entitlement"];
 view.Entitlement.prototype = {
 	handleEntitlementSelected: function(ev) {
 		var element = ev.target;
-		var optionElementKey = element.id;
-		var entitlement = this.entitlementMap.get(optionElementKey);
-		if(entitlement == null) throw "Entitlement not found";
-		entitlement.crudType = "Read";
-		if(entitlement.nickName == null) entitlement.nickName = MBooks_im.getSingleton().getNickName();
-		if(entitlement.commandType == null) entitlement.commandType = view.Entitlement.MANAGE_ENTITLEMENTS_COMMAND;
-		this.modelStream.resolve(entitlement);
+		var _g = 0;
+		while(_g < element.length) {
+			var anOption = element[_g];
+			++_g;
+			var option = anOption;
+			var optionElementKey = option.id;
+			var entitlement = this.entitlementMap.get(optionElementKey);
+			if(entitlement == null) throw "Entitlement not found";
+			entitlement.crudType = "Read";
+			if(entitlement.nickName == null) entitlement.nickName = MBooks_im.getSingleton().getNickName();
+			if(entitlement.commandType == null) entitlement.commandType = view.Entitlement.MANAGE_ENTITLEMENTS_COMMAND;
+			this.modelStream.resolve(entitlement);
+		}
 	}
 	,deleteFromEntitlementList: function() {
 		try {
@@ -4745,17 +4770,24 @@ view.Entitlement.prototype = {
 		console.log("Adding element to list");
 		var optionElementKey = this.getOptionElementKey(entitlement);
 		var optionElement = js.Browser.document.getElementById(optionElementKey);
+		this.initializeEntitlementListStream();
 		if(optionElement == null) {
 			this.entitlementMap.set(optionElementKey,entitlement);
 			entitlement;
 			optionElement = js.Browser.document.createElement("option");
 			optionElement.id = optionElementKey;
 			optionElement.text = this.printListText(entitlement);
-			var stream = MBooks_im.getSingleton().initializeElementStream(optionElement,"click");
-			stream.then($bind(this,this.handleEntitlementSelected));
 			this.entitlementsList.appendChild(optionElement);
 		} else optionElement.text = this.printListText(entitlement);
 		optionElement.selected = true;
+	}
+	,initializeEntitlementListStream: function() {
+		this.entitlementsList = js.Browser.document.getElementById(view.Entitlement.ENTITLEMENT_LIST);
+		if(this.entitlementsList == null) throw "Element not found  " + view.Entitlement.ENTITLEMENT_LIST;
+		if(this.entitlementListStream == null) {
+			this.entitlementListStream = MBooks_im.getSingleton().initializeElementStream(this.entitlementsList,"change");
+			this.entitlementListStream.then($bind(this,this.handleEntitlementSelected));
+		}
 	}
 	,printListText: function(entitlement) {
 		return entitlement.tabName + "->" + entitlement.sectionName;
