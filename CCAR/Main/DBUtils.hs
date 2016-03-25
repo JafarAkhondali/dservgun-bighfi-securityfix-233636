@@ -4,19 +4,15 @@
 module CCAR.Main.DBUtils where
 
 import Control.Applicative as Appl
-import Database.Persist
 import Database.Persist.Postgresql as DB
 import Database.Persist.TH
 import Data.Time
-import Data.Typeable
 import Data.Text
-import Data.Data
 import CCAR.Main.EnumeratedTypes 
 import System.Environment(getEnv)
 import Data.ByteString as DBS 
 import Data.ByteString.Char8 as C8
 import Data.Aeson
-import GHC.Generics
 import Control.Monad.IO.Class 
 import Control.Monad.Logger
 import Control.Monad.Trans.Resource(runResourceT) 

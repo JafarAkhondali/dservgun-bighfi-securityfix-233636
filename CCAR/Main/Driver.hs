@@ -169,8 +169,6 @@ instance ToJSON UserTermsOperations where
 
 
 
-commandType :: HashMap T.Text Value -> Maybe Value
-commandType = LH.lookup "commandType"
 
 
 parseKeepAlive v = v .: "keepAlive"
@@ -178,14 +176,14 @@ parseKeepAlive v = v .: "keepAlive"
 -- The upload 
 
 
-parsePerson v = do 
-                firstName <- v .: "firstName"
-                lastName <- v .: "lastName"
-                nickName <- v .: "nickName"
-                password <- v .: "password"
-                deleted <- v .: "deleted"
-                time <- v .: "lastLoginTime"
-                return $ Person firstName lastName nickName password time deleted
+parsePerson = \v -> Person <$>  
+                v .: "firstName"
+                <*> v .: "lastName"
+                <*> v .: "nickName"
+                <*> v .: "password"
+                <*> v .: "deleted"
+                <*> v .: "lastLoginTime"
+                
 
 
 
@@ -236,10 +234,6 @@ checkPassword b@(CheckPassword personNickName password _ attempts) = do
 
 validatePassword :: T.Text -> CheckPassword -> Maybe Bool 
 validatePassword dbPassword input = Just $ dbPassword == (pwPassword input)
-
-
-
-
 
 
 
@@ -383,10 +377,46 @@ processCommandValue app nickName aValue@(Object a)   = do
         ser a = L.toStrict $ E.decodeUtf8 $ En.encode a 
 
 
+
 lookupTag :: Maybe Value -> T.Text -> IO (Maybe Value)
 lookupTag aCommand aTag = do
     case aCommand of 
         Just (Object a) -> return $ LH.lookup aTag  a 
+
+data DriverError = NickNameNotFound T.Text 
+                | InvalidCommand T.Text
+                | AuthenticationFailed T.Text
+                | LoginFailed T.Text 
+                | SomeThreadsFailed T.Text 
+                | ClientDisconnected T.Text  
+                | UndefinedDriverError T.Text
+                | MultipleLogins T.Text
+                deriving(Show, Eq, Typeable, Data, Generic)
+
+
+instance Error DriverError where 
+    noMsg =  UndefinedDriverError "We dont know what happened here!"
+    strMsg = UndefinedDriverError . pack 
+            where pack = T.pack
+
+newtype NickNameError a = NickNameError {
+    runP :: ErrorT DriverError IO a
+}deriving (Applicative, Functor, Monad, MonadError DriverError) 
+
+
+
+nickName2 :: Maybe Value -> NickNameError T.Text
+nickName2 aCommand = do 
+    case aCommand of 
+        Nothing -> throwError $ InvalidCommand "Invalid command"
+        Just (Object a) -> do 
+            case (LH.lookup "nickName" a) of 
+                Just x -> case x of 
+                            String x -> return x 
+                            _   -> throwError nn 
+                Nothing -> throwError nn
+    where 
+        nn = NickNameNotFound "NickName tag not found"
 
 
 getNickName :: Maybe Value -> IO (Maybe T.Text, T.Text)
@@ -573,64 +603,60 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
 instance Show WSConn.Connection where
     show (WSConn.Connection o cType proto msgIn msgOut cl) = show proto 
 
+
+
+
 -- Do not let multiple connections to the same nick name.
 -- How do we allow multiple connections for handling larger data, such as
 -- video or file upload?
 -- Create a session id for a connection and send that token back to the client.
 -- Subsequent request for another connection needs to be assigned the same token. 
 
-
 ccarApp :: WebSocketsT Handler ()
 ccarApp = do
         connection <- ask
         app <- getYesod
-        liftIO $ Logger.debugM iModuleName "Before receiving data..."
         command <- liftIO $ WSConn.receiveData connection
-        (result, nickNameV) <- liftIO $ getNickName $ incomingDictionary (command :: T.Text)
-        clientState <- atomically $ getClientState nickNameV app
-        liftIO $  Logger.debugM iModuleName "Before showing client state"
-        liftIO $ Logger.debugM iModuleName $ show clientState 
-        case clientState of 
-            [] -> do 
-                (destination, text) <- liftIO $ authenticate connection command app  
-                liftIO $ Logger.debugM iModuleName  $ "Incoming text " `mappend` (T.unpack(command :: T.Text))
-                processResult <- case result of 
-                    Nothing -> do 
-                            $(logInfo) command 
-                            liftIO $ do  
-                                        _ <- WSConn.sendClose connection 
-                                            ("Nick name tag is mandatory. Bye" :: T.Text)
-                                        return "Close sent"
-                    Just _ -> liftIO $ do 
-                            (processClientLost app connection nickNameV command)
-                             `catch` 
-                                    (\ a@(CloseRequest e1 e2) -> do  
-                                        atomically $ deleteConnection app nickNameV
-                                        return "Close request" )
-                            a <- liftBaseWith (\run -> run $ liftIO $ do
-                                            a <- (A.async (writerThread app connection 
-                                                nickNameV False))
-                                            b <- (A.async (liftIO $ readerThread app nickNameV False))
-                                            c <- (A.async $ liftIO $ jobReaderThread app nickNameV False)
-                                            d <- (A.async $ liftIO $ runner TradierApi.TradierServer app connection nickNameV False)
-                                            e <- (A.async $ liftIO $ runner OptionAnalytics.OptionAnalyticsServer app connection 
-                                                                    nickNameV False)
-                                            labelThread (A.asyncThreadId a) 
-                                                        ("Writer thread " ++ (T.unpack nickNameV))
-                                            labelThread (A.asyncThreadId b) 
-                                                    ("Reader thread " ++ (T.unpack nickNameV))
-                                            labelThread (A.asyncThreadId c) 
-                                                    ("Job thread " ++ (T.unpack nickNameV))
-                                            labelThread (A.asyncThreadId d)
-                                                  ("Market data thread " ++ (T.unpack nickNameV))
-                                            labelThread(A.asyncThreadId e) 
-                                                    ("Option analytics thread " ++ (T.unpack nickNameV))                                          
-                                            A.waitAny [a,  b,  c, d, e]
-                                            return "Threads had exception") 
-                            return ("All threads exited" :: T.Text)
-                return () 
-            _ -> liftIO $ WSConn.sendClose connection 
-                    ("Active connection. Multiple logins not allowed. " `mappend` nickNameV)
+        error1  <- liftIO $ runErrorT $ runP $ nickName2 $ incomingDictionary (command :: T.Text)
+        case error1 of 
+            Left driverError -> do 
+                    liftIO $ WSConn.sendClose connection (T.pack $ show driverError)
+                    return ("Close sent" :: T.Text)
+            Right nickNameV -> do 
+                clientState <- atomically $ getClientState nickNameV app
+                case clientState of 
+                    [] -> do 
+                        (destination, text) <- liftIO $ authenticate connection command app  
+                        liftIO $ Logger.debugM iModuleName  $ "Incoming text " `mappend` (T.unpack(command :: T.Text))
+                        processResult <- liftIO $ do  
+                                    (processClientLost app connection nickNameV command)
+                                     `catch` 
+                                            (\ a@(CloseRequest e1 e2) -> do  
+                                                atomically $ deleteConnection app nickNameV
+                                                return "Close request" )
+                                    a <- liftBaseWith (\run -> run $ liftIO $ do
+                                                    a <- (A.async (writerThread app connection 
+                                                        nickNameV False))
+                                                    b <- (A.async (liftIO $ readerThread app nickNameV False))
+                                                    c <- (A.async $ liftIO $ jobReaderThread app nickNameV False)
+                                                    d <- (A.async $ liftIO $ runner TradierApi.TradierServer app connection nickNameV False)
+                                                    labelThread (A.asyncThreadId a) 
+                                                                ("Writer thread " ++ (T.unpack nickNameV))
+                                                    labelThread (A.asyncThreadId b) 
+                                                            ("Reader thread " ++ (T.unpack nickNameV))
+                                                    labelThread (A.asyncThreadId c) 
+                                                            ("Job thread " ++ (T.unpack nickNameV))
+                                                    labelThread (A.asyncThreadId d)
+                                                          ("Market data thread " ++ (T.unpack nickNameV))
+                                                    A.waitAny [a,  b,  c, d]
+                                                    return "Threads had exception") 
+                                    return ("All threads exited" :: T.Text)
+                        return processResult 
+                    _ -> do 
+                            liftIO $ WSConn.sendClose connection 
+                                ("Active connection. Multiple logins not allowed. " `mappend` nickNameV)
+                            return ("Multiple logins not allowed " :: T.Text)
+        return ()
 
 
 
@@ -737,18 +763,19 @@ readerThread app nickN terminate = do
                         return (Just $ connection clientState, textData)
                     [] -> return (Nothing, "")
         x <- case conn of 
-                Just connection -> do 
-                                _ <- WSConn.sendTextData (connection) textData `catch` 
-                                        (\h@(CloseRequest e f)-> do 
-                                                    handleDisconnects app 
-                                                        connection nickN h
-                                                    readerThread app nickN True)
-                                liftIO $ Logger.debugM iModuleName 
-                                            $ "Wrote " `mappend` 
-                                            (show $ T.take 150 textData) `mappend` (show conn)
-                                readerThread app nickN terminate
-                Nothing -> readerThread app nickN True  
+            Just connection -> do 
+                            _ <- WSConn.sendTextData (connection) textData `catch` 
+                                    (\h@(CloseRequest e f)-> do 
+                                                handleDisconnects app 
+                                                    connection nickN h
+                                                readerThread app nickN True)
+                            liftIO $ Logger.debugM iModuleName 
+                                        $ "Wrote " `mappend` 
+                                        (show $ T.take 150 textData) `mappend` (show conn)
+                            readerThread app nickN terminate
+            Nothing -> readerThread app nickN True -- Terminate the thread.  
         return x
+
 jobReaderThread :: App -> T.Text -> Bool -> IO ()
 jobReaderThread app nickN terminate = 
     if(terminate == True) then do 
