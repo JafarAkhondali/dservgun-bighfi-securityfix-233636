@@ -822,12 +822,9 @@ writerThread app connection nickName terminate = do
             Logger.infoM iModuleName "Writer thread exiting."
             return () 
         else do 
-            liftIO $ Logger.debugM iModuleName "Waiting for message writerThread..."
             traceEventIO "Before reading connection data"
             allClients <- atomically $ countAllClients app 
             allClientIds <- atomically $ getAllClientIdentifiers app
-            liftIO $ Logger.debugM iModuleName $ ("Clients connected " ++ (show allClients))
-            liftIO $ Logger.debugM iModuleName $ ("Client identifiers " ++ (show allClientIds))
             msg <- WSConn.receiveData connection `catch` 
                 (\h -> 
                     case h of 
@@ -843,26 +840,25 @@ writerThread app connection nickName terminate = do
                             writerThread app connection nickName True -- close this thread..                 
                             return $ "Bailing out.."
                 )
-            liftIO $ Logger.debugM iModuleName ("Reading message from the connection " ++ (T.unpack msg))
-            (result, nickName) <- liftIO $ (getNickName $ incomingDictionary (msg :: T.Text)) `catch` (\h@(SomeException e) -> return (Nothing, nickName))
-            case result of 
-                Nothing -> do 
-                        liftIO $ WSConn.sendClose connection ("Nick name tag is mandatory. Bye" :: T.Text)
-                Just _ -> do 
-                    (dest, x) <- liftIO $ processIncomingMessage app connection nickName 
-                                                $ incomingDictionary msg
-                    
-                    liftIO $ Logger.debugM iModuleName ("Destination " ++ (show dest))
-                    atomically $ do 
-                                    clientStates <- case dest of 
-                                        Broadcast -> getAllClients app nickName 
-                                        PrivateMessage t ->
-                                            getClientState t app
-                                        _ ->
-                                            getClientState nickName app                                        
-                                    mapM_ (\cs -> writeTChan (writeChan cs) (x)) clientStates
-                    WSConn.sendPing connection ("ping" :: T.Text)
-                    writerThread app connection nickName terminate
+            error1  <- liftIO $ runErrorT $ runP $ nickName2 $ incomingDictionary (msg :: T.Text)
+            case error1 of 
+                Left driverError -> do 
+                        liftIO $ WSConn.sendClose connection (T.pack $ show driverError)
+                        return ()
+                Right nickName -> do
+                        (dest, x) <- liftIO $ processIncomingMessage app connection nickName 
+                                                    $ incomingDictionary msg                    
+                        liftIO $ Logger.debugM iModuleName ("Destination " ++ (show dest))
+                        atomically $ do 
+                                        clientStates <- case dest of 
+                                            Broadcast -> getAllClients app nickName 
+                                            PrivateMessage t ->
+                                                getClientState t app
+                                            _ ->
+                                                getClientState nickName app                                        
+                                        mapM_ (\cs -> writeTChan (writeChan cs) (x)) clientStates
+                        WSConn.sendPing connection ("ping" :: T.Text)
+                        writerThread app connection nickName terminate
 
 
 getHomeR :: Handler Html
