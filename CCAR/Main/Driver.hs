@@ -605,7 +605,20 @@ instance Show WSConn.Connection where
 
 
 
-
+startUserThreads app connection nickNameV = do 
+        a <- (A.async (writerThread app connection nickNameV False))
+        b <- (A.async (liftIO $ readerThread app nickNameV False))
+        c <- (A.async $ liftIO $ jobReaderThread app nickNameV False)
+        d <- (A.async $ liftIO $ runner TradierApi.TradierServer app connection nickNameV False)
+        Prelude.mapM_ (\x@(a, label, nick) -> labelThread 
+                                                (A.asyncThreadId a)
+                                                (label ++ " " ++ nick)) 
+                        [(a, "Writer thread", T.unpack nickNameV)
+                        , (b, "Reader thread", T.unpack nickNameV)
+                        , (c, "Job thread", T.unpack nickNameV)
+                        , (d, "Market data thread" , T.unpack nickNameV)]
+        A.waitAny [a,  b,  c, d]
+        return "Threads had exception" 
 -- Do not let multiple connections to the same nick name.
 -- How do we allow multiple connections for handling larger data, such as
 -- video or file upload?
@@ -627,30 +640,14 @@ ccarApp = do
                 case clientState of 
                     [] -> do 
                         (destination, text) <- liftIO $ authenticate connection command app  
-                        liftIO $ Logger.debugM iModuleName  $ "Incoming text " `mappend` (T.unpack(command :: T.Text))
                         processResult <- liftIO $ do  
                                     (processClientLost app connection nickNameV command)
                                      `catch` 
                                             (\ a@(CloseRequest e1 e2) -> do  
                                                 atomically $ deleteConnection app nickNameV
                                                 return "Close request" )
-                                    a <- liftBaseWith (\run -> run $ liftIO $ do
-                                                    a <- (A.async (writerThread app connection 
-                                                        nickNameV False))
-                                                    b <- (A.async (liftIO $ readerThread app nickNameV False))
-                                                    c <- (A.async $ liftIO $ jobReaderThread app nickNameV False)
-                                                    d <- (A.async $ liftIO $ runner TradierApi.TradierServer app connection nickNameV False)
-                                                    labelThread (A.asyncThreadId a) 
-                                                                ("Writer thread " ++ (T.unpack nickNameV))
-                                                    labelThread (A.asyncThreadId b) 
-                                                            ("Reader thread " ++ (T.unpack nickNameV))
-                                                    labelThread (A.asyncThreadId c) 
-                                                            ("Job thread " ++ (T.unpack nickNameV))
-                                                    labelThread (A.asyncThreadId d)
-                                                          ("Market data thread " ++ (T.unpack nickNameV))
-                                                    A.waitAny [a,  b,  c, d]
-                                                    return "Threads had exception") 
-                                    return ("All threads exited" :: T.Text)
+                                    a <- liftBaseWith (\run -> run $ liftIO $ startUserThreads app connection nickNameV)
+                                    return ("All threads exited " :: T.Text)
                         return processResult 
                     _ -> do 
                             liftIO $ WSConn.sendClose connection 
