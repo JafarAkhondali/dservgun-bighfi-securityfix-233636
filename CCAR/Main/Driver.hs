@@ -604,7 +604,7 @@ instance Show WSConn.Connection where
     show (WSConn.Connection o cType proto msgIn msgOut cl) = show proto 
 
 
-
+startUserThreads :: App -> Network.WebSockets.Connection -> T.Text -> IO T.Text
 startUserThreads app connection nickNameV = do 
         a <- (A.async (writerThread app connection nickNameV False))
         b <- (A.async (liftIO $ readerThread app nickNameV False))
