@@ -90,7 +90,9 @@ import Network.HTTP.Types as W
 import GHC.Conc(labelThread)
 import Debug.Trace(traceEventIO)
 import                          CCAR.Analytics.MarketDataLanguage(evalMDL)
-import                          Control.Parallel.MPI.Simple as MPISimple (Rank, mpiWorld, commWorld, unitTag, send, init, recv, barrier)
+import                          Control.Parallel.MPI.Simple as MPISimple (Rank, mpiWorld
+                                        , commWorld, unitTag, 
+                                        send, init, recv, barrier)
 import                          CCAR.Data.EquityBenchmark as EquityBenchmark
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
@@ -522,27 +524,26 @@ getPersonNickName a = do
         Just x -> return $  personNickName x
 
 authenticate :: WSConn.Connection -> T.Text -> App -> IO (DestinationType, T.Text)
-authenticate aConn aText app@(App a c) = 
-    do 
-        case aCommand of 
-            Nothing -> return (GroupCommunication.Reply, 
-                        L.toStrict $ E.decodeUtf8 $ En.encode 
-                                $ appError ("Invalid command during login" :: T.Text))
-            Just o@(Object a) -> do                
-                result <- return $ (parse parseJSON o :: Result Login)
-                case result of 
-                    Success (r@(Login a b)) -> do 
-                            x <- runMaybeT $ do 
-                                Just nickName <- return $ getPersonNickName a 
-                                return $ UserJoined.userJoined nickName
-                            case x of 
-                                Nothing -> return(GroupCommunication.Reply, 
-                                    ser $ appError ("Invalid user name" :: T.Text))
-                                Just y -> return (GroupCommunication.Reply, y)
-                    Error s -> 
-                        return (GroupCommunication.Reply, T.pack s)
-        where 
-            aCommand = (J.decode  $ E.encodeUtf8 (L.fromStrict aText)) :: Maybe Value
+authenticate aConn aText app@(App a c) = do 
+    case aCommand of 
+        Nothing -> return (GroupCommunication.Reply, 
+                    L.toStrict $ E.decodeUtf8 $ En.encode 
+                            $ appError ("Invalid command during login" :: T.Text))
+        Just o@(Object a) -> do                
+            result <- return $ (parse parseJSON o :: Result Login)
+            case result of 
+                Success (r@(Login a b)) -> do 
+                        x <- runMaybeT $ do 
+                            Just nickName <- return $ getPersonNickName a 
+                            return $ UserJoined.userJoined nickName
+                        case x of 
+                            Nothing -> return(GroupCommunication.Reply, 
+                                ser $ appError ("Invalid user name" :: T.Text))
+                            Just y -> return (GroupCommunication.Reply, y)
+                Error s -> 
+                    return (GroupCommunication.Reply, T.pack s)
+    where 
+        aCommand = (J.decode  $ E.encodeUtf8 (L.fromStrict aText)) :: Maybe Value
 
 
 
