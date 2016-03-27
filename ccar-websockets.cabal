@@ -149,4 +149,3 @@ executable ccar-websockets
 -- Use this to run
 --cabal run my-project-profiling && hp2ps -e8in -c my-project-profiling.hp
 
-

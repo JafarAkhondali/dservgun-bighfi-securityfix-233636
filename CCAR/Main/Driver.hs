@@ -168,11 +168,6 @@ instance ToJSON UserTermsOperations where
     toJSON = genUserTermsOperations
 
 
-
-
-
-
-
 parseKeepAlive v = v .: "keepAlive"
 
 -- The upload 

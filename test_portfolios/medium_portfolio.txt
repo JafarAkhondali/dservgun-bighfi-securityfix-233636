@@ -210,3 +210,4 @@ ARII ,  Equity, Buy, 1
 ARIS ,  Equity, Buy, 1
 ARKR ,  Equity, Buy, 1
 ARLP ,  Equity, Buy, 1
+
