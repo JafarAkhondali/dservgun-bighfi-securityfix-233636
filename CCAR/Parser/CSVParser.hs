@@ -23,16 +23,14 @@ import Control.Monad.Trans(lift)
 import Control.Monad.Trans.Resource(runResourceT)
 
 
-{-- | Strip the header for file. 
-
---}
+{-- | Strip the header for file. --}
 stripHeader :: Monad m => Conduit a m a
 stripHeader = evalStateC False $ awaitForever $ \i  -> do
-		total <- State.get 
+		total <- State.get
 		if total == False then
 			put True
 		else
-			yield i 
+			yield i
 
 readLines :: (Monad m, MonadIO m) => Conduit BS.ByteString m (Either ParseError [String])
 readLines = awaitForever $ \i -> yield $ parseLine $ BS.unpack i 
