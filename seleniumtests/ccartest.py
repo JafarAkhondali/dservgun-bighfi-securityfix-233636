@@ -7,7 +7,7 @@ import time
 
 driver = webdriver.Firefox()
 time_wait = 5
-driver.get("https://ccar.demo.com")
+driver.get("http://ccar.demo.com")
 
 def login(website):
     user = website.find_element_by_id("nickName")
