@@ -1,0 +1,23 @@
+git remote add NEW-REMOTE https://github.com/dservgun/bighfi.git
+git push NEW-REMOTE --mirror
+./ccar-websockets +RTS -N4 -l -K128M -RTS 
+
+scp -i ~/aws_keys/sbr_realtime_support.pem ./dist/build/ccar-websockets/ccar-websockets ubuntu@ec2-54-88-20-2.compute-1.amazonaws.com:/home/ubuntu/
+ssh -i ~/aws_keys/sbr_realtime_support.pem ubuntu@ec2-54-88-20-2.compute-1.amazonaws.com
+nginx -s reload
+IPYTHON_OPTS="notebook" pyspark
+
+#Creating a new yesod project:
+#Install stack.
+stack new my-project yesod-postgres && cd my-project
+
+
+#Creating users in postgres
+
+sudo -u postgres psql
+ > CREATE USER test password 'test';
+ > CREATE DATABASE test_debug owner test;
+
+ #Command to download selenium server
+ wget http://selenium-release.storage.googleapis.com/2.53/selenium-server-standalone-2.53.0.jar
+

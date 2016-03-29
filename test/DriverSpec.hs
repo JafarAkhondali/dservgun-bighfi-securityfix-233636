@@ -1,7 +1,7 @@
 module DriverSpec(main, spec) where 
 
 import Test.Hspec.WebDriver
-import Data.Text (pack, unpack)
+import Data.Text (pack, unpack, Text)
 main :: IO ()
 main = hspec spec
 
@@ -13,5 +13,7 @@ spec = do
         it "opens page" $ runWD $ 
             openPage "https://beta.ccardemo.tech"
         it "checks user id password" $ runWD $ do
-            e <- findElem $ ById $ pack "nickName"
-            e `shouldBeTag` (pack "input")
+            nickName <- findElem $ ById $ pack "nickName"
+            nickName `shouldBeTag` (pack "input")
+            (pack "test") `sendKeys` nickName
+

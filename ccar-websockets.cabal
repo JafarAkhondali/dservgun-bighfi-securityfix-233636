@@ -113,6 +113,8 @@ executable ccar-websockets
                      , time                          >= 1.4.2 && < 1.5
                      , exact-combinatorics           >= 0.2.0.8 && < 0.3
                      , erf                           >= 2.0.0.0 && < 2.1
+                     , hspec                         >= 1.1.0 && < 1.2
+                     , hspec-webdriver               >= 1.1.0 && < 1.2
 
   -- Directories containing source files.
   -- hs-source-dirs: 
@@ -133,20 +135,16 @@ executable ccar-websockets
                         ViewPatterns
                         ScopedTypeVariables
 
-  --ghc-options: -ddump-splices
-  -- no-code to speed up compilation
-
   ghc-options: 
     -O2
     -threaded
---    -eventlog
---    -ddump-simpl
---    -prof
---    -Wall
+    -eventlog
+    -- -ddump-simpl
+    -- -Wall
     -fprof-auto
     -caf-all 
-    -rtsopts
     "-with-rtsopts=-N "
+
 -- Use this to run
 --cabal run my-project-profiling && hp2ps -e8in -c my-project-profiling.hs 
 
