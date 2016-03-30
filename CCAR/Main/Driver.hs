@@ -667,9 +667,9 @@ processClientLost app connection nickNameV iText = do
                     liftIO $ Logger.errorM iModuleName $ "Sending " ++ ( show nickNameFound)
                     WSConn.sendTextData connection nickNameFound
                     (processClientLeft connection app nickNameV) `catch`
-                                    (\ a@(CloseRequest e1 e2) -> do  
-                                        atomically $ deleteConnection app nickNameV
-                                        return "Close request" )
+                                    (\a@(SomeException e) -> do  
+                                            atomically $ deleteConnection app nickNameV
+                                            return "Close request")
                     return ("Threads exited" :: T.Text)
 
 {- Stay inside the loop till the user answers with the correct passsword -}
