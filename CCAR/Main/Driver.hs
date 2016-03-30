@@ -416,25 +416,6 @@ nickName2 aCommand = do
         nn = NickNameNotFound "NickName tag not found"
 
 
-getNickName :: Maybe Value -> IO (Maybe T.Text, T.Text)
-getNickName aCommand = 
-    do
-    case aCommand of
-        Nothing -> return $ 
-            (Nothing, L.toStrict $ E.decodeUtf8 $ En.encode $ 
-                appError ("Unknown error" :: T.Text))
-        Just (Object a) -> 
-              case nn of
-                Nothing -> return (Nothing, "Nickname tag not found")
-                Just x -> 
-                    case x of
-                        String x -> return (Just "found nickName", x)
-                        _ -> return (Nothing, T.pack $ "Invalid " ++ (show x))
-            where 
-                nn = LH.lookup "nickName" a 
-
-
-
 
 processLoginMessages :: App -> WSConn.Connection -> T.Text -> Maybe Value -> IO (DestinationType, T.Text)
 processLoginMessages app conn aNickName aDictionary = do 
@@ -472,16 +453,18 @@ processIncomingMessage app conn aNickName aCommand = do
                             return (GroupCommunication.Broadcast, 
                                     Util.serialize $ UserJoined.userLeft aNickName)
                             )
-                --return $ (d, L.toStrict $ E.decodeUtf8 $ En.encode command)
                     
 
 
 
 deleteConnection :: App -> T.Text -> STM  () 
 deleteConnection app nn = do 
-            cMap <- readTVar $ nickNameMap app                
-            _ <-    writeTVar (nickNameMap app) (IMap.delete nn cMap)
+            cMap <- readTVar nMap
+            _ <-    writeTVar nMap (IMap.delete nn cMap)
             return ()
+            where
+                nMap = nickNameMap app
+
 
 addConnection :: App -> WSConn.Connection ->  T.Text -> STM ()
 addConnection app aConn nn = do 
@@ -505,18 +488,17 @@ getAllClients :: App -> T.Text -> STM [ClientState]
 getAllClients app@(App a c) nn = do
     nMap <- readTVar c 
     return $ Prelude.filter (\x -> nn /= (nickName x)) $ IMap.elems nMap 
+
+
+-- Convert a result of a map to a list
 getClientState :: T.Text -> App -> STM [ClientState]
 getClientState nickName app@(App a c) = do
         nMap <- readTVar c
-        if IMap.member nickName nMap then 
-            return $ [nMap ! nickName]
-        else 
-            return [] 
+        return $ IMap.elems $ filterWithKey(\k _ -> k ==  nickName) nMap
+
 
 getPersonNickName :: Maybe Person -> Maybe T.Text
-getPersonNickName a = do
-    case a of 
-        Just x -> return $  personNickName x
+getPersonNickName  = fmap personNickName
 
 authenticate :: WSConn.Connection -> T.Text -> App -> IO (DestinationType, T.Text)
 authenticate aConn aText app@(App a c) = do 

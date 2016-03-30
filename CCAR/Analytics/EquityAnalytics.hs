@@ -32,6 +32,7 @@ import							Control.Monad.Trans.Maybe
 import							CCAR.Main.Util(getUTCTime)
 import 							Control.Monad.Trans.Reader
 import							CCAR.Model.PortfolioSymbol(getPortfolioSymbols)
+
 iModuleName  = "CCAR.Analytics.EquityAnalytics"
 
 
@@ -55,8 +56,8 @@ type BetaFormula = ReaderT BetaParameters  IO (Either Text BetaResult)
 
 -- | Return the benchmark for the sector. For example, AAPL should return MDY or something like that
 getSectorBenchmark :: Text -> IO Text
-getSectorBenchmark aSymbol = dbOps $ do
-	benchmarks <- selectList [SectorBenchmarkSymbol ==. aSymbol] [Asc SectorBenchmarkSymbol]
+getSectorBenchmark aSymbol = do 
+	benchmarks <- dbOps $ selectList [SectorBenchmarkSymbol ==. aSymbol] [Asc SectorBenchmarkSymbol]
 	x <- return $ List.map(\x@(Entity id sectorSymbol) -> sectorBenchmarkBenchmark sectorSymbol) benchmarks
 	y <- case x of 
 		[] -> return ("Sector not found" :: Text)
@@ -64,8 +65,8 @@ getSectorBenchmark aSymbol = dbOps $ do
 	return y
 
 getBenchmark :: Text -> IO Text
-getBenchmark aSymbol = dbOps $ do 
-	benchmarks <- selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkSymbol] 
+getBenchmark aSymbol = do 
+	benchmarks <- dbOps $ selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkSymbol] 
 	x <- return $ List.map (\x@(Entity id benchmarkSymbol) -> equityBenchmarkBenchmark benchmarkSymbol) benchmarks
 	y <- case x of 
 			[] -> return "Benchmark not found"
@@ -73,6 +74,7 @@ getBenchmark aSymbol = dbOps $ do
 	return y 
 
 type PortfolioUUID = Text
+
 portfolioBeta :: PortfolioUUID -> Text -> Text -> IO (Either Text 
 							([(Text, CCAR.Data.Stats.Gradient, Double)]
            					, [(Text, Double, Double)]))
@@ -125,7 +127,6 @@ benchmarkFor aSymbol = dbOps $ do
 	symbols <- selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkBenchmark]
 	x <- mapM (\x@(Entity id bench) -> return $ equityBenchmarkBenchmark bench) symbols
 	return x
-
 
 
 insertB (EquityBenchmark symbol benchmark) = do 
