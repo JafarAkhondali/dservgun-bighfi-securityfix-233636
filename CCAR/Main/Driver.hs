@@ -338,7 +338,6 @@ processCommandValue app nickName aValue@(Object a)   = do
                                 Nothing -> return $ Left $ ("Error in QueryMarketData" :: T.Text)
                         return (GroupCommunication.Reply 
                             , Util.serialize r)
-
                 String "ParsedCCARText" -> do 
                         (gc, x) <- CCAR.parseCCMessage nickName aValue 
                         case x of 
@@ -484,10 +483,15 @@ countAllClients app@(App a c) = do
     nMap <- readTVar c 
     return $ Map.size nMap
 
+getClientsWithFilter :: App -> T.Text -> (NickName -> ClientState -> Bool) -> STM [ClientState]
+getClientsWithFilter app@(App a c) nn f = do
+    nMap  <- readTVar c 
+    return $ IMap.elems $ filterWithKey f nMap
+
 getAllClients :: App -> T.Text -> STM [ClientState]
 getAllClients app@(App a c) nn = do
     nMap <- readTVar c 
-    return $ Prelude.filter (\x -> nn /= (nickName x)) $ IMap.elems nMap 
+    return $ IMap.elems $ filterWithKey (\k x-> nn /= (nickName x)) nMap 
 
 
 -- Convert a result of a map to a list
