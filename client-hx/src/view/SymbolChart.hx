@@ -110,8 +110,8 @@ class SymbolChart {
 		if(canvasElement == null){
 			trace("Canvas element not found");
 			canvasElement = Browser.document.createCanvasElement();
-			canvasElement.height = 400;
-			canvasElement.width = 400;
+			canvasElement.height = 800;
+			canvasElement.width = 800;
 			canvasElement.id = key;
 			Global.responsive = false;
 			var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");

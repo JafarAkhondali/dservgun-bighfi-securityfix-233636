@@ -95,7 +95,7 @@ getHistoricalReturns  pricePairs computeFunction =  List.map (\(x,  y) ->
 			) pricePairs
 
 getHistoricalPrice v = dbOps $ do
-	y <- selectList [HistoricalPriceSymbol ==. (v)] [Asc HistoricalPriceDate]
+	y <- selectList [HistoricalPriceSymbol ==. (v)] [Desc HistoricalPriceDate, LimitTo 20]
 	mapM (\a@(Entity x z) -> return z) y
 
 
@@ -183,5 +183,6 @@ evalMDL input portfolioId = do
 		 ) l
 	pV <- portfolioValue portfolioId
 	return $ QueryContainer (T.pack "QueryMarketData") $ 
-				indStocks <> [MarketDataQuery portfolioId portfolioId pV]
+				[MarketDataQuery portfolioId portfolioId pV]
+				<> indStocks
 

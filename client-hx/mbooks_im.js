@@ -5742,8 +5742,8 @@ view.SymbolChart.prototype = {
 		if(canvasElement == null) {
 			console.log("Canvas element not found");
 			canvasElement = js.Browser.document.createElement("canvas");
-			canvasElement.height = 400;
-			canvasElement.width = 400;
+			canvasElement.height = 800;
+			canvasElement.width = 800;
 			canvasElement.id = key;
 			Chart.defaults.global.responsive = false;
 			var ctx = canvasElement.getContext("2d");
