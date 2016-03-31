@@ -140,7 +140,7 @@ executable ccar-websockets
     -threaded
     -eventlog
     -- -ddump-simpl
-    -- -Wall
+    -Wall
     -fprof-auto
     -caf-all 
     "-with-rtsopts=-N "

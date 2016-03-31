@@ -15,6 +15,7 @@ import Data.Aeson
 import GHC.Generics
 import Data.Data
 import Data.Typeable
+import Control.Applicative((<$>), (<*>), pure)
 import Control.Monad.IO.Class(liftIO)
 import Control.Monad
 import Control.Monad.Logger(runStderrLoggingT)
@@ -78,53 +79,22 @@ parseMDL input = case parse parseStatements "Error parsing historical"
 	Right val -> val 
 
 
-
--- Should we handle empty lists?probably yes.
--- We assume that the prices are in timee series.
-getHistoricalPairs :: [HistoricalPrice] -> State.State HistoricalPrice [(HistoricalPrice,HistoricalPrice)]
-getHistoricalPairs = \x -> mapM ( \y -> do 
-				prev <- State.get 
-				State.put y
-				return (prev, y)) x
-
-getHistoricalReturns :: [(HistoricalPrice, HistoricalPrice)] -> ( Double -> Double -> Double) ->  [(UTCTime, Double)]
-getHistoricalReturns  pricePairs computeFunction =  List.map (\(x,  y) -> 
-				(historicalPriceDate y, 
-						computeFunction (historicalPriceClose x) 
-							(historicalPriceClose y))
-			) pricePairs
-
-getHistoricalPrice v = dbOps $ do
-	y <- selectList [HistoricalPriceSymbol ==. (v)] [Desc HistoricalPriceDate, LimitTo 20]
-	mapM (\a@(Entity x z) -> return z) y
-
-
-addTimeSeries ::(UTCTime, Double) -> (UTCTime, Double) -> Maybe (UTCTime, Double)
-addTimeSeries (t1, d1) (t2, d2) = do 
-	if (t1 == t2) 
-		then 
-			return (t1, d1 + d2) 
-		else 
-			Nothing
-
-symbolPriceM :: PortfolioSymbol -> [HistoricalPrice] -> [(HistoricalPrice, Double)]
-symbolPriceM a b = 	do 
-	x1 <- return $ 
-			Prelude.filter(\x -> portfolioSymbolSymbol a == (historicalPriceSymbol x)) b
-	Prelude.map (\x -> (x, 
-						(historicalPriceClose x) * (quantity a))) x1
-					where
-						quantity a = Util.parse_float $ 
-										T.unpack $ portfolioSymbolQuantity a 
+getHistoricalPrice :: Text -> IO [HistoricalPrice]
+getHistoricalPrice v = do 
+	y <- dbOps $ selectList [HistoricalPriceSymbol ==. (v)] [Desc HistoricalPriceDate]
+	return $ List.map (\a@(Entity x z) -> z) y
 
 
 computePrice :: UTCTime -> PortfolioSymbol -> Map (T.Text, UTCTime) HistoricalPrice -> Double
-computePrice aDate pSymbol aMap = case Map.lookup (key pSymbol aDate) aMap of 
-								Nothing -> 0.0
-								Just x -> (Util.parse_float . T.unpack $ 
-												portfolioSymbolQuantity pSymbol) * (historicalPriceClose x)
-							where 
-								key a aDate = (portfolioSymbolSymbol a, aDate)
+computePrice aDate pSymbol aMap = 
+	toDouble $ (pure (\x -> parsedQty * (historicalPriceClose x)))  <*> item
+	where 
+		item = Map.lookup (key pSymbol aDate) aMap
+		key a aDate = (portfolioSymbolSymbol a, aDate)
+		parsedQty = Util.parse_float . T.unpack $ portfolioSymbolQuantity pSymbol 
+		toDouble :: Maybe Double -> Double 
+		toDouble Nothing = 0.0
+		toDouble (Just x) = x
 
 
 evalP :: [PortfolioSymbol] -> UTCTime -> Map(T.Text, UTCTime) HistoricalPrice -> ([PortfolioSymbol], UTCTime, Double)
