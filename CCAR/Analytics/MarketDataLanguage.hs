@@ -45,6 +45,23 @@ instance ToJSON MarketDataQuery
 instance FromJSON MarketDataQuery
 
 
+
+-- | Market data language 
+-- | Supported strings : 
+-- | select historical for symbol 
+-- | select historical for symbol between start_date and end_date
+-- | select beta for portfolio_id
+-- | both symbol and benchmark are traded symbols.
+-- | select beta for symbol using benchmark
+-- | var symbol = sbr
+-- | var start_date = <start_date>
+-- | var end_date = <end_date>
+-- | var historical_price : HistoricalPrice = historical
+-- | var pBeta : PortfolioBeta = beta
+-- | var sBeta : SymbolBeta = beta -- overloaded?
+-- | 
+
+
 parseEquityHistorical = do 
 	string "select" 
 	skipMany1 space

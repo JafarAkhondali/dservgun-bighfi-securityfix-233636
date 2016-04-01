@@ -110,8 +110,8 @@ class SymbolChart {
 		if(canvasElement == null){
 			trace("Canvas element not found");
 			canvasElement = Browser.document.createCanvasElement();
-			canvasElement.height = 800;
-			canvasElement.width = 400;
+			canvasElement.height = 200;
+			canvasElement.width = 1200;
 			canvasElement.id = key;
 			Global.responsive = false;
 			var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
@@ -151,6 +151,7 @@ class SymbolChart {
 		var canvasElement = Browser.document.getElementById(key);
 
 	}
+
 	private function draw (){
 		var data = {
 		labels: ["January", "February", "March", "April", "May", "June", "July"],
