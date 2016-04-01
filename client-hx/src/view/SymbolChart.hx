@@ -84,7 +84,9 @@ class SymbolChart {
 			dataA.push(i.close);
 			count = count + 1;
 		}
-		
+		if (count == 0){
+			return null;
+		}		
 		var dataSet = {
 			title : historicalPrice.symbol
 			, labels : labelsA
@@ -100,7 +102,7 @@ class SymbolChart {
 				data : dataA
 				}
 			]
-		}; 
+		};
 		return dataSet;
 	}
 	private function createCanvasElement(historicalPrice : Dynamic){
@@ -116,6 +118,9 @@ class SymbolChart {
 			Global.responsive = false;
 			var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
 			var dataSet  = getData(historicalPrice);
+			if(dataSet == null){
+				return;
+			}
 			var lineChart = null;
 			try {
 				var chart = new Chart(ctx);
@@ -128,10 +133,13 @@ class SymbolChart {
 			if(element != null){
 				var divElement : DivElement = Browser.document.createDivElement();
 				divElement.id = "div_" + key;
+				divElement.setAttribute("class", "col_12");
 				var labelElement : LabelElement = Browser.document.createLabelElement();
 				labelElement.innerHTML = historicalPrice.symbol;
-				divElement.appendChild(canvasElement);	
+				labelElement.setAttribute("class", "col_12");
+				canvasElement.setAttribute("class", "col_12");
 				divElement.appendChild(labelElement);
+				divElement.appendChild(canvasElement);	
 				element.appendChild(divElement);
 			}else {
 				trace("Unable to add element " + element);
@@ -152,45 +160,4 @@ class SymbolChart {
 
 	}
 
-	private function draw (){
-		var data = {
-		labels: ["January", "February", "March", "April", "May", "June", "July"],
-		datasets: [
-			{
-				label: "My First dataset",
-				fillColor: "rgba(220,220,220,0.2)",
-				strokeColor: "rgba(220,220,220,1)",
-				pointColor: "rgba(220,220,220,1)",
-				pointStrokeColor: "#fff",
-				pointHighlightFill: "#fff",
-				pointHighlightStroke: "rgba(220,220,220,1)",
-				data: [65, 59, 80, 81, 56, 55, 40]
-			},
-			{
-				label: "My Second dataset",
-				fillColor: "rgba(151,187,205,0.2)",
-				strokeColor: "rgba(151,187,205,1)",
-				pointColor: "rgba(151,187,205,1)",
-				pointStrokeColor: "#fff",
-				pointHighlightFill: "#fff",
-				pointHighlightStroke: "rgba(151,187,205,1)",
-				data: [28, 48, 40, 19, 86, 27, 90]
-			}
-		]
-		};
-		var canvas:CanvasElement = Browser.document.createCanvasElement();
-		Browser.document.body.appendChild(canvas);
-
-		Global.responsive = true;
-
-		var ctx:CanvasRenderingContext2D = canvas.getContext("2d");
-
-		var lineChart = new Chart(ctx).Line(data);
-
-		canvas.onclick = function(evt) {
-			lineChart.addData([Math.random() * 100, Math.random() * 100], "test");
-			lineChart.update();
-		};	
-
-	}	
 }

@@ -5716,19 +5716,7 @@ view.SymbolChart = function(historicalPriceStream) {
 };
 view.SymbolChart.__name__ = ["view","SymbolChart"];
 view.SymbolChart.prototype = {
-	draw: function() {
-		var data = { labels : ["January","February","March","April","May","June","July"], datasets : [{ label : "My First dataset", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : [65,59,80,81,56,55,40]},{ label : "My Second dataset", fillColor : "rgba(151,187,205,0.2)", strokeColor : "rgba(151,187,205,1)", pointColor : "rgba(151,187,205,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(151,187,205,1)", data : [28,48,40,19,86,27,90]}]};
-		var canvas = js.Browser.document.createElement("canvas");
-		js.Browser.document.body.appendChild(canvas);
-		Chart.defaults.global.responsive = true;
-		var ctx = canvas.getContext("2d");
-		var lineChart = new Chart(ctx).Line(data);
-		canvas.onclick = function(evt) {
-			lineChart.addData([Math.random() * 100,Math.random() * 100],"test");
-			lineChart.update();
-		};
-	}
-	,deleteChart: function(historicalPrice) {
+	deleteChart: function(historicalPrice) {
 		console.log("Deleting chart for price " + Std.string(historicalPrice));
 		var key = this.getKey(historicalPrice);
 		var canvasElement = js.Browser.document.getElementById(key);
@@ -5748,6 +5736,7 @@ view.SymbolChart.prototype = {
 			Chart.defaults.global.responsive = false;
 			var ctx = canvasElement.getContext("2d");
 			var dataSet = this.getData(historicalPrice);
+			if(dataSet == null) return;
 			var lineChart = null;
 			try {
 				var chart1 = new Chart(ctx);
@@ -5760,10 +5749,13 @@ view.SymbolChart.prototype = {
 			if(element != null) {
 				var divElement = js.Browser.document.createElement("div");
 				divElement.id = "div_" + key;
+				divElement.setAttribute("class","col_12");
 				var labelElement = js.Browser.document.createElement("label");
 				labelElement.innerHTML = historicalPrice.symbol;
-				divElement.appendChild(canvasElement);
+				labelElement.setAttribute("class","col_12");
+				canvasElement.setAttribute("class","col_12");
 				divElement.appendChild(labelElement);
+				divElement.appendChild(canvasElement);
 				element.appendChild(divElement);
 			} else console.log("Unable to add element " + Std.string(element));
 		} else {
@@ -5785,6 +5777,7 @@ view.SymbolChart.prototype = {
 			dataA.push(i.close);
 			count = count + 1;
 		}
+		if(count == 0) return null;
 		var dataSet = { title : historicalPrice.symbol, labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
 		return dataSet;
 	}

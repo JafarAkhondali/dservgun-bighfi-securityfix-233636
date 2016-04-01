@@ -47,19 +47,19 @@ instance FromJSON MarketDataQuery
 
 
 -- | Market data language 
--- | Supported strings : 
--- | select historical for symbol 
--- | select historical for symbol between start_date and end_date
--- | select beta for portfolio_id
--- | both symbol and benchmark are traded symbols.
--- | select beta for symbol using benchmark
--- | var symbol = sbr
--- | var start_date = <start_date>
--- | var end_date = <end_date>
--- | var historical_price : HistoricalPrice = historical
--- | var pBeta : PortfolioBeta = beta
--- | var sBeta : SymbolBeta = beta -- overloaded?
--- | 
+-- | This is more of a query language.
+-- | select historical for a portfolio_id 
+-- | select beta for a portfolio
+-- | select market_data for a symbol (generic query)
+-- | select risk on portfolio
+-- | current implies that the current borrowing rate
+-- | compute risk on portfolio using interest rate = current
+-- | The following computation returns a bunch of risks on portofolios assuming
+-- | the interval
+-- | compute risk_aggregate on portfolio with interst_rates [min, max, step]
+-- | Since the rate of return could be a function of a users credit score,
+-- | compute risk based on the users credit score.
+-- | compute risk on portfolio using credit score
 
 
 parseEquityHistorical = do 
