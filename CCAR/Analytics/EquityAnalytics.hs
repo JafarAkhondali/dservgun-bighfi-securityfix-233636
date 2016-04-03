@@ -64,14 +64,6 @@ getSectorBenchmark aSymbol = do
 		h : _ -> return h
 	return y
 
-getBenchmark :: Text -> IO Text
-getBenchmark aSymbol = do 
-	benchmarks <- dbOps $ selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkSymbol] 
-	x <- return $ List.map (\x@(Entity id benchmarkSymbol) -> equityBenchmarkBenchmark benchmarkSymbol) benchmarks
-	y <- case x of 
-			[] -> return "Benchmark not found"
-			h : _ -> return h 
-	return y 
 
 type PortfolioUUID = Text
 

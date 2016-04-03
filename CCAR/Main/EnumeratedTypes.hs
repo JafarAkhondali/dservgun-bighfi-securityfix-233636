@@ -4,8 +4,7 @@ module CCAR.Main.EnumeratedTypes where
 import Database.Persist.TH
 import GHC.Generics
 import Data.Data
-import Data.Typeable 
-import Data.Text as T
+
 
 
 
