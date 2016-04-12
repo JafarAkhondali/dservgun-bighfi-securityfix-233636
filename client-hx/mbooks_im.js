@@ -82,7 +82,7 @@ List.prototype = {
 	,__class__: List
 }
 var MBooks_im = function() {
-	this.keepAliveInterval = 15000;
+	this.keepAliveInterval = 5000;
 	this.portNumber = 3000;
 	this.protocol = "wss";
 	this.serverHost = "localhost";

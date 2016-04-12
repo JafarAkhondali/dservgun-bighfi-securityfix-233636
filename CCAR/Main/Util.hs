@@ -4,6 +4,7 @@ module CCAR.Main.Util
 		, parse_time_interval
 		, parse_float
 		, getPastDate, getUTCTime
+		, timeDiffs
 		, processError)
 where
 import Data.Text as T  hiding(foldl, foldr)
@@ -15,12 +16,15 @@ import Data.Text.Lazy.Encoding as E
 import Data.Text.Lazy as L hiding(foldl, foldr)
 import System.Locale as Loc 
 import Data.Time
+import Data.Time.Clock
 import Network.HTTP.Client as HttpClient
 import Data.Conduit
 import Data.Conduit.Lift
 import Control.Monad.State
 import Numeric
+import Debug.Trace
 import Text.ParserCombinators.Parsec as Parsec
+import GHC.Real
 import Control.Applicative
 import Control.Monad.State as State (State, get, put, modify, runState, execState, evalState)
 
@@ -71,6 +75,7 @@ parse_float input =
 		Right x -> x 
 		Left _ -> 0.0
 
+duplicate x = (x, x)
 
 {--| Convert a simple text date to utc time.--}
 getUTCTime :: T.Text -> Maybe UTCTime
@@ -82,4 +87,16 @@ processError Nothing msg =  Left msg
 processError (Just x) _ =  Right x 
 
 
+timeDiffs :: UTCTime -> UTCTime -> NominalDiffTime
+timeDiffs currentTime lastUpdateTime =  
+							trace ("current time " ++ show currentTime ++ " last update time " ++ show lastUpdateTime)
+                            (diffUTCTime 
+                                currentTime
+                                lastUpdateTime)
 
+testTimeDiffs = do 
+	t1 <- getCurrentTime
+	nom <- return (20 :: NominalDiffTime)
+	t2 <- return (addUTCTime nom t1)
+	x <- return $ timeDiffs t2 t1
+	return (x >= nom)

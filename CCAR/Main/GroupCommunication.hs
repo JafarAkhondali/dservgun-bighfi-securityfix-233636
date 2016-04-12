@@ -4,6 +4,7 @@
 module CCAR.Main.GroupCommunication 
 	(ClientState(..)
     , createClientState
+    , lastUpdateTime
 	, ClientIdentifierMap(..)
 	, processSendMessage
     , getMessageHistory
@@ -67,11 +68,13 @@ data ClientState = ClientState {
             , workingDirectory :: FilePath
             , activeScenario :: [Stress]
             , pricerReadQueue :: TBQueue OptionPricer
+            , lastMessageType :: T.Text
+            , lastUpdateTime :: UTCTime -- The last update time for a message.
 	}
 
 
-createClientState :: ClientIdentifier -> WSConn.Connection -> STM ClientState
-createClientState nn aConn = do 
+createClientState :: ClientIdentifier -> WSConn.Connection -> UTCTime -> STM ClientState
+createClientState nn aConn currentTime = do 
         w <- newTChan
         r <- dupTChan w 
         jw <- newTChan 
@@ -86,9 +89,9 @@ createClientState nn aConn = do
                         , workingDirectory = ("." `mappend` (T.unpack nn))
                         , activeScenario = []
                         , pricerReadQueue = pricerReadQueue
+                        , lastMessageType = ""
+                        , lastUpdateTime = currentTime
         }
-
-
 
 
 instance Show ClientState where 

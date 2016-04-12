@@ -50,7 +50,7 @@ import Data.ByteString as DBS
 import Data.ByteString.Char8 as C8 
 import System.Environment
 import CCAR.Data.MarketDataAPI(MarketDataServer(..), updateActiveScenario)
-import CCAR.Main.Application(App(..))
+import CCAR.Main.Application(App(..), updateClientState)
 import CCAR.Main.Util as Util
 import GHC.Generics
 import Data.Data
@@ -75,6 +75,7 @@ import CCAR.Analytics.OptionAnalytics as OptionAnalytics
 import CCAR.Model.Login as Login
 import CCAR.Model.UserOperations as UserOperations
 import CCAR.Analytics.EquityAnalytics as EquityAnalytics (startup)
+import GHC.Real
 -- logging
 import System.Log.Formatter as LogFormatter
 import System.Log.Handler(setFormatter)
@@ -238,7 +239,12 @@ processCommandValue app nickName aValue@(Object a)   = do
                                 appError ("Unable to process command" :: T.Text))
         Just aType -> 
             case aType of 
-                String "KeepAlive" ->
+                String "KeepAlive" -> do 
+                        currentTime <- getCurrentTime
+                        Logger.debugM "CCAR" ("Updating keep alive time " ++ (show currentTime))
+                        atomically $ do
+                            clientStates  <- getClientState nickName app 
+                            mapM_ (\_ -> updateClientState nickName app currentTime) clientStates
                         case (parse parseJSON aValue :: Result KeepAliveCommand) of
                             Success r -> return (GroupCommunication.Reply, ser r)
                             Error s -> 
@@ -462,10 +468,10 @@ deleteConnection app nn = do
                 nMap = nickNameMap app
 
 
-addConnection :: App -> WSConn.Connection ->  T.Text -> STM ()
-addConnection app aConn nn = do 
+addConnection :: App -> WSConn.Connection ->  T.Text -> UTCTime -> STM ()
+addConnection app aConn nn currentTime = do 
                 nMap <- readTVar $ nickNameMap app 
-                clientState <- GroupCommunication.createClientState nn aConn
+                clientState <- GroupCommunication.createClientState nn aConn currentTime
                 _ <- writeTVar (nickNameMap app) (IMap.insert nn clientState nMap)
                 return ()
 
@@ -479,6 +485,17 @@ countAllClients :: App ->  STM Int
 countAllClients app@(App a c) = do
     nMap <- readTVar c 
     return $ Map.size nMap
+
+type TimeInterval = NominalDiffTime -- time in seconds
+
+-- Return all clients that 
+getStaleClients :: App -> TimeInterval -> UTCTime -> STM[ClientState]
+getStaleClients app@(App a c) interval currentTime = do 
+    nMap <- readTVar c 
+    return $ IMap.elems $ filterWithKey (\k x -> staleClient x) nMap
+    where 
+        staleClient clientState  = (timeDiffs currentTime (lastUpdateTime clientState)) 
+                                                >= (interval :: NominalDiffTime) 
 
 getClientsWithFilter :: App -> T.Text -> (NickName -> ClientState -> Bool) -> STM [ClientState]
 getClientsWithFilter app@(App a c) nn f = do
@@ -533,13 +550,14 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
             Nothing -> return (GroupCommunication.Reply, 
                     ser $ appError ("Login has errors" :: T.Text))
             Just o@(Object a) -> do
+                currentTime <- getCurrentTime
                 Just commandType <- return $ LH.lookup "commandType" a
                 case commandType of 
                     String "UserLoggedIn" -> do 
                         c <- return $ (parse parseJSON o :: Result UserLoggedIn)
                         case c of 
                             Success u@(UserJoined.UserLoggedIn a) -> do 
-                                        atomically $ addConnection app aConn a 
+                                        atomically $ addConnection app aConn a currentTime 
                                         return $ (Broadcast, ser u)
                             _ -> return $ (GroupCommunication.Reply, ser  
                                                 $ appError ("Invalid command during login" :: T.Text))                                
@@ -556,14 +574,14 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
                                                         (T.unpack $ aText))
                         g@(gc, res) <- UserOperations.manage aText o 
                         case res of 
-                            Right x -> atomically $ addConnection app aConn nickName
+                            Right x -> atomically $ addConnection app aConn nickName currentTime
                         return (gc, ser (res :: Either ApplicationError UserOperations )) 
                     String "GuestUser" -> do 
                         result <- return $ (parse parseGuestUser a)
                         case result of 
                             Success (g@(UserJoined.GuestUser guestNickName)) -> do
                                     createGuestLogin guestNickName  
-                                    atomically $ addConnection app aConn guestNickName
+                                    atomically $ addConnection app aConn guestNickName  currentTime
                                     return $ (GroupCommunication.Broadcast, ser g)                          
                             Error errMessage ->  
                                     return (GroupCommunication.Reply 
@@ -894,6 +912,20 @@ getHomeR = do
 
 
 
+cleanupStaleConnections :: App -> IO ()
+cleanupStaleConnections app = loop 
+    where loop = do 
+            threadDelay 5000000
+            Logger.debugM  "CCAR" "Waiting for stale connections-----"
+            currentTime <- getCurrentTime
+            staleClients <- atomically $ getStaleClients app (30 :: NominalDiffTime) currentTime
+            mapM_ (\x -> do 
+                    Logger.infoM "CCAR" $ "Deleting client " ++ (show x)
+                    atomically $ deleteConnection app (nickName x)
+                    ) staleClients
+            Logger.debugM "CCAR" "Stale connections cleaned"
+            loop
+
 driver :: IO ()
 driver = do
     sH <- openFile "debug.log" WriteMode
@@ -921,7 +953,9 @@ driver = do
     chan <- atomically newBroadcastTChan
 --    static@(Static settings) <- static "static"
     nickNameMap <- newTVarIO $ IMap.empty
-    warp 3000 $ App chan  nickNameMap
+    app <- return $ App chan nickNameMap
+    v <- A.async $ cleanupStaleConnections app
+    warp 3000 app 
 
 
 

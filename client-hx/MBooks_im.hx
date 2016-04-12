@@ -984,7 +984,7 @@ class MBooks_im {
 	var serverHost : String = "localhost";
 	var protocol : String = "wss";
 	var portNumber : Int = 3000;
-	var keepAliveInterval : Int = 15000;
+	var keepAliveInterval : Int = 5000;//was 15 seconds before
 	var websocket : WebSocket;
 	var timer : Timer;
 	//General conduit for events going out to the server
