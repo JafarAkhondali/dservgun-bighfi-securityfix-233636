@@ -13,6 +13,3 @@ ABAC ,  Equity, Buy, 1
 ABAX ,  Equity, Buy, 1
 ABCB ,  Equity, Buy, 1
 ABCD ,  Equity, Buy, 1
-
-
-#Change Buy -> long, Sell : Short

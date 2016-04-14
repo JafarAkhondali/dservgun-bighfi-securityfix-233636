@@ -313,7 +313,7 @@ updatePortfolioSymbolI portfolioSymbol a@(PortfolioSymbolT crType commandType
 			currentTime <- liftIO $ getCurrentTime
 			case portfolioSymbol of 
 				Right (psID, _) -> do 
-								x <- update psID [PortfolioSymbolQuantity =. (read $ T.unpack quantity)
+								x <- update psID [PortfolioSymbolQuantity =. quantity
 											   , PortfolioSymbolUpdatedOn =. currentTime]
 								return $ Right (psID, (creator, updator, portfolioId))
 				Left x -> do 
@@ -436,6 +436,7 @@ testInsertNonM index portfolioID = dbOps $ do
 												(personNickName userFound)
 												(personNickName userFound)
 												(personNickName userFound)
+							Nothing -> return $ Left $ "Test insert failed"
 		_ -> return $ Left $ "testInsert failed"										
 
 testInsertNew index pId = do 
