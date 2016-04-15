@@ -351,7 +351,7 @@ processCommandValue app nickName aValue@(Object a)   = do
                                 Logger.debugM iModuleName $ "Scenarios " ++ (show y2)
                                 atomically $ updateActiveScenario app nickName y2
                                 cState <- atomically $ getClientState nickName app
-                                Logger.debugM iModuleName $ show cState
+                                Logger.debugM iModuleName $ "Client state " ++ (show cState)
                                 return (gc, Util.serialize y)
 
                 String "UserBanned" -> do
@@ -565,6 +565,7 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
                         c <- return $ (parse parseJSON o :: Result UserJoined)
                         case c of 
                             Success u@(UserJoined.UserJoined a) -> do 
+                                        atomically $ addConnection app aConn a currentTime 
                                         return $ (Broadcast, ser u)
                             _ -> return $ (GroupCommunication.Reply, ser  
                                                 $ appError 
@@ -574,7 +575,11 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
                                                         (T.unpack $ aText))
                         g@(gc, res) <- UserOperations.manage aText o 
                         case res of 
-                            Right x -> atomically $ addConnection app aConn nickName currentTime
+                            Right x -> do 
+                                    atomically $ addConnection app aConn nickName currentTime
+                                    return (Reply, ser x)
+                            Left y -> return $ (GroupCommunication.Reply
+                                                    , ser $ appError (T.pack (show y)))
                         return (gc, ser (res :: Either ApplicationError UserOperations )) 
                     String "GuestUser" -> do 
                         result <- return $ (parse parseGuestUser a)
@@ -588,7 +593,12 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
                                         , ser $ appError
                                                 $ ("Guest login failed ") `mappend`  errMessage )
 
-                    String "Login" -> return (GroupCommunication.Reply, aText) -- tuple the input up
+                    String "Login" -> do 
+                            atomically $ addConnection app aConn nickName currentTime 
+                            return (GroupCommunication.Reply, aText) -- tuple the input up
+                    String "KeepAlive" -> do 
+                            atomically $ addConnection app aConn nickName currentTime 
+                            return (GroupCommunication.Reply, aText)
                     _ -> return (GroupCommunication.Reply 
                                 , ser $ appError 
                                         $ "process user logged in failed :  " ++ (show aText) )
@@ -614,7 +624,9 @@ startUserThreads app connection nickNameV = do
                         , (b, "Reader thread", T.unpack nickNameV)
                         , (c, "Job thread", T.unpack nickNameV)
                         , (d, "Market data thread" , T.unpack nickNameV)]
-        A.waitAny [a,  b,  c, d]
+        A.waitAny [a,  b
+            ,  c
+            , d]
         return "Threads had exception" 
 -- Do not let multiple connections to the same nick name.
 -- How do we allow multiple connections for handling larger data, such as
@@ -704,8 +716,7 @@ processClientLeft connection app nickNameV = do
                                             writeTChan (writeChan conn) 
                                                 (UserJoined.userLoggedIn (nickName cs)) 
                                             ) allClients
-                                    ) currentClientState
-                            
+                                    ) currentClientState                            
                             mapM_ (\text -> 
                                         mapM_ (\cs -> 
                                                     writeTChan (writeChan cs) text) 
@@ -767,7 +778,7 @@ readerThread app nickN terminate = do
                                         $ "Wrote " `mappend` 
                                         (show $ T.take 150 textData) `mappend` (show conn)
                             readerThread app nickN terminate
-            Nothing -> readerThread app nickN True -- Terminate the thread.  
+            Nothing -> readerThread app nickN True -- Dont Terminate the thread.  
         return x
 
 jobReaderThread :: App -> T.Text -> Bool -> IO ()
@@ -840,6 +851,7 @@ writerThread app connection nickName terminate = do
             error1  <- liftIO $ runErrorT $ runP $ nickName2 $ incomingDictionary (msg :: T.Text)
             case error1 of 
                 Left driverError -> do 
+                        Logger.debugM iModuleName ("Driver error " ++ (show driverError))
                         liftIO $ WSConn.sendClose connection (T.pack $ show driverError)
                         return ()
                 Right nickName -> do

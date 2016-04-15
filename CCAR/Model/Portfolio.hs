@@ -311,6 +311,7 @@ queryUniqueSymbols userId = dbOps $ do
 		return s2 
 	case x of 
 		Just y -> mapM (\x@(Entity k v) -> return v) y 
+		Nothing -> return []
 		
 {-- | Return all unique symbols across all the portfolios for a user --}
 --queryUniqueSymbols :: T.Text -> T.Text -> IO (Either T.Text [T.Text])
