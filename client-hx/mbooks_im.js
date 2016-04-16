@@ -5596,7 +5596,7 @@ view.PortfolioSymbol.prototype = {
 	,parsePortfolioDetails: function(fileContents) {
 		console.log("Parsing portfolio details");
 		var portfolioDetails = format.csv.Reader.parseCsv(fileContents);
-		var headerRead = false;
+		var headerRead = this.headerRowChecked();
 		var _g = 0;
 		while(_g < portfolioDetails.length) {
 			var aRecord = portfolioDetails[_g];
@@ -5607,6 +5607,10 @@ view.PortfolioSymbol.prototype = {
 			} else console.log("Invalid record length " + Std.string(aRecord));
 			headerRead = true;
 		}
+	}
+	,headerRowChecked: function() {
+		var headerChecked = js.Browser.document.getElementById(view.PortfolioSymbol.HEADER_ROW_PRESENT);
+		return headerChecked.checked;
 	}
 	,uploadPortfolio: function(ev) {
 		console.log("Save button pressed");
@@ -5730,8 +5734,8 @@ view.SymbolChart.prototype = {
 		if(canvasElement == null) {
 			console.log("Canvas element not found");
 			canvasElement = js.Browser.document.createElement("canvas");
-			canvasElement.height = 200;
-			canvasElement.width = 1200;
+			canvasElement.height = Math.round(js.Browser.window.innerHeight / 5);
+			canvasElement.width = js.Browser.window.innerWidth;
 			canvasElement.id = key;
 			Chart.defaults.global.responsive = false;
 			var ctx = canvasElement.getContext("2d");
@@ -6089,6 +6093,7 @@ MBooks_im.INIT_WELCOME_MESSAGE = "initWelcomeMessage";
 MBooks_im.GOAUTH_URL = "gmail_oauthrequest";
 MBooks_im.APPLICATION_ERROR = "applicationError";
 format.csv.Reader.FETCH_SIZE = 4096;
+js.Browser.window = typeof window != "undefined" ? window : null;
 js.Browser.document = typeof window != "undefined" ? window.document : null;
 js.Browser.location = typeof window != "undefined" ? window.location : null;
 js.d3._D3.InitPriority.important = "important";
@@ -6175,6 +6180,7 @@ view.PortfolioSymbol.SYMBOL_SIDE_LIST = "symbolSideID";
 view.PortfolioSymbol.SYMBOL_TYPE_LIST = "symbolTypeID";
 view.PortfolioSymbol.SYMBOL_ID_FIELD = "symbolID";
 view.PortfolioSymbol.SYMBOL_QUANTITY_ID = "symbolQuantityID";
+view.PortfolioSymbol.HEADER_ROW_PRESENT = "headerRow";
 view.PortfolioSymbol.SAVE_SYMBOL_BUTTON = "saveSymbol";
 view.PortfolioSymbol.DELETE_SYMBOL_BUTTON = "deleteSymbol";
 view.PortfolioSymbol.UPDATE_SYMBOL_BUTTON = "updateSymbol";

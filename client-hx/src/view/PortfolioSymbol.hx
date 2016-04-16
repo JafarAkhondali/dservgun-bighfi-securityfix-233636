@@ -44,6 +44,7 @@ class PortfolioSymbol {
 	private static var SYMBOL_TYPE_LIST = "symbolTypeID";
 	private static var SYMBOL_ID_FIELD = "symbolID";
 	private static var SYMBOL_QUANTITY_ID = "symbolQuantityID";
+	private static var HEADER_ROW_PRESENT = "headerRow";
 	private static var SAVE_SYMBOL_BUTTON = "saveSymbol";
 	private static var DELETE_SYMBOL_BUTTON = "deleteSymbol";
 	private static var UPDATE_SYMBOL_BUTTON = "updateSymbol";
@@ -197,13 +198,17 @@ class PortfolioSymbol {
 		}
 
 	}
+	private function headerRowChecked () : Bool {
+		var headerChecked : InputElement = 
+				cast Browser.document.getElementById(HEADER_ROW_PRESENT);
+		return headerChecked.checked;
+	}
 	//Assumes a header row.
 	private function parsePortfolioDetails(fileContents : String){
 		trace("Parsing portfolio details");
 		var portfolioDetails : Array<Record> = 
 				Reader.parseCsv(fileContents);
-		var headerRead : Bool = false;
-
+		var headerRead : Bool = headerRowChecked();
 		for(aRecord in portfolioDetails) {
 			var a : Record = cast aRecord;
 			if(a.length == 4){
