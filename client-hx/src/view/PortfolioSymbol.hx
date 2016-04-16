@@ -371,6 +371,7 @@ class PortfolioSymbol {
 	}
 	private function deleteChart(payload : PortfolioSymbolT){
 		trace("Delete chart " + payload);
+		MBooks_im.getSingleton().symbolChart.delete(payload);
 	}
 	private function readResponse(payload : PortfolioSymbolT) {
 		trace("Reading view " + payload);

@@ -5453,6 +5453,7 @@ view.PortfolioSymbol.prototype = {
 	}
 	,deleteChart: function(payload) {
 		console.log("Delete chart " + Std.string(payload));
+		MBooks_im.getSingleton().symbolChart["delete"](payload);
 	}
 	,deleteResponse: function(payload) {
 		console.log("Deleting view " + Std.string(payload));
@@ -5720,10 +5721,12 @@ view.SymbolChart = function(historicalPriceStream) {
 };
 view.SymbolChart.__name__ = ["view","SymbolChart"];
 view.SymbolChart.prototype = {
-	deleteChart: function(historicalPrice) {
+	'delete': function(historicalPrice) {
 		console.log("Deleting chart for price " + Std.string(historicalPrice));
 		var key = this.getKey(historicalPrice);
-		var canvasElement = js.Browser.document.getElementById(key);
+		var divKey = "div_" + key;
+		var divElement = js.Browser.document.getElementById(divKey);
+		if(divElement != null) divElement.parentNode.removeChild(divElement); else console.log("ERROR: Nothing to delete");
 	}
 	,updateChartData: function(data) {
 		console.log("Update chart data " + Std.string(data));

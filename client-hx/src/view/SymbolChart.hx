@@ -48,7 +48,7 @@ class SymbolChart {
 	public function new(historicalPriceStream : Deferred<Dynamic>){
 		historicalPriceStream.then(createUpdateChart);
 	}
-	
+
 	private function getPortfolioCharts() {
 		return (Browser.document.getElementById(PORTFOLIO_CHARTS));
 	}
@@ -153,10 +153,16 @@ class SymbolChart {
 	private function updateChartData(data : Dynamic){
 		trace("Update chart data " + data);
 	}
-	private function deleteChart(historicalPrice : Dynamic){
+	public function delete(historicalPrice : Dynamic){
 		trace("Deleting chart for price " + historicalPrice);
 		var key : String = getKey(historicalPrice);
-		var canvasElement = Browser.document.getElementById(key);
+		var divKey : String = "div_" + key;
+		var divElement = Browser.document.getElementById(divKey);
+		if(divElement != null){
+			divElement.parentNode.removeChild(divElement);
+		}else {
+			trace("ERROR: Nothing to delete");
+		}
 
 	}
 
