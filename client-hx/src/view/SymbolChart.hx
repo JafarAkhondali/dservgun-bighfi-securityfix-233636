@@ -163,7 +163,14 @@ class SymbolChart {
 		}else {
 			trace("ERROR: Nothing to delete");
 		}
-
 	}
-
+	public function deleteAll(){
+		trace("Deleting all portfolio charts");
+		var charts  = getPortfolioCharts();
+		if(charts != null){
+			for(child in charts.childNodes){
+				charts.removeChild(child);
+			}
+		}		
+	}
 }

@@ -5574,6 +5574,7 @@ view.PortfolioSymbol.prototype = {
 			var pSymbolTable = this.getPortfolioSymbolTable();
 			pSymbolTable.deleteRow(row.rowIndex);
 		}
+		MBooks_im.getSingleton().symbolChart.deleteAll();
 		this.rowMap = new haxe.ds.StringMap();
 	}
 	,getKey: function(payload) {
@@ -5721,7 +5722,19 @@ view.SymbolChart = function(historicalPriceStream) {
 };
 view.SymbolChart.__name__ = ["view","SymbolChart"];
 view.SymbolChart.prototype = {
-	'delete': function(historicalPrice) {
+	deleteAll: function() {
+		console.log("Deleting all portfolio charts");
+		var charts = this.getPortfolioCharts();
+		if(charts != null) {
+			var _g = 0, _g1 = charts.childNodes;
+			while(_g < _g1.length) {
+				var child = _g1[_g];
+				++_g;
+				charts.removeChild(child);
+			}
+		}
+	}
+	,'delete': function(historicalPrice) {
 		console.log("Deleting chart for price " + Std.string(historicalPrice));
 		var key = this.getKey(historicalPrice);
 		var divKey = "div_" + key;

@@ -258,6 +258,7 @@ class PortfolioSymbol {
 			var pSymbolTable : TableElement = getPortfolioSymbolTable();
 			pSymbolTable.deleteRow(row.rowIndex);
 		}	
+		MBooks_im.getSingleton().symbolChart.deleteAll();
 		rowMap = new StringMap<TableRowElement>();
 	}
 
