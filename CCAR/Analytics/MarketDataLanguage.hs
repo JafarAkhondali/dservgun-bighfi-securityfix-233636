@@ -160,7 +160,7 @@ portfolioValue aPortfolio = do
 	mapM (\(h:_, time, price) -> return $ HistoricalPrice aPortfolio time 0.0 price 0.0 0.0 0 currentTime provider) x
 
 
-
+{-- TOdO: Fix this file, the functions can be written better. --}
 {-- TODO: Fix the inefficiency here: port sum is being computed everytime user queries for historical data.--}
 evalMDL input portfolioId = do 
 	l <- return $ parseMDL input
@@ -169,7 +169,8 @@ evalMDL input portfolioId = do
 		 return x {resultSet = y, portfolioId = portfolioId}
 		 ) l
 	pV <- portfolioValue portfolioId
+
 	return $ QueryContainer (T.pack "QueryMarketData") $ 
-				[MarketDataQuery portfolioId portfolioId pV]
+				[MarketDataQuery portfolioId portfolioId $ List.reverse pV]
 				<> indStocks
 
