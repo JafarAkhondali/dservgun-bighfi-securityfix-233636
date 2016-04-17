@@ -5454,6 +5454,7 @@ view.PortfolioSymbol.prototype = {
 	,deleteChart: function(payload) {
 		console.log("Delete chart " + Std.string(payload));
 		MBooks_im.getSingleton().symbolChart["delete"](payload);
+		MBooks_im.getSingleton().historicalPriceStream.resolve(payload);
 	}
 	,deleteResponse: function(payload) {
 		console.log("Deleting view " + Std.string(payload));
