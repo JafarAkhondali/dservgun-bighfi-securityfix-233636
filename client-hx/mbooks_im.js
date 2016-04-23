@@ -5822,14 +5822,44 @@ view.SymbolChart.prototype = {
 			var year = dateComponents[0];
 			var month = dateComponents[1];
 			var day = dateComponents[2];
-			return new Date(Std.parseInt(year),Std.parseInt(month),Std.parseInt(day),0,0,0);
+			return new Date(Std.parseInt(year),Std.parseInt(month) - 1,Std.parseInt(day),0,0,0);
 		} catch( err ) {
 			console.log("Error parsing " + x);
 			return null;
 		}
 	}
 	,format: function(x) {
-		return x.getFullYear() + "-" + x.getMonth() + "-" + x.getDay();
+		return x.getFullYear() + "-" + this.getMonthText(x.getMonth()) + "-" + x.getDate();
+	}
+	,getMonthText: function(i) {
+		switch(i) {
+		case 0:
+			return "Jan";
+		case 1:
+			return "Feb";
+		case 2:
+			return "Mar";
+		case 3:
+			return "Apr";
+		case 4:
+			return "May";
+		case 5:
+			return "Jun";
+		case 6:
+			return "Jul";
+		case 7:
+			return "Aug";
+		case 8:
+			return "Sep";
+		case 9:
+			return "Oct";
+		case 10:
+			return "Nov";
+		case 11:
+			return "Dec";
+		default:
+			throw "Invalid month: " + i;
+		}
 	}
 	,createUpdateChart: function(historicalPrice) {
 		console.log("Creating chart for historical price" + Std.string(historicalPrice));
