@@ -73,17 +73,67 @@ class SymbolChart {
 		}
 	}
 
+	private function format (x : Date){
+		return (x.getFullYear() + "-" + x.getMonth() + "-" + x.getDay());
+	}
+	//TODO: Replace this with a better function.
+	//Using actually parsing date functions.
+	private function parseDate(x : String) {
+		try {
+			var dateTimeComponents = x.split("T");
+			var dateComponents = dateTimeComponents[0].split("-");
+			var year = dateComponents[0];
+			var month = dateComponents[1];
+			var day = dateComponents[2];
+			return new Date(Std.parseInt(year)
+						, Std.parseInt(month)
+						, Std.parseInt(day)
+						, 0
+						, 0
+						, 0);
+
+		}catch(err: Dynamic){
+			trace("Error parsing " + x);
+			return null;
+		}
+
+	}
+	private function sortByDate(x : Dynamic, y : Dynamic) {
+		try {
+			var d1 : Date = parseDate(x.date);
+			var d2 : Date = parseDate(y.date);
+			var d1f : Float = d1.getTime();
+			var d2f : Float = d2.getTime();
+			if (d1f == d2f) {
+				return 0;
+			} 
+			if (d1f < d2f){
+				return -1;
+			}
+			return 1;	
+		}catch (err : Dynamic){
+			trace("Error parsing " + x + "-" + y);
+			return -1;
+		}
+	}
 	private function getData(historicalPrice : Dynamic){
 		var labelsA : Array<String> = new Array<String>();
 		var dataA : Array<Dynamic> = new Array<Dynamic>();
 		var resultSet : Array<Dynamic> = historicalPrice.resultSet;
+		resultSet.sort(sortByDate);
 		var count : Int = 0;
+		var interval : Int = 8;
 		for(i in resultSet){
 			trace(i);
-			labelsA.push("" + count);
 			dataA.push(i.close);
+			if(count % interval == 0) {
+				labelsA.push("" + format(parseDate(i.date)));
+			}else {
+				labelsA.push("");
+			}
 			count = count + 1;
 		}
+		//If the resultset is empty, then return.
 		if (count == 0){
 			return null;
 		}		
@@ -112,8 +162,8 @@ class SymbolChart {
 		if(canvasElement == null){
 			trace("Canvas element not found");
 			canvasElement = Browser.document.createCanvasElement();
-			canvasElement.height = Math.round(Browser.window.innerHeight / 5);
-			canvasElement.width  = Browser.window.innerWidth;
+			canvasElement.height = Math.round(Browser.window.innerHeight / 3);
+			canvasElement.width  = Browser.window.outerWidth;
 			canvasElement.id = key;
 			Global.responsive = false;
 			var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
@@ -133,11 +183,8 @@ class SymbolChart {
 			if(element != null){
 				var divElement : DivElement = Browser.document.createDivElement();
 				divElement.id = "div_" + key;
-				divElement.setAttribute("class", "col_12");
 				var labelElement : LabelElement = Browser.document.createLabelElement();
 				labelElement.innerHTML = historicalPrice.symbol;
-				labelElement.setAttribute("class", "col_12");
-				canvasElement.setAttribute("class", "col_12");
 				divElement.appendChild(labelElement);
 				divElement.appendChild(canvasElement);	
 				element.appendChild(divElement);

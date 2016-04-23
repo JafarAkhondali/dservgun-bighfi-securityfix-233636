@@ -102,8 +102,9 @@ class PortfolioSymbol {
 	private function getSymbolIdElement() : InputElement {
 		return (cast Browser.document.getElementById(SYMBOL_ID_FIELD));
 	}
+	//Symbols are not case sensitive.
 	private function getSymbolIdValue()  {
-		return getSymbolIdElement().value;
+		return getSymbolIdElement().value.toUpperCase();
 	}
 	private function setSymbolIdValue(anId : String) {
 		getSymbolIdElement().value = anId;

@@ -5684,7 +5684,7 @@ view.PortfolioSymbol.prototype = {
 		this.getSymbolIdElement().value = anId;
 	}
 	,getSymbolIdValue: function() {
-		return this.getSymbolIdElement().value;
+		return this.getSymbolIdElement().value.toUpperCase();
 	}
 	,getSymbolIdElement: function() {
 		return js.Browser.document.getElementById(view.PortfolioSymbol.SYMBOL_ID_FIELD);
@@ -5751,8 +5751,8 @@ view.SymbolChart.prototype = {
 		if(canvasElement == null) {
 			console.log("Canvas element not found");
 			canvasElement = js.Browser.document.createElement("canvas");
-			canvasElement.height = Math.round(js.Browser.window.innerHeight / 5);
-			canvasElement.width = js.Browser.window.innerWidth;
+			canvasElement.height = Math.round(js.Browser.window.innerHeight / 3);
+			canvasElement.width = js.Browser.window.outerWidth;
 			canvasElement.id = key;
 			Chart.defaults.global.responsive = false;
 			var ctx = canvasElement.getContext("2d");
@@ -5770,11 +5770,8 @@ view.SymbolChart.prototype = {
 			if(element != null) {
 				var divElement = js.Browser.document.createElement("div");
 				divElement.id = "div_" + key;
-				divElement.setAttribute("class","col_12");
 				var labelElement = js.Browser.document.createElement("label");
 				labelElement.innerHTML = historicalPrice.symbol;
-				labelElement.setAttribute("class","col_12");
-				canvasElement.setAttribute("class","col_12");
 				divElement.appendChild(labelElement);
 				divElement.appendChild(canvasElement);
 				element.appendChild(divElement);
@@ -5788,19 +5785,51 @@ view.SymbolChart.prototype = {
 		var labelsA = new Array();
 		var dataA = new Array();
 		var resultSet = historicalPrice.resultSet;
+		resultSet.sort($bind(this,this.sortByDate));
 		var count = 0;
+		var interval = 8;
 		var _g = 0;
 		while(_g < resultSet.length) {
 			var i = resultSet[_g];
 			++_g;
 			console.log(i);
-			labelsA.push("" + count);
 			dataA.push(i.close);
+			if(count % interval == 0) labelsA.push("" + this.format(this.parseDate(i.date))); else labelsA.push("");
 			count = count + 1;
 		}
 		if(count == 0) return null;
 		var dataSet = { title : historicalPrice.symbol, labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
 		return dataSet;
+	}
+	,sortByDate: function(x,y) {
+		try {
+			var d1 = this.parseDate(x.date);
+			var d2 = this.parseDate(y.date);
+			var d1f = d1.getTime();
+			var d2f = d2.getTime();
+			if(d1f == d2f) return 0;
+			if(d1f < d2f) return -1;
+			return 1;
+		} catch( err ) {
+			console.log("Error parsing " + Std.string(x) + "-" + Std.string(y));
+			return -1;
+		}
+	}
+	,parseDate: function(x) {
+		try {
+			var dateTimeComponents = x.split("T");
+			var dateComponents = dateTimeComponents[0].split("-");
+			var year = dateComponents[0];
+			var month = dateComponents[1];
+			var day = dateComponents[2];
+			return new Date(Std.parseInt(year),Std.parseInt(month),Std.parseInt(day),0,0,0);
+		} catch( err ) {
+			console.log("Error parsing " + x);
+			return null;
+		}
+	}
+	,format: function(x) {
+		return x.getFullYear() + "-" + x.getMonth() + "-" + x.getDay();
 	}
 	,createUpdateChart: function(historicalPrice) {
 		console.log("Creating chart for historical price" + Std.string(historicalPrice));
