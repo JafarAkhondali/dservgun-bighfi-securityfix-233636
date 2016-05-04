@@ -79,7 +79,7 @@ dbOp f = do
     x <- runResourceT $ runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
         liftIO $ do
             flip runSqlPersistMPool pool f 
-    liftIO $ infoM "CCAR.Main.DBUtils" "Closing connection"
+    liftIO $ debugM "CCAR.Main.DBUtils" "Closing connection"
     x
 
 dbOps f = do
@@ -88,7 +88,7 @@ dbOps f = do
     x <- runResourceT $ runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
         liftIO $ do
             flip runSqlPersistMPool pool f 
-    liftIO $ infoM "CCAR.Main.DBUtils" "Closing connection"
+    liftIO $ debugM "CCAR.Main.DBUtils" "Closing connection"
     return x
 
 

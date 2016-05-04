@@ -3,6 +3,7 @@ module CCAR.Model.PortfolioSymbol (
 	, readPortfolioSymbol
 	, manageSearch
 	, daoToDto
+	, daoToDtoDefaults
 	, testInsert
 	, testInsertNew 
 	, CRUD(..)
@@ -14,18 +15,19 @@ import GHC.Generics
 import Data.Aeson as J
 import Yesod.Core
 
+import CCAR.Model.Portfolio 													as Portfolio (queryPortfolioUUID)
 import Control.Monad.Reader
-import Control.Monad.IO.Class(liftIO)
+import Control.Monad.IO.Class													(liftIO)
 import Control.Concurrent
 import Control.Concurrent.STM.Lifted
 import Control.Concurrent.Async
 import Control.Exception
-import qualified  Data.Map as IMap
+import qualified  Data.Map 														as IMap
 import Control.Exception
 import Control.Monad
 import Control.Monad.Trans.Maybe
-import Control.Monad.Logger(runStderrLoggingT)
-import Network.WebSockets.Connection as WSConn
+import Control.Monad.Logger														(runStderrLoggingT)
+import Network.WebSockets.Connection 											as WSConn
 import Data.Text as T
 import Data.Text.Lazy as L 
 
@@ -163,6 +165,7 @@ getPortfolioSymbols pUUID = dbOps $ do
 														 		portfolioSymbolQuantity value)) entList
 
 	return $ processError result $ T.intercalate ":" ["Error processing getPortfolioSymbols", pUUID]
+
 queryPortfolioSymbol :: PortfolioSymbolQueryT -> IO (Either T.Text PortfolioSymbolQueryT) 
 queryPortfolioSymbol p@(PortfolioSymbolQueryT cType 
 						pUUID 
@@ -190,14 +193,23 @@ dtoToDao :: PortfolioSymbolT -> IO PortfolioSymbol
 dtoToDao = undefined
 
 
+-- A default CRUD convertor for portfolio symbol. This hits the database.
+daoToDtoDefaults :: T.Text -> PortfolioSymbol -> IO (Either T.Text PortfolioSymbolT)
+daoToDtoDefaults nickName pS = do 
+		portfolioUUID <- Portfolio.queryPortfolioUUID $ portfolioSymbolPortfolio pS
+		case portfolioUUID of 
+			Right pUUID -> return $ daoToDto P_Update pUUID nickName nickName nickName pS "0.0"
+			Left y -> return $ Left y
+
+
 daoToDto :: CRUD -> T.Text -> T.Text -> T.Text -> T.Text -> PortfolioSymbol -> T.Text -> (Either T.Text PortfolioSymbolT) 
-daoToDto crudType pUUID creator updator currentRequest 
+daoToDto crudType pUUID creator updator currentRequestor 
 			p@(PortfolioSymbol pID symbol quantity side symbolType value cB cT uB uT ) sVal = 
 				Right $ PortfolioSymbolT crudType
 								managePortfolioSymbolCommand 
 								pUUID symbol (quantity) side symbolType
 								value sVal
-								creator updator currentRequest
+								creator updator currentRequestor
 
 
 manageSearch :: NickName -> Value -> IO (GC.DestinationType, T.Text) 

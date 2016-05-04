@@ -29,12 +29,16 @@ import model.Login;
 import model.Person;
 import model.LoginStatus;
 import model.Command;
+import model.HistoricalStressValue;
 import model.CommandType;
 import model.UserOperation;
 import model.Project;
 import model.CCAR;
 import model.Portfolio;
 import model.MarketDataUpdate;
+
+
+
 import view.Entitlement;
 import view.OptionAnalyticsView;
 import view.SymbolChart;
@@ -59,6 +63,7 @@ using promhx.haxe.EventTools;
 import promhx.Deferred;
 import view.OptionAnalyticsView;
 import view.OptionAnalytics;
+
 class MBooks_im {
 
 	private static var SERVER_ERROR_MESSAGES_DIV_FIELD = "serverMessages";
@@ -152,9 +157,10 @@ class MBooks_im {
 		marketDataStream = new Deferred<Dynamic>();
 		historicalPriceStream = new Deferred<Dynamic>();
 		optionAnalyticsStream = new Deferred<OptionAnalytics>();
+		historicalStressValueStream = new Deferred<HistoricalStressValue>();
 		companyEntitlements = new view.CompanyEntitlement(entitlements, 
 			selectedCompanyStream);
-		symbolChart = new SymbolChart(historicalPriceStream);
+		symbolChart = new SymbolChart(historicalPriceStream, historicalStressValueStream);
 
 	}
 
@@ -458,6 +464,11 @@ class MBooks_im {
 			case QueryMarketData : {				
 				trace("Incoming message " + incomingMessage);
 				historicalPriceStream.resolve(incomingMessage);
+			}
+			case HistoricalStressValueType : {
+				trace("Incoming message " + incomingMessage);
+				var historicalSV : HistoricalStressValue = HistoricalStressValue.getStressValue(incomingMessage);
+				historicalStressValueStream.resolve(historicalSV);
 			}
 			case Undefined : {
 				processUndefinedCommandType(incomingMessage);
@@ -1012,6 +1023,7 @@ class MBooks_im {
 	public var marketDataStream(default, null) : Deferred<Dynamic>;
 	public var historicalPriceStream(default, null) : Deferred<Dynamic>;
 	public var optionAnalyticsStream(default, null) : Deferred<OptionAnalytics>;
+	public var historicalStressValueStream(default, null) : Deferred<HistoricalStressValue>;
 	public var symbolChart (default, null) : SymbolChart;
 	//PortfolioQuery messages
 	public var portfolioListStream(default, null) : Deferred<PortfolioQuery>;

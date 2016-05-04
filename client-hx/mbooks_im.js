@@ -116,8 +116,9 @@ var MBooks_im = function() {
 	this.marketDataStream = new promhx.Deferred();
 	this.historicalPriceStream = new promhx.Deferred();
 	this.optionAnalyticsStream = new promhx.Deferred();
+	this.historicalStressValueStream = new promhx.Deferred();
 	this.companyEntitlements = new view.CompanyEntitlement(this.entitlements,this.selectedCompanyStream);
-	this.symbolChart = new view.SymbolChart(this.historicalPriceStream);
+	this.symbolChart = new view.SymbolChart(this.historicalPriceStream,this.historicalStressValueStream);
 };
 MBooks_im.__name__ = ["MBooks_im"];
 MBooks_im.getSingleton = function() {
@@ -642,6 +643,11 @@ MBooks_im.prototype = {
 		case 39:
 			console.log("Incoming message " + Std.string(incomingMessage));
 			this.historicalPriceStream.resolve(incomingMessage);
+			break;
+		case 40:
+			console.log("Incoming message " + Std.string(incomingMessage));
+			var historicalSV = model.HistoricalStressValue.getStressValue(incomingMessage);
+			this.historicalStressValueStream.resolve(historicalSV);
 			break;
 		case 13:
 			this.processUndefinedCommandType(incomingMessage);
@@ -2637,7 +2643,7 @@ model.Command.__name__ = ["model","Command"];
 model.Command.prototype = {
 	__class__: model.Command
 }
-model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics","QueryMarketData"] }
+model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics","QueryMarketData","HistoricalStressValueType"] }
 model.CommandType.Login = ["Login",0];
 model.CommandType.Login.toString = $estr;
 model.CommandType.Login.__enum__ = model.CommandType;
@@ -2758,6 +2764,9 @@ model.CommandType.OptionAnalytics.__enum__ = model.CommandType;
 model.CommandType.QueryMarketData = ["QueryMarketData",39];
 model.CommandType.QueryMarketData.toString = $estr;
 model.CommandType.QueryMarketData.__enum__ = model.CommandType;
+model.CommandType.HistoricalStressValueType = ["HistoricalStressValueType",40];
+model.CommandType.HistoricalStressValueType.toString = $estr;
+model.CommandType.HistoricalStressValueType.__enum__ = model.CommandType;
 model.Company = function(n,cId,gM,ima) {
 	this.name = n;
 	this.companyId = cId;
@@ -2819,6 +2828,30 @@ model.Entitlement.prototype = {
 		MBooks_im.getSingleton().doSendJSON(anEntitlement);
 	}
 	,__class__: model.Entitlement
+}
+model.HistoricalStressValue = function(creator,portfolioId,portfolioSymbol,date,commandType,nickName,portfolioValue) {
+	this.creator = creator;
+	this.portfolioId = portfolioId;
+	this.portfolioSymbol = portfolioSymbol;
+	this.date = date;
+	this.commandType = commandType;
+	this.nickName = nickName;
+	this.portfolioValue = Std.parseFloat(portfolioValue);
+};
+model.HistoricalStressValue.__name__ = ["model","HistoricalStressValue"];
+model.HistoricalStressValue.getStressValue = function(incomingMessage) {
+	if(incomingMessage == null) console.log("Invalid message. Returning");
+	if(incomingMessage.portfolioSymbol != null) {
+		var portfolioS = incomingMessage.portfolioSymbol;
+		var cType = Type.createEnum(model.CommandType,incomingMessage.commandType);
+		var creator = incomingMessage.nickName;
+		var date = incomingMessage.date;
+		var n = incomingMessage.nickName;
+		return new model.HistoricalStressValue(creator,portfolioS.portfolioID,portfolioS.symbol,date,cType,n,incomingMessage.portfolioValue);
+	} else return null;
+}
+model.HistoricalStressValue.prototype = {
+	__class__: model.HistoricalStressValue
 }
 model.Login = function(commandType,p,s) {
 	this.commandType = commandType;
@@ -5718,12 +5751,17 @@ view.PortfolioSymbol.prototype = {
 	}
 	,__class__: view.PortfolioSymbol
 }
-view.SymbolChart = function(historicalPriceStream) {
+view.SymbolChart = function(historicalPriceStream,stressValueStream) {
 	historicalPriceStream.then($bind(this,this.createUpdateChart));
+	stressValueStream.then($bind(this,this.updateStressValues));
+	this.chartMap = new haxe.ds.StringMap();
 };
 view.SymbolChart.__name__ = ["view","SymbolChart"];
 view.SymbolChart.prototype = {
-	deleteAll: function() {
+	updateChartMap: function(key,chart) {
+		this.chartMap.set(key,chart);
+	}
+	,deleteAll: function() {
 		console.log("Deleting all portfolio charts");
 		var charts = this.getPortfolioCharts();
 		if(charts != null) {
@@ -5761,6 +5799,7 @@ view.SymbolChart.prototype = {
 			var lineChart = null;
 			try {
 				var chart1 = new Chart(ctx);
+				this.updateChartMap(key,chart1);
 				console.log("Chart object " + Std.string(chart1));
 				lineChart = chart1.Line(dataSet);
 			} catch( e ) {
@@ -5878,6 +5917,9 @@ view.SymbolChart.prototype = {
 				}
 			}
 		}
+	}
+	,updateStressValues: function(stressValues) {
+		console.log("Updating stress values for portfolio");
 	}
 	,getKey: function(historicalPrice) {
 		return Std.string(historicalPrice.portfolioId) + "_" + Std.string(historicalPrice.symbol);

@@ -10,6 +10,7 @@ module CCAR.Model.Portfolio (
 	, testInsertPortfolio
 	, testQueryPortfolios
 	, PortfolioUUID
+	, queryPortfolioUUID
 	) where 
 import CCAR.Main.DBUtils
 import GHC.Generics
@@ -211,6 +212,12 @@ dtoToDao pT@(PortfolioT cType
 				Just (Entity pKey pValue) -> return $ Right pValue
 				Nothing -> return $ Left $  "Portfolio id " `mappend` porId `mappend` " not found"
 
+queryPortfolioUUID :: PortfolioId -> IO (Either T.Text T.Text) 
+queryPortfolioUUID = \pId -> dbOps $ do 
+	portKv <- Postgresql.get pId
+	case portKv of 
+		Just x -> return $ Right (portfolioUuid x) 
+		Nothing -> return $ Left "Portfolio not found"
 
 -- Optimisation note? or have we given up on database caches and let the db do its thing --
 daoToDto :: CRUD -> PortfolioId -> IO (Either T.Text PortfolioT)

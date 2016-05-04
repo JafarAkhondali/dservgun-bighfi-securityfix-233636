@@ -76,6 +76,8 @@ import Network.WebSockets.Connection as WSConn
 import CCAR.Model.CcarDataTypes
 import CCAR.Main.Application
 import Control.Concurrent.STM.Lifted
+import CCAR.Analytics.MarketDataLanguage
+
 iModuleName = "CCAR.Data.TradierApi"
 baseUrl =  "https://sandbox.tradier.com/v1"
 
@@ -200,7 +202,32 @@ insertHistoricalPrice y@(MarketDataTradier date open close high low volume) symb
 						kid
 
 	
+data PortfolioStressValue = PortfolioStressValue {
+		psNickName :: T.Text
+		, psCommandType :: T.Text
+		, psTime :: UTCTime 
+		, portfolioSymbol :: PortfolioSymbolT  
+		, psValue :: Double 	
+	} deriving (Show, Eq)
 
+instance ToJSON PortfolioStressValue where 
+	toJSON (PortfolioStressValue n c t ps psV) = object [
+			"nickName" .= n 
+			, "commandType" .= c 
+			, "date" .= t 
+			, "portfolioSymbol" .= ps 
+			, "portfolioValue" .= psV
+		]
+
+instance FromJSON PortfolioStressValue where 
+	parseJSON (Object v) = PortfolioStressValue <$> 
+					v .: "nickName"  <*> 
+					v .: "commandType" <*> 
+					v .: "date" <*> 
+					v .: "portfolioSymbol" <*> 
+					v .: "portfolioValue"
+	parseJSON _ 	= Appl.empty
+makePortfolioStressValue = PortfolioStressValue 
 
 data QueryOptionChain = QueryOptionChain {
 	qNickName :: T.Text
@@ -570,15 +597,15 @@ instance MarketDataServer TradierMarketDataServer where
 toDouble :: StressValue -> Double 
 toDouble (Percentage Positive x) =  fromRational x 
 toDouble (Percentage Negative x) =  -1 * (fromRational x)
-_                                = 0.0 -- Need to model this better.
+toDouble (BasisPoints x y )                                = 0.0 -- Need to model this better.
+toDouble (StressValueError y) = 0.0
 
 
-
-updateStressValue :: HistoricalPrice -> PortfolioSymbol -> [Stress] -> IO T.Text
+updateStressValue :: HistoricalPrice -> PortfolioSymbol -> [Stress] -> IO Double
 updateStressValue a b stress = do 
         m <- return $ (historicalPriceClose a )
         q <- return $ T.unpack (portfolioSymbolQuantity b)
-        qD <- (return (read q :: Double))  `catch` (\x@(SomeException e) -> return 0.0)
+        qD <- return $ (parse_float q)
         stressM <- return stress 
         symbol <- return $ T.unpack $ portfolioSymbolSymbol b 
         sVT <- Control.Monad.foldM (\sValue s -> 
@@ -590,7 +617,7 @@ updateStressValue a b stress = do
                             return sValue
                     _ -> return sValue) 0.0 stressM 
         Logger.debugM iModuleName $ "Total stress " `mappend` (show sVT)
-        return $ T.pack $ show (m * qD * (1 - sVT))
+        return (m * qD * (1 - sVT))
 
 
 
@@ -598,11 +625,27 @@ updateStressValue a b stress = do
 tradierPollingInterval :: IO Int 
 tradierPollingInterval = getEnv("TRADIER_POLLING_INTERVAL") >>= \x -> return $ parse_time_interval x
 
+type CommandType = T.Text
+
+computeHistoricalStress :: NickName -> [HistoricalPrice] -> PortfolioSymbol -> [Stress] -> IO [Either T.Text PortfolioStressValue]
+computeHistoricalStress nickName prices s stresses = Control.Monad.mapM  (\m -> do  
+								stress <- updateStressValue m s stresses
+								daoToDto <- daoToDtoDefaults nickName s 
+								case daoToDto of 
+									Right dto -> return $ Right $ PortfolioStressValue nickName "HistoricalStressValue" 
+																	(historicalPriceDate m) 
+																	dto  
+																	stress
+									Left x -> return $ Left x 
+							)prices 
+
+
 
 -- The method is too complex. Need to fix it. 
 -- Get all the symbols for the users portfolio,
 -- Send a portfolio update : query the portfolio object
 -- get the uuid and then map over it.
+
 
 tradierRunner :: App -> WSConn.Connection -> T.Text -> Bool -> IO ()
 tradierRunner app conn nickName terminate = 
@@ -625,21 +668,21 @@ tradierRunner app conn nickName terminate =
         portfolioMap <- return $ Map.fromList portfoliom
         upd <- Control.Monad.mapM (\x -> do 
                 activeScenario <- liftIO $ atomically $ getActiveScenario app nickName 
-                Logger.infoM iModuleName $ " Active scenario " `mappend` (show activeScenario)
+                Logger.debugM iModuleName $ " Active scenario " `mappend` (show activeScenario)
                 val <- return $ Map.lookup (portfolioSymbolSymbol x) marketDataMap 
                 (stressValue, p) <- case val of 
                         Just v -> do 
                             c <- updateStressValue v x activeScenario
                             return (c, x {portfolioSymbolValue = T.pack $ show $ 
-                            		(historicalPriceClose v) * 
-                            			(read $ (T.unpack $ portfolioSymbolQuantity x) :: Double)}) 
-                        Nothing -> return ("0.0", x)
+                            					(historicalPriceClose v) * 
+                            					(parse_float $ (T.unpack $ portfolioSymbolQuantity x))}) 
+                        Nothing -> return (0.0, x)
                 x2 <- return $ Map.lookup (portfolioSymbolPortfolio x) portfolioMap 
                 pid <- case x2 of 
                     Nothing -> return "INVALID PORTFOLIO" 
                     Just y -> return y                  
                 return $ daoToDto PortfolioSymbol.P_Update pid 
-                            nickName nickName nickName p stressValue
+                            nickName nickName nickName p $ (T.pack . show) stressValue
             ) mySymbols
 
         Control.Monad.mapM_  (\p -> do
@@ -649,6 +692,19 @@ tradierRunner app conn nickName terminate =
                 liftIO $ WSConn.sendTextData conn (Util.serialize p) 
                 return p 
                 ) upd 
+        stressValues <- handle (\x@(SomeException e) -> do 
+        							Logger.errorM iModuleName (show x) 
+        							return []
+        						) $ do 
+				        			Control.Monad.mapM (\p -> do 
+				        				h <- getHistoricalPrice $ portfolioSymbolSymbol p 
+				        				activeScenario <- liftIO $ atomically $ getActiveScenario app nickName
+				        				computeHistoricalStress nickName h p activeScenario) mySymbols
+		
+        Logger.debugM iModuleName "Computing stress values"
+        Control.Monad.mapM_ (\p -> do 
+        	tradierPollingInterval >>= liftIO . threadDelay 
+        	liftIO $ WSConn.sendTextData conn (Util.serialize p)) stressValues
         tradierRunner app conn nickName False
 
 

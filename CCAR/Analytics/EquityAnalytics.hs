@@ -113,11 +113,12 @@ symbolClose aSymbol startDate endDate = dbOps $ do
 	return (computeLogChange x)
 
 
+newtype Benchmark = Benchmark Text deriving (Show, Read)
 {-- Return the benchmark for the symbol --}
-benchmarkFor :: Text -> IO [Text]
+benchmarkFor :: Text -> IO [Benchmark]
 benchmarkFor aSymbol = dbOps $ do
 	symbols <- selectList [EquityBenchmarkSymbol ==. aSymbol] [Asc EquityBenchmarkBenchmark]
-	x <- mapM (\x@(Entity id bench) -> return $ equityBenchmarkBenchmark bench) symbols
+	x <- mapM (\x@(Entity id bench) -> return $ Benchmark $ equityBenchmarkBenchmark bench) symbols
 	return x
 
 
@@ -130,6 +131,7 @@ insertB (EquityBenchmark symbol benchmark) = do
 		Just x -> do 
 			liftIO $ Logger.debugM iModuleName $ T.unpack $ T.intercalate ":" ["Benchmark exists", symbol, benchmark] 
 			return symbol
+
 
 
 startup = dbOps $ do 

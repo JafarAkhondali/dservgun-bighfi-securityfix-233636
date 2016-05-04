@@ -29,6 +29,7 @@ import model.Portfolio;
 import model.PortfolioSymbol;
 import model.Company;
 import model.MarketDataUpdate;
+import model.HistoricalStressValue;
 import js.Lib.*;
 import util.*;
 import format.csv.*;
@@ -45,15 +46,21 @@ using promhx.haxe.EventTools;
 
 class SymbolChart {
 	private static var PORTFOLIO_CHARTS: String = "portfolioCharts";
-	public function new(historicalPriceStream : Deferred<Dynamic>){
+	public function new(historicalPriceStream : Deferred<Dynamic>, stressValueStream : Deferred<HistoricalStressValue>){
 		historicalPriceStream.then(createUpdateChart);
+		stressValueStream.then(updateStressValues);
+		chartMap = new StringMap<Chart>();
 	}
-
+	private var chartMap : StringMap<Chart>;
 	private function getPortfolioCharts() {
 		return (Browser.document.getElementById(PORTFOLIO_CHARTS));
 	}
 	private function getKey(historicalPrice : Dynamic){
 		return historicalPrice.portfolioId + "_" + historicalPrice.symbol;
+	}
+	private function updateStressValues(stressValues : HistoricalStressValue) {
+		trace("Updating stress values for portfolio");
+
 	}
 	private function createUpdateChart(historicalPrice : Dynamic){
 		trace("Creating chart for historical price" + historicalPrice);
@@ -182,7 +189,7 @@ class SymbolChart {
 			canvasElement.height = Math.round(Browser.window.innerHeight / 3);
 			canvasElement.width  = Browser.window.outerWidth;
 			canvasElement.id = key;
-			Global.responsive = false;
+			Global.responsive = false; //Setting to true was creating an issue:need to revisit.
 			var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
 			var dataSet  = getData(historicalPrice);
 			if(dataSet == null){
@@ -191,6 +198,7 @@ class SymbolChart {
 			var lineChart = null;
 			try {
 				var chart = new Chart(ctx);
+				updateChartMap(key, chart);
 				trace("Chart object " + chart);
 				lineChart = chart.Line(dataSet);	
 			}catch(e : Dynamic){
@@ -236,5 +244,8 @@ class SymbolChart {
 				charts.removeChild(child);
 			}
 		}		
+	}
+	public function updateChartMap(key: String, chart : Chart) {
+		chartMap.set(key, chart);
 	}
 }

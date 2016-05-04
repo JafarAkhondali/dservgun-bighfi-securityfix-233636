@@ -1,5 +1,5 @@
 module CCAR.Analytics.MarketDataLanguage 
-	(evalMDL)
+	(evalMDL, getHistoricalPrice)
 
 where
 import Import
@@ -20,6 +20,7 @@ import Control.Monad.IO.Class(liftIO)
 import Control.Monad
 import Control.Monad.Logger(runStderrLoggingT)
 import Control.Monad.Trans
+import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Maybe(runMaybeT)
 import Control.Monad.Trans.State as State
 import Data.Monoid ((<>))
@@ -63,11 +64,11 @@ instance FromJSON MarketDataQuery
 
 
 parseEquityHistorical = do 
-	string "select" 
+	_ <- string "select" 
 	skipMany1 space
-	string "historical" 
+	_ <- string "historical" 
 	skipMany1 space 
-	string "for" 
+	_ <- string "for" 
 	skipMany1 space 
 	symbol <- many1 alphaNum
 	return $ MarketDataQuery (T.pack symbol) (T.empty) []
@@ -96,7 +97,7 @@ parseMDL input = case parse parseStatements "Error parsing historical"
 	Right val -> val 
 
 
-getHistoricalPrice :: Text -> IO [HistoricalPrice]
+getHistoricalPrice :: T.Text -> IO [HistoricalPrice]
 getHistoricalPrice v = do 
 	y <- dbOps $ selectList [HistoricalPriceSymbol ==. (v)] [Desc HistoricalPriceDate]
 	return $ List.map (\a@(Entity x z) -> z) y
@@ -125,21 +126,23 @@ evalPortfolio portfolios dates ref  = Prelude.map (\x -> evalP portfolios x ref)
 mkMap :: [HistoricalPrice] -> Map(T.Text, UTCTime) HistoricalPrice
 mkMap p = Map.fromList $ fmap (\x -> ((historicalPriceSymbol x, historicalPriceDate x), x)) p
 
+
+--getSymbols :: forall (m :: * -> *) . MonodIO m => Key Portfolio -> Control.Monad.Trans.Reader.ReaderT [SqlBackend] m [PortfolioSymbol]
 getSymbols aPortfolio = do 
+	backEnd <- ask
 	portfolioSymbolQuery <- selectList [PortfolioSymbolPortfolio ==. aPortfolio] []
-	mapM (\a@(Entity x y) -> return y) portfolioSymbolQuery
+	mapM (\a@(Entity _ y) -> return y) portfolioSymbolQuery
 
 computeHistoricalPrice :: T.Text -> IO ([Key MarketDataProvider], [([PortfolioSymbol], UTCTime, Double)])
 computeHistoricalPrice aPortfolio = dbOps $ do
 	x <- runMaybeT $ do 
 		Just (Entity x val) <- lift $ getBy $ UniquePortfolio aPortfolio
 		portfolioSymbolQuery <- lift $ getSymbols x
-		historicalPrices <- mapM (\x ->  liftIO $ getHistoricalPrice $ 
-											portfolioSymbolSymbol x) 
+		historicalPrices <- mapM (liftIO . getHistoricalPrice . portfolioSymbolSymbol) 
 									portfolioSymbolQuery >>= return . Prelude.concat
 		dates <- mapM (\x -> return $ historicalPriceDate x) 
 							historicalPrices >>= return . Set.fromList
-		provider <- mapM (\x -> return $ historicalPriceDataProvider x) historicalPrices
+		provider <- mapM (return . historicalPriceDataProvider) historicalPrices
 		let priceMap = mkMap historicalPrices
 		return $ (provider, evalPortfolio portfolioSymbolQuery dates priceMap)
 
@@ -157,11 +160,12 @@ portfolioValue aPortfolio = do
 	(providerSet, x) <- computeHistoricalPrice aPortfolio
 	currentTime <- getCurrentTime
 	provider <- return $ List.head $ providerSet
-	mapM (\(h:_, time, price) -> return $ HistoricalPrice aPortfolio time 0.0 price 0.0 0.0 0 currentTime provider) x
+	mapM (\(_:_, time, price) -> return $ HistoricalPrice aPortfolio time 0.0 price 0.0 0.0 0 currentTime provider) x
 
 
 {-- TOdO: Fix this file, the functions can be written better. --}
 {-- TODO: Fix the inefficiency here: port sum is being computed everytime user queries for historical data.--}
+evalMDL :: Text -> Text -> IO QueryContainer
 evalMDL input portfolioId = do 
 	l <- return $ parseMDL input
 	indStocks <- mapM (\x -> do 

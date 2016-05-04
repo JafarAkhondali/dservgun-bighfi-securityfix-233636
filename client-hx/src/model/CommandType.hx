@@ -41,4 +41,5 @@ enum CommandType {
 	QueryCompanyUsers;
 	OptionAnalytics;
 	QueryMarketData;
+	HistoricalStressValueType;
 }
