@@ -292,10 +292,7 @@ class MBooks_im {
 			if(incomingMessage.Right != null) {
 				commandType = incomingMessage.Right.commandType;
 				if(commandType == null) {
-					//try the other field...this is 
-					//because of the unqualified variable names in 
-					//haskell: I need to fix this
-					commandType = incomingMessage.Right.executeWorkbenchCommandType;
+					trace("Command type not defined");
 				}
 			}			
 		}
@@ -465,9 +462,9 @@ class MBooks_im {
 				trace("Incoming message " + incomingMessage);
 				historicalPriceStream.resolve(incomingMessage);
 			}
-			case HistoricalStressValueType : {
+			case HistoricalStressValueCommand : {
 				trace("Incoming message " + incomingMessage);
-				var historicalSV : HistoricalStressValue = HistoricalStressValue.getStressValue(incomingMessage);
+				var historicalSV : HistoricalStressValue = HistoricalStressValue.getStressValue(incomingMessage.Right);
 				historicalStressValueStream.resolve(historicalSV);
 			}
 			case Undefined : {

@@ -646,7 +646,7 @@ MBooks_im.prototype = {
 			break;
 		case 40:
 			console.log("Incoming message " + Std.string(incomingMessage));
-			var historicalSV = model.HistoricalStressValue.getStressValue(incomingMessage);
+			var historicalSV = model.HistoricalStressValue.getStressValue(incomingMessage.Right);
 			this.historicalStressValueStream.resolve(historicalSV);
 			break;
 		case 13:
@@ -660,7 +660,7 @@ MBooks_im.prototype = {
 		if(commandType == null) {
 			if(incomingMessage.Right != null) {
 				commandType = incomingMessage.Right.commandType;
-				if(commandType == null) commandType = incomingMessage.Right.executeWorkbenchCommandType;
+				if(commandType == null) console.log("Command type not defined");
 			}
 		}
 		try {
@@ -2643,7 +2643,7 @@ model.Command.__name__ = ["model","Command"];
 model.Command.prototype = {
 	__class__: model.Command
 }
-model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics","QueryMarketData","HistoricalStressValueType"] }
+model.CommandType = { __ename__ : true, __constructs__ : ["Login","SendMessage","ManageUser","CreateUserTerms","UpdateUserTerms","QueryUserTerms","DeleteUserTerms","CreateUserPreferences","UpdateUserPreferences","QueryUserPreferences","DeleteUserPreferences","CCARUpload","ParsedCCARText","Undefined","UserJoined","UserLeft","UserLoggedIn","UserBanned","ManageCompany","KeepAlive","SelectAllCompanies","SelectActiveProjects","ManageProject","QuerySupportedScripts","QueryActiveWorkbenches","ManageWorkbench","ExecuteWorkbench","AssignCompany","PortfolioSymbolTypesQuery","PortfolioSymbolSidesQuery","QueryPortfolios","ManagePortfolio","ManagePortfolioSymbol","MarketDataUpdate","QueryPortfolioSymbol","ManageEntitlements","QueryEntitlements","QueryCompanyUsers","OptionAnalytics","QueryMarketData","HistoricalStressValueCommand"] }
 model.CommandType.Login = ["Login",0];
 model.CommandType.Login.toString = $estr;
 model.CommandType.Login.__enum__ = model.CommandType;
@@ -2764,9 +2764,9 @@ model.CommandType.OptionAnalytics.__enum__ = model.CommandType;
 model.CommandType.QueryMarketData = ["QueryMarketData",39];
 model.CommandType.QueryMarketData.toString = $estr;
 model.CommandType.QueryMarketData.__enum__ = model.CommandType;
-model.CommandType.HistoricalStressValueType = ["HistoricalStressValueType",40];
-model.CommandType.HistoricalStressValueType.toString = $estr;
-model.CommandType.HistoricalStressValueType.__enum__ = model.CommandType;
+model.CommandType.HistoricalStressValueCommand = ["HistoricalStressValueCommand",40];
+model.CommandType.HistoricalStressValueCommand.toString = $estr;
+model.CommandType.HistoricalStressValueCommand.__enum__ = model.CommandType;
 model.Company = function(n,cId,gM,ima) {
 	this.name = n;
 	this.companyId = cId;
@@ -2847,7 +2847,7 @@ model.HistoricalStressValue.getStressValue = function(incomingMessage) {
 		var creator = incomingMessage.nickName;
 		var date = incomingMessage.date;
 		var n = incomingMessage.nickName;
-		return new model.HistoricalStressValue(creator,portfolioS.portfolioID,portfolioS.symbol,date,cType,n,incomingMessage.portfolioValue);
+		return new model.HistoricalStressValue(creator,portfolioS.portfolioId,portfolioS.symbol,date,cType,n,incomingMessage.portfolioValue);
 	} else return null;
 }
 model.HistoricalStressValue.prototype = {
@@ -5752,13 +5752,21 @@ view.PortfolioSymbol.prototype = {
 	,__class__: view.PortfolioSymbol
 }
 view.SymbolChart = function(historicalPriceStream,stressValueStream) {
+	this.STRESS_VALUE_INDEX = 1;
 	historicalPriceStream.then($bind(this,this.createUpdateChart));
 	stressValueStream.then($bind(this,this.updateStressValues));
 	this.chartMap = new haxe.ds.StringMap();
+	this.lineDataMap = new haxe.ds.StringMap();
+	this.stressValueBufferSize = 50;
+	this.historicalStressValueBuffer = new haxe.ds.StringMap();
+	this.historicalPriceBuffer = new haxe.ds.StringMap();
 };
 view.SymbolChart.__name__ = ["view","SymbolChart"];
 view.SymbolChart.prototype = {
-	updateChartMap: function(key,chart) {
+	updateDataSetMap: function(key,dataset) {
+		this.lineDataMap.set(key,dataset);
+	}
+	,updateChartMap: function(key,chart) {
 		this.chartMap.set(key,chart);
 	}
 	,deleteAll: function() {
@@ -5796,12 +5804,12 @@ view.SymbolChart.prototype = {
 			var ctx = canvasElement.getContext("2d");
 			var dataSet = this.getData(historicalPrice);
 			if(dataSet == null) return;
-			var lineChart = null;
 			try {
 				var chart1 = new Chart(ctx);
-				this.updateChartMap(key,chart1);
 				console.log("Chart object " + Std.string(chart1));
-				lineChart = chart1.Line(dataSet);
+				var lineChart = chart1.Line(dataSet);
+				this.updateChartMap(key,chart1);
+				this.updateDataSetMap(key,dataSet);
 			} catch( e ) {
 				console.log("Error creating line chart " + Std.string(e));
 			}
@@ -5839,6 +5847,43 @@ view.SymbolChart.prototype = {
 		if(count == 0) return null;
 		var dataSet = { title : historicalPrice.symbol, labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
 		return dataSet;
+	}
+	,redrawChart: function(key) {
+		var canvasElement = js.Browser.document.getElementById(key);
+		if(canvasElement == null) {
+			console.log("Canvas element for key not found " + key);
+			return;
+		}
+		var oldChart = this.chartMap.get(key);
+		var ctx = canvasElement.getContext("2d");
+		var newChart = new Chart(ctx);
+		this.addNewSeries(newChart);
+		this.swap(oldChart,newChart,ctx);
+	}
+	,swap: function(old,newChart,ctx) {
+		console.log("Swapping charts");
+		return -1;
+	}
+	,addNewSeries: function(newChart) {
+		console.log("to be implemented");
+		return -1;
+	}
+	,updateBuffer: function(key,stressValue) {
+		console.log("To be implemented");
+		return -1;
+	}
+	,isBufferFull: function() {
+		return true;
+	}
+	,updateStressValues: function(stressValue) {
+		console.log("Updating stress values for portfolio");
+		if(stressValue == null) {
+			console.log("Ignoring stress value");
+			return;
+		}
+		var key = stressValue.portfolioId + "_" + stressValue.portfolioId;
+		var bufSize = this.updateBuffer(key,stressValue);
+		if(this.isBufferFull()) this.redrawChart(key);
 	}
 	,sortByDate: function(x,y) {
 		try {
@@ -5918,11 +5963,11 @@ view.SymbolChart.prototype = {
 			}
 		}
 	}
-	,updateStressValues: function(stressValues) {
-		console.log("Updating stress values for portfolio");
-	}
 	,getKey: function(historicalPrice) {
-		return Std.string(historicalPrice.portfolioId) + "_" + Std.string(historicalPrice.symbol);
+		return this.getKeyS(historicalPrice.portfolioId,historicalPrice.symbol);
+	}
+	,getKeyS: function(portfolioId,symbol) {
+		return portfolioId + "_" + symbol;
 	}
 	,getPortfolioCharts: function() {
 		return js.Browser.document.getElementById(view.SymbolChart.PORTFOLIO_CHARTS);

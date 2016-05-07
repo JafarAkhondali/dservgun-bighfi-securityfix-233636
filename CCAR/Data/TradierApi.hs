@@ -632,7 +632,7 @@ computeHistoricalStress nickName prices s stresses = Control.Monad.mapM  (\m -> 
 								stress <- updateStressValue m s stresses
 								daoToDto <- daoToDtoDefaults nickName s 
 								case daoToDto of 
-									Right dto -> return $ Right $ PortfolioStressValue nickName "HistoricalStressValue" 
+									Right dto -> return $ Right $ PortfolioStressValue nickName "HistoricalStressValueCommand" 
 																	(historicalPriceDate m) 
 																	dto  
 																	stress
@@ -696,15 +696,16 @@ tradierRunner app conn nickName terminate =
         							Logger.errorM iModuleName (show x) 
         							return []
         						) $ do 
-				        			Control.Monad.mapM (\p -> do 
-				        				h <- getHistoricalPrice $ portfolioSymbolSymbol p 
-				        				activeScenario <- liftIO $ atomically $ getActiveScenario app nickName
-				        				computeHistoricalStress nickName h p activeScenario) mySymbols
-		
+		        			Control.Monad.mapM (\p -> do 
+		        				h <- getHistoricalPrice $ portfolioSymbolSymbol p 
+		        				activeScenario <- liftIO $ atomically $ getActiveScenario app nickName
+		        				computeHistoricalStress nickName h p activeScenario) mySymbols
+
         Logger.debugM iModuleName "Computing stress values"
         Control.Monad.mapM_ (\p -> do 
-        	tradierPollingInterval >>= liftIO . threadDelay 
-        	liftIO $ WSConn.sendTextData conn (Util.serialize p)) stressValues
+	        	tradierPollingInterval >>= liftIO . threadDelay 
+	        	Control.Monad.mapM_ (\q -> liftIO $ WSConn.sendTextData conn (Util.serialize q))
+        			p) stressValues
         tradierRunner app conn nickName False
 
 

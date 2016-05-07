@@ -32,7 +32,7 @@ class HistoricalStressValue {
 			var date = incomingMessage.date;
 			var n : String = incomingMessage.nickName;
 			return new HistoricalStressValue(creator 
-					, portfolioS.portfolioID
+					, portfolioS.portfolioId
 					, portfolioS.symbol
 					, date
 					, cType 
