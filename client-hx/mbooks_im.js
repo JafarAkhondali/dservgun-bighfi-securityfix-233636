@@ -1510,9 +1510,35 @@ haxe.Timer.prototype = {
 	,__class__: haxe.Timer
 }
 haxe.ds = {}
-haxe.ds.ObjectMap = function() { }
+haxe.ds.ObjectMap = function() {
+	this.h = { };
+	this.h.__keys__ = { };
+};
 haxe.ds.ObjectMap.__name__ = ["haxe","ds","ObjectMap"];
 haxe.ds.ObjectMap.__interfaces__ = [IMap];
+haxe.ds.ObjectMap.prototype = {
+	iterator: function() {
+		return { ref : this.h, it : this.keys(), hasNext : function() {
+			return this.it.hasNext();
+		}, next : function() {
+			var i = this.it.next();
+			return this.ref[i.__id__];
+		}};
+	}
+	,keys: function() {
+		var a = [];
+		for( var key in this.h.__keys__ ) {
+		if(this.h.hasOwnProperty(key)) a.push(this.h.__keys__[key]);
+		}
+		return HxOverrides.iter(a);
+	}
+	,set: function(key,value) {
+		var id = key.__id__ != null?key.__id__:key.__id__ = ++haxe.ds.ObjectMap.count;
+		this.h[id] = value;
+		this.h.__keys__[id] = key;
+	}
+	,__class__: haxe.ds.ObjectMap
+}
 haxe.ds.Option = { __ename__ : true, __constructs__ : ["Some","None"] }
 haxe.ds.Option.Some = function(v) { var $x = ["Some",0,v]; $x.__enum__ = haxe.ds.Option; $x.toString = $estr; return $x; }
 haxe.ds.Option.None = ["None",1];
@@ -5802,7 +5828,7 @@ view.SymbolChart.prototype = {
 			canvasElement.id = key;
 			Chart.defaults.global.responsive = false;
 			var ctx = canvasElement.getContext("2d");
-			var dataSet = this.getData(historicalPrice);
+			var dataSet = this.getData(key,historicalPrice);
 			if(dataSet == null) return;
 			try {
 				var chart1 = new Chart(ctx);
@@ -5825,10 +5851,10 @@ view.SymbolChart.prototype = {
 			} else console.log("Unable to add element " + Std.string(element));
 		} else {
 			var ctx = canvasElement.getContext("2d");
-			this.updateChartData(this.getData(historicalPrice));
+			this.updateChartData(this.getData(key,historicalPrice));
 		}
 	}
-	,getData: function(historicalPrice) {
+	,getData: function(key,historicalPrice) {
 		var labelsA = new Array();
 		var dataA = new Array();
 		var resultSet = historicalPrice.resultSet;
@@ -5842,62 +5868,142 @@ view.SymbolChart.prototype = {
 			console.log(i);
 			dataA.push(i.close);
 			if(count % interval == 0) labelsA.push("" + this.format(this.parseDate(i.date))); else labelsA.push("");
+			this.updateHistoricalPrice(key,i);
 			count = count + 1;
 		}
 		if(count == 0) return null;
 		var dataSet = { title : historicalPrice.symbol, labels : labelsA, datasets : [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : dataA}]};
 		return dataSet;
 	}
-	,redrawChart: function(key) {
-		var canvasElement = js.Browser.document.getElementById(key);
-		if(canvasElement == null) {
-			console.log("Canvas element for key not found " + key);
-			return;
+	,createDateSets: function(chartTitle,dateArray,stressValues) {
+		var labels = new Array();
+		var interval = 8;
+		var count = 0;
+		var _g = 0;
+		while(_g < dateArray.length) {
+			var i = dateArray[_g];
+			++_g;
+			if(count % interval == 0) labels.push("" + this.format(i)); else labels.push("");
+			count++;
 		}
-		var oldChart = this.chartMap.get(key);
+		stressValues.sort($bind(this,this.sortHistoricalStress));
+		var stressedPortfolioValue = stressValues.map(function(x) {
+			console.log("Stress values " + x.portfolioValue + " " + x.date);
+			return x.portfolioValue;
+		});
+		var dataSets = [{ label : "Symbol", fillColor : "rgba(220,220,220,0.2)", strokeColor : "rgba(220,220,220,1)", pointColor : "rgba(220,220,220,1)", pointStrokeColor : "#fff", pointHighlightFill : "#fff", pointHighlightStroke : "rgba(220,220,220,1)", data : stressedPortfolioValue}];
+		var chartData = { title : chartTitle + " Stress " + Std.string(new Date()), labels : labels, datasets : dataSets};
+		return chartData;
+	}
+	,createDataSet: function(newChart,historicalStress) {
+		var dateArray = new Array();
+		var historicalPrice = new Array();
+		var stressValue = new Array();
+		var dateSet = new haxe.ds.ObjectMap();
+		var iterator2 = historicalStress.keys();
+		while( iterator2.hasNext() ) {
+			var i2 = iterator2.next();
+			dateSet.set(i2,i2);
+		}
+		var $it0 = dateSet.keys();
+		while( $it0.hasNext() ) {
+			var i = $it0.next();
+			dateArray.push(i);
+		}
+		dateArray.sort($bind(this,this.dateSort));
+		var chartTitle = "";
+		var $it1 = historicalStress.iterator();
+		while( $it1.hasNext() ) {
+			var i = $it1.next();
+			stressValue.push(i);
+		}
+		var chartData = this.createDateSets(chartTitle,dateArray,stressValue);
+		var lineChart = newChart.Line(chartData);
+	}
+	,redrawChart: function(key) {
+		if(this.count(this.historicalStressValueBuffer.get(key)) < 50) return;
+		var newKey = key + "STRESS";
+		var canvasElement = js.Browser.document.getElementById(newKey);
+		if(canvasElement != null) canvasElement.parentElement.removeChild(canvasElement);
+		canvasElement.id = newKey;
+		canvasElement.height = Math.round(js.Browser.window.innerHeight / 3);
+		canvasElement.width = js.Browser.window.outerWidth;
 		var ctx = canvasElement.getContext("2d");
 		var newChart = new Chart(ctx);
-		this.addNewSeries(newChart);
-		this.swap(oldChart,newChart,ctx);
+		this.createDataSet(newChart,this.historicalStressValueBuffer.get(key));
+		var element = this.getPortfolioCharts();
+		if(element != null) {
+			var divElement = js.Browser.document.createElement("div");
+			divElement.id = "div_" + newKey;
+			var labelElement = js.Browser.document.createElement("label");
+			labelElement.innerHTML = newKey;
+			divElement.appendChild(labelElement);
+			divElement.appendChild(canvasElement);
+			element.appendChild(divElement);
+		} else console.log("Unable to add element " + Std.string(element));
 	}
 	,swap: function(old,newChart,ctx) {
 		console.log("Swapping charts");
 		return -1;
 	}
-	,addNewSeries: function(newChart) {
-		console.log("to be implemented");
-		return -1;
-	}
 	,updateBuffer: function(key,stressValue) {
-		console.log("To be implemented");
-		return -1;
+		var stressValueMap = this.historicalStressValueBuffer.get(key);
+		if(stressValueMap == null) {
+			stressValueMap = new haxe.ds.ObjectMap();
+			this.historicalStressValueBuffer.set(key,stressValueMap);
+		}
+		stressValueMap.set(this.parseDate(stressValue.date),stressValue);
+		return this.count(stressValueMap);
 	}
-	,isBufferFull: function() {
+	,updateHistoricalPrice: function(key,historicalPrice) {
+		var historicalPriceMap = this.historicalPriceBuffer.get(key);
+		if(historicalPriceMap == null) {
+			historicalPriceMap = new haxe.ds.ObjectMap();
+			this.historicalPriceBuffer.set(key,historicalPriceMap);
+		}
+		historicalPriceMap.set(this.parseDate(historicalPrice.date),historicalPrice);
+	}
+	,count: function(anObjectMap) {
+		var count = 0;
+		if(anObjectMap == null) return count;
+		var iterator = anObjectMap.keys();
+		while( iterator.hasNext() ) {
+			var i = iterator.next();
+			count++;
+		}
+		return count;
+	}
+	,isBufferFull: function(bufSize) {
 		return true;
 	}
 	,updateStressValues: function(stressValue) {
-		console.log("Updating stress values for portfolio");
 		if(stressValue == null) {
 			console.log("Ignoring stress value");
 			return;
 		}
 		var key = stressValue.portfolioId + "_" + stressValue.portfolioId;
 		var bufSize = this.updateBuffer(key,stressValue);
-		if(this.isBufferFull()) this.redrawChart(key);
+		this.redrawChart(key);
 	}
 	,sortByDate: function(x,y) {
 		try {
 			var d1 = this.parseDate(x.date);
 			var d2 = this.parseDate(y.date);
-			var d1f = d1.getTime();
-			var d2f = d2.getTime();
-			if(d1f == d2f) return 0;
-			if(d1f < d2f) return -1;
-			return 1;
+			return this.dateSort(d1,d2);
 		} catch( err ) {
 			console.log("Error parsing " + Std.string(x) + "-" + Std.string(y));
 			return -1;
 		}
+	}
+	,sortHistoricalStress: function(x,y) {
+		return this.dateSort(this.parseDate(x.date),this.parseDate(y.date));
+	}
+	,dateSort: function(d1,d2) {
+		var d1f = d1.getTime();
+		var d2f = d2.getTime();
+		if(d1f == d2f) return 0;
+		if(d1f < d2f) return -1;
+		return 1;
 	}
 	,parseDate: function(x) {
 		try {
@@ -6256,6 +6362,7 @@ MBooks_im.INIT_WELCOME_MESSAGE = "initWelcomeMessage";
 MBooks_im.GOAUTH_URL = "gmail_oauthrequest";
 MBooks_im.APPLICATION_ERROR = "applicationError";
 format.csv.Reader.FETCH_SIZE = 4096;
+haxe.ds.ObjectMap.count = 0;
 js.Browser.window = typeof window != "undefined" ? window : null;
 js.Browser.document = typeof window != "undefined" ? window.document : null;
 js.Browser.location = typeof window != "undefined" ? window.location : null;

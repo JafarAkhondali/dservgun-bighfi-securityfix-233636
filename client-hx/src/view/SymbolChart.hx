@@ -60,6 +60,7 @@ class SymbolChart {
 		historicalPriceBuffer = new StringMap<ObjectMap<Date, Dynamic> > ();
 	}
 
+
 	//A constant to indicate the element index in the datasets.
 	private var STRESS_VALUE_INDEX = 1;
 
@@ -137,10 +138,8 @@ class SymbolChart {
 			return null;
 		}
 	}
-	private function sortByDate(x : Dynamic, y : Dynamic) {
-		try {
-			var d1 : Date = parseDate(x.date);
-			var d2 : Date = parseDate(y.date);
+
+	private function dateSort (d1 : Date, d2 : Date){
 			var d1f : Float = d1.getTime();
 			var d2f : Float = d2.getTime();
 			if (d1f == d2f) {
@@ -150,6 +149,17 @@ class SymbolChart {
 				return -1;
 			}
 			return 1;	
+
+	}
+	private function sortHistoricalStress(x : HistoricalStressValue, y : HistoricalStressValue) {
+		return dateSort(parseDate(x.date), parseDate(y.date));
+	}
+	//TODO: Fix this.
+	private function sortByDate(x : Dynamic, y : Dynamic) {
+		try {
+			var d1 : Date = parseDate(x.date);
+			var d2 : Date = parseDate(y.date);
+			return dateSort(d1, d2);
 		}catch (err : Dynamic){
 			trace("Error parsing " + x + "-" + y);
 			return -1;
@@ -158,49 +168,150 @@ class SymbolChart {
 
 	//Creates a dataset if null and appends the stressValue
 	private function updateStressValues(stressValue : HistoricalStressValue) {
-		trace("Updating stress values for portfolio");
 		if(stressValue == null){
 			trace("Ignoring stress value");
 			return;
 		}
 		var key = stressValue.portfolioId + "_" + stressValue.portfolioId;	
 		var bufSize = updateBuffer(key, stressValue);
-		if (isBufferFull()) {
-			redrawChart(key);
-		}
+		redrawChart(key);
 	}
 
-	private function isBufferFull() {
+	private function isBufferFull(bufSize) {
+		//return bufSize == stressValueBufferSize;
 		return true;
 	}
-	private function updateBuffer(key, stressValue) {
-		trace("To be implemented");
-		return -1;
+	private function count(anObjectMap : ObjectMap<Date, Dynamic>) {
+		var count : Int = 0;
+		if(anObjectMap == null){
+			return count;
+		}
+		var iterator = anObjectMap.keys();
+		for (i in iterator) {
+			count++;
+		}
+		return count;
 	}
-	private function addNewSeries(newChart : Chart) {
-		trace("to be implemented");
-		return -1;
+
+	private function updateHistoricalPrice(key : String, historicalPrice : Dynamic){
+		var historicalPriceMap = historicalPriceBuffer.get(key);
+		if(historicalPriceMap == null){
+			historicalPriceMap = new ObjectMap<Date, Dynamic> ();
+			historicalPriceBuffer.set(key, historicalPriceMap);
+		}
+		historicalPriceMap.set(parseDate(historicalPrice.date), historicalPrice);
+
+	}
+	private function updateBuffer(key : String, stressValue : HistoricalStressValue) {
+		var stressValueMap : ObjectMap<Date, HistoricalStressValue> = historicalStressValueBuffer.get(key);
+		if(stressValueMap == null){
+			stressValueMap = new ObjectMap<Date, HistoricalStressValue> ();
+			historicalStressValueBuffer.set(key, stressValueMap);
+		}
+		stressValueMap.set(parseDate(stressValue.date), stressValue);
+		return (count(stressValueMap));
+
 	}
 	private function swap (old : Chart, newChart : Chart, ctx : CanvasRenderingContext2D){
 		trace("Swapping charts") ;
 		return -1;
 	}
+
 	private function redrawChart(key : String) {
-		var canvasElement : CanvasElement = cast (Browser.document.getElementById(key));
-		if(canvasElement == null){
-			trace("Canvas element for key not found " + key);
+		if (count(historicalStressValueBuffer.get(key)) < 50){
 			return;
 		}
-		var oldChart : Chart = chartMap.get(key);
+		var newKey = key + "STRESS";
+
+		var canvasElement : CanvasElement = cast Browser.document.getElementById(newKey);
+		if(canvasElement != null) {
+			canvasElement.parentElement.removeChild(canvasElement);
+		}
+		canvasElement.id = newKey;
+		canvasElement.height = Math.round(Browser.window.innerHeight / 3);
+		canvasElement.width  = Browser.window.outerWidth;
 		var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
-		var newChart : Chart = new Chart(ctx);		
-		addNewSeries(newChart);
-		swap(oldChart, newChart, ctx);
+		var newChart : Chart = new Chart(ctx);
+		createDataSet(newChart, historicalStressValueBuffer.get(key));
+		//swap(oldChart, newChart, ctx);
+		var element : Element = getPortfolioCharts();
+		if(element != null){
+			var divElement : DivElement = Browser.document.createDivElement();
+			divElement.id = "div_" + newKey;
+			var labelElement : LabelElement = Browser.document.createLabelElement();
+			labelElement.innerHTML = newKey;
+			divElement.appendChild(labelElement);
+			divElement.appendChild(canvasElement);	
+			element.appendChild(divElement);
+		}else {
+			trace("Unable to add element " + element);
+		}
 
 	}
 
-	
-	private function getData(historicalPrice : Dynamic){
+
+	//Need to make this generic, creating an interface for date and price.
+	private function createDataSet(newChart : Chart, historicalStress : ObjectMap<Date, HistoricalStressValue> ) {
+		var dateArray : Array<Date> = new Array<Date>();
+		var historicalPrice : Array<Dynamic> = new Array<Dynamic>();
+		var stressValue : Array<HistoricalStressValue> = new Array<HistoricalStressValue>();
+		var dateSet : ObjectMap<Date, Date> = new ObjectMap<Date, Date> ();
+		var iterator2 : Iterator<Date> = historicalStress.keys();		
+		for (i2 in iterator2) {
+			dateSet.set(i2, i2);
+		}
+
+		for (i in dateSet.keys()){
+			dateArray.push(i);
+		}
+		dateArray.sort(dateSort);
+		var chartTitle = "";
+		for(i in historicalStress.iterator()){
+			stressValue.push(i);
+		}
+		var chartData = createDateSets (chartTitle, dateArray, stressValue);
+		var lineChart : LineChart = newChart.Line(chartData);
+	}	
+	private function createDateSets(chartTitle : String , dateArray : Array<Date>  
+				, stressValues : Array<HistoricalStressValue> ){
+		var labels : Array<String> = new Array<String> ();
+		var interval = 8;
+		var count : Int = 0;
+		for(i in dateArray) {
+			if(count % interval == 0) {
+				labels.push("" + format(i));
+			}else {
+				labels.push("");
+			}
+			count++;
+		}
+		stressValues.sort(sortHistoricalStress);
+		var stressedPortfolioValue = stressValues.map(function (x) { 
+					trace("Stress values " + x.portfolioValue + " " + x.date);
+					return x.portfolioValue;});
+
+		var dataSets = [
+			{
+				label: "Symbol",
+				fillColor: "rgba(220,220,220,0.2)",
+				strokeColor: "rgba(220,220,220,1)",
+				pointColor: "rgba(220,220,220,1)",
+				pointStrokeColor: "#fff",
+				pointHighlightFill: "#fff",
+				pointHighlightStroke: "rgba(220,220,220,1)",
+				data : stressedPortfolioValue
+			}
+
+		];
+
+		var chartData = {
+			title : chartTitle + " Stress " + Date.now()
+			, labels : labels
+			, datasets : dataSets
+		};
+		return chartData;
+	}
+	private function getData(key : String, historicalPrice : Dynamic){
 		var labelsA : Array<String> = new Array<String>();
 		var dataA : Array<Dynamic> = new Array<Dynamic>();
 		var resultSet : Array<Dynamic> = historicalPrice.resultSet;
@@ -215,6 +326,7 @@ class SymbolChart {
 			}else {
 				labelsA.push("");
 			}
+			updateHistoricalPrice(key, i);
 			count = count + 1;
 
 		}
@@ -254,14 +366,14 @@ class SymbolChart {
 			//True doesnt work on firefox.
 			Global.responsive = false; //Setting to true was creating an issue:need to revisit.
 			var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
-			var dataSet  = getData(historicalPrice);
+			var dataSet  = getData(key, historicalPrice);
 			if(dataSet == null){
 				return;
 			}
 			try {
 				var chart = new Chart(ctx);
 				trace("Chart object " + chart);
-				var lineChart : LineChart = chart.Line(dataSet);	
+				var lineChart : LineChart = chart.Line(dataSet);
 				updateChartMap(key, chart);
 				updateDataSetMap(key, dataSet);
 
@@ -283,7 +395,7 @@ class SymbolChart {
 			
 		}else {
 			var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
-			updateChartData(getData(historicalPrice));			
+			updateChartData(getData(key, historicalPrice));			
 		}
 	}
 	private function updateChartData(data : Dynamic){
