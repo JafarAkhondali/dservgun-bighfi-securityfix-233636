@@ -616,7 +616,7 @@ updateStressValue a b stress = do
                         else 
                             return sValue
                     _ -> return sValue) 0.0 stressM 
-        Logger.debugM iModuleName $ "Total stress " `mappend` (show sVT)
+        Logger.debugM iModuleName $ "Total stress " `mappend` (show sVT) `mappend` "->" `mappend` (show stress)
         return (m * qD * (1 - sVT))
 
 

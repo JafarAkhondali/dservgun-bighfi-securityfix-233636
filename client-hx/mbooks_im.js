@@ -5778,6 +5778,7 @@ view.PortfolioSymbol.prototype = {
 	,__class__: view.PortfolioSymbol
 }
 view.SymbolChart = function(historicalPriceStream,stressValueStream) {
+	this.max_buf_size = 70;
 	this.STRESS_VALUE_INDEX = 1;
 	historicalPriceStream.then($bind(this,this.createUpdateChart));
 	stressValueStream.then($bind(this,this.updateStressValues));
@@ -5823,8 +5824,8 @@ view.SymbolChart.prototype = {
 		if(canvasElement == null) {
 			console.log("Canvas element not found");
 			canvasElement = js.Browser.document.createElement("canvas");
-			canvasElement.height = Math.round(js.Browser.window.innerHeight / 3);
-			canvasElement.width = js.Browser.window.outerWidth;
+			canvasElement.height = this.getChartHeight();
+			canvasElement.width = this.getChartWidth();
 			canvasElement.id = key;
 			Chart.defaults.global.responsive = false;
 			var ctx = canvasElement.getContext("2d");
@@ -5866,6 +5867,7 @@ view.SymbolChart.prototype = {
 			var i = resultSet[_g];
 			++_g;
 			console.log(i);
+			if(count == this.max_buf_size) break;
 			dataA.push(i.close);
 			if(count % interval == 0) labelsA.push("" + this.format(this.parseDate(i.date))); else labelsA.push("");
 			this.updateHistoricalPrice(key,i);
@@ -5924,10 +5926,18 @@ view.SymbolChart.prototype = {
 		if(this.count(this.historicalStressValueBuffer.get(key)) < 50) return;
 		var newKey = key + "STRESS";
 		var canvasElement = js.Browser.document.getElementById(newKey);
-		if(canvasElement != null) canvasElement.parentElement.removeChild(canvasElement);
+		if(canvasElement != null) {
+			var parentElement = canvasElement.parentElement;
+			var childNodes = parentElement.childNodes;
+			var index = 0;
+			while(index < childNodes.length) {
+				parentElement.removeChild(childNodes.item(index));
+				index++;
+			}
+		} else canvasElement = js.Browser.document.createElement("canvas");
 		canvasElement.id = newKey;
-		canvasElement.height = Math.round(js.Browser.window.innerHeight / 3);
-		canvasElement.width = js.Browser.window.outerWidth;
+		canvasElement.height = this.getChartHeight();
+		canvasElement.width = this.getChartWidth();
 		var ctx = canvasElement.getContext("2d");
 		var newChart = new Chart(ctx);
 		this.createDataSet(newChart,this.historicalStressValueBuffer.get(key));
@@ -5942,9 +5952,22 @@ view.SymbolChart.prototype = {
 			element.appendChild(divElement);
 		} else console.log("Unable to add element " + Std.string(element));
 	}
+	,getChartHeight: function() {
+		return Math.round(js.Browser.window.innerHeight / 3);
+	}
+	,getChartWidth: function() {
+		return Math.round(js.Browser.window.innerWidth);
+	}
 	,swap: function(old,newChart,ctx) {
 		console.log("Swapping charts");
 		return -1;
+	}
+	,clearBuffer: function(key) {
+		var stressValueMap = this.historicalStressValueBuffer.get(key);
+		if(stressValueMap != null) {
+			stressValueMap = new haxe.ds.ObjectMap();
+			this.historicalStressValueBuffer.set(key,stressValueMap);
+		} else throw "Stress value map not found for " + key + " at cleanup";
 	}
 	,updateBuffer: function(key,stressValue) {
 		var stressValueMap = this.historicalStressValueBuffer.get(key);
@@ -5974,16 +5997,23 @@ view.SymbolChart.prototype = {
 		return count;
 	}
 	,isBufferFull: function(bufSize) {
-		return true;
+		return bufSize == this.max_buf_size;
 	}
 	,updateStressValues: function(stressValue) {
 		if(stressValue == null) {
 			console.log("Ignoring stress value");
 			return;
 		}
+		if(MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId != stressValue.portfolioId) {
+			console.log("Ignoring non active portfolio " + stressValue.portfolioId);
+			return;
+		}
 		var key = stressValue.portfolioId + "_" + stressValue.portfolioId;
 		var bufSize = this.updateBuffer(key,stressValue);
-		this.redrawChart(key);
+		if(this.isBufferFull(bufSize)) {
+			this.redrawChart(key);
+			this.clearBuffer(key);
+		}
 	}
 	,sortByDate: function(x,y) {
 		try {

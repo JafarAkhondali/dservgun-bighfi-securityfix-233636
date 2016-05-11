@@ -127,7 +127,7 @@ class SymbolChart {
 			var month = dateComponents[1];
 			var day = dateComponents[2];
 			return new Date(Std.parseInt(year)
-						, Std.parseInt(month) - 1
+						, Std.parseInt(month) - 1 // off by zero.
 						, Std.parseInt(day)
 						, 0
 						, 0
@@ -172,14 +172,20 @@ class SymbolChart {
 			trace("Ignoring stress value");
 			return;
 		}
+		if(MBooks_im.getSingleton().portfolio.activePortfolio.portfolioId != stressValue.portfolioId) {
+			trace("Ignoring non active portfolio " + stressValue.portfolioId);
+			return;
+		}
 		var key = stressValue.portfolioId + "_" + stressValue.portfolioId;	
 		var bufSize = updateBuffer(key, stressValue);
-		redrawChart(key);
+		if(isBufferFull(bufSize)) {
+			redrawChart(key);
+			clearBuffer(key);
+		}
 	}
-
+	private var max_buf_size : Int = 70;
 	private function isBufferFull(bufSize) {
-		//return bufSize == stressValueBufferSize;
-		return true;
+		return bufSize == max_buf_size;
 	}
 	private function count(anObjectMap : ObjectMap<Date, Dynamic>) {
 		var count : Int = 0;
@@ -212,9 +218,25 @@ class SymbolChart {
 		return (count(stressValueMap));
 
 	}
+	private function clearBuffer(key : String){
+		var stressValueMap = historicalStressValueBuffer.get(key);
+		if(stressValueMap != null){
+			stressValueMap = new ObjectMap<Date, HistoricalStressValue>();
+			historicalStressValueBuffer.set(key, stressValueMap);
+		}else {
+			throw ("Stress value map not found for " + key + " at cleanup");
+		}
+	}
 	private function swap (old : Chart, newChart : Chart, ctx : CanvasRenderingContext2D){
 		trace("Swapping charts") ;
 		return -1;
+	}
+
+	private function getChartWidth() {
+		return Math.round (Browser.window.innerWidth);
+	}
+	private function getChartHeight (){
+		return Math.round(Browser.window.innerHeight / 3);
 	}
 
 	private function redrawChart(key : String) {
@@ -224,12 +246,21 @@ class SymbolChart {
 		var newKey = key + "STRESS";
 
 		var canvasElement : CanvasElement = cast Browser.document.getElementById(newKey);
+
 		if(canvasElement != null) {
-			canvasElement.parentElement.removeChild(canvasElement);
+			var parentElement = canvasElement.parentElement;
+			var childNodes = parentElement.childNodes;
+			var index : Int = 0;
+			while (index < childNodes.length) {
+				parentElement.removeChild(childNodes.item(index));
+				index++;
+			}
+		}else {
+			canvasElement = Browser.document.createCanvasElement();
 		}
 		canvasElement.id = newKey;
-		canvasElement.height = Math.round(Browser.window.innerHeight / 3);
-		canvasElement.width  = Browser.window.outerWidth;
+		canvasElement.height = getChartHeight();
+		canvasElement.width  = getChartWidth();
 		var ctx : CanvasRenderingContext2D = canvasElement.getContext("2d");
 		var newChart : Chart = new Chart(ctx);
 		createDataSet(newChart, historicalStressValueBuffer.get(key));
@@ -272,6 +303,7 @@ class SymbolChart {
 		var chartData = createDateSets (chartTitle, dateArray, stressValue);
 		var lineChart : LineChart = newChart.Line(chartData);
 	}	
+
 	private function createDateSets(chartTitle : String , dateArray : Array<Date>  
 				, stressValues : Array<HistoricalStressValue> ){
 		var labels : Array<String> = new Array<String> ();
@@ -318,8 +350,12 @@ class SymbolChart {
 		resultSet.sort(sortByDate);
 		var count : Int = 0;
 		var interval : Int = 8;
+
 		for(i in resultSet){
 			trace(i);
+			if (count == max_buf_size) {
+				break;
+			}
 			dataA.push(i.close);
 			if(count % interval == 0) {
 				labelsA.push("" + format(parseDate(i.date)));
@@ -360,8 +396,8 @@ class SymbolChart {
 		if(canvasElement == null){
 			trace("Canvas element not found");
 			canvasElement = Browser.document.createCanvasElement();
-			canvasElement.height = Math.round(Browser.window.innerHeight / 3);
-			canvasElement.width  = Browser.window.outerWidth;
+			canvasElement.height = getChartHeight();
+			canvasElement.width  = getChartWidth();
 			canvasElement.id = key;
 			//True doesnt work on firefox.
 			Global.responsive = false; //Setting to true was creating an issue:need to revisit.
@@ -398,9 +434,11 @@ class SymbolChart {
 			updateChartData(getData(key, historicalPrice));			
 		}
 	}
+
 	private function updateChartData(data : Dynamic){
 		trace("Update chart data " + data);
 	}
+
 	public function delete(historicalPrice : Dynamic){
 		trace("Deleting chart for price " + historicalPrice);
 		var key : String = getKey(historicalPrice);
@@ -412,6 +450,7 @@ class SymbolChart {
 			trace("ERROR: Nothing to delete");
 		}
 	}
+
 	public function deleteAll(){
 		trace("Deleting all portfolio charts");
 		var charts  = getPortfolioCharts();
