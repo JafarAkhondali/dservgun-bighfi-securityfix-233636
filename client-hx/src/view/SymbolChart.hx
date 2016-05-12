@@ -178,13 +178,16 @@ class SymbolChart {
 		}
 		var key = stressValue.portfolioId + "_" + stressValue.portfolioId;	
 		var bufSize = updateBuffer(key, stressValue);
-		if(isBufferFull(bufSize)) {
+		if(isBufferFull(bufSize, historicalPriceBuffer.get(key))) {
 			redrawChart(key);
 			clearBuffer(key);
 		}
 	}
 	private var max_buf_size : Int = 70;
-	private function isBufferFull(bufSize) {
+	private function isBufferFull(bufSize : Int, historicalPriceMap : ObjectMap<Date, Dynamic>) {
+		var historicalPriceMapCount = count(historicalPriceMap);
+		trace("Buffer size " + bufSize + " " + historicalPriceMapCount);
+		//return bufSize == historicalPriceMapCount;
 		return bufSize == max_buf_size;
 	}
 	private function count(anObjectMap : ObjectMap<Date, Dynamic>) {
@@ -194,7 +197,8 @@ class SymbolChart {
 		}
 		var iterator = anObjectMap.keys();
 		for (i in iterator) {
-			count++;
+			trace("Map key " + i);	
+			count = count + 1;
 		}
 		return count;
 	}
@@ -233,7 +237,7 @@ class SymbolChart {
 	}
 
 	private function getChartWidth() {
-		return Math.round (Browser.window.innerWidth);
+		return Math.round (Browser.window.innerWidth / 3);
 	}
 	private function getChartHeight (){
 		return Math.round(Browser.window.innerHeight / 3);

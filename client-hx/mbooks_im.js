@@ -5956,7 +5956,7 @@ view.SymbolChart.prototype = {
 		return Math.round(js.Browser.window.innerHeight / 3);
 	}
 	,getChartWidth: function() {
-		return Math.round(js.Browser.window.innerWidth);
+		return Math.round(js.Browser.window.innerWidth / 3);
 	}
 	,swap: function(old,newChart,ctx) {
 		console.log("Swapping charts");
@@ -5992,11 +5992,14 @@ view.SymbolChart.prototype = {
 		var iterator = anObjectMap.keys();
 		while( iterator.hasNext() ) {
 			var i = iterator.next();
-			count++;
+			console.log("Map key " + Std.string(i));
+			count = count + 1;
 		}
 		return count;
 	}
-	,isBufferFull: function(bufSize) {
+	,isBufferFull: function(bufSize,historicalPriceMap) {
+		var historicalPriceMapCount = this.count(historicalPriceMap);
+		console.log("Buffer size " + bufSize + " " + historicalPriceMapCount);
 		return bufSize == this.max_buf_size;
 	}
 	,updateStressValues: function(stressValue) {
@@ -6010,7 +6013,7 @@ view.SymbolChart.prototype = {
 		}
 		var key = stressValue.portfolioId + "_" + stressValue.portfolioId;
 		var bufSize = this.updateBuffer(key,stressValue);
-		if(this.isBufferFull(bufSize)) {
+		if(this.isBufferFull(bufSize,this.historicalPriceBuffer.get(key))) {
 			this.redrawChart(key);
 			this.clearBuffer(key);
 		}
