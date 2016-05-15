@@ -465,7 +465,7 @@ testInsertPortfolio = do
 		support = True
 		locale = Just ("en-us")
 
-
+{-- Ignore warnings in test cases --}
 testQueryPortfolios = do 
 	portfolio <- testInsertPortfolio
 	case portfolio of 
