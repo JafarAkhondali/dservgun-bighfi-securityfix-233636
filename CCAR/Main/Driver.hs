@@ -60,7 +60,7 @@ import Data.Typeable
 import Database.Persist.Postgresql as DB
 import Database.Persist 
 import Data.Map as IMap
-import CCAR.Data.ClientState
+import CCAR.Data.ClientState as ClientState
 import CCAR.Main.DBUtils
 import CCAR.Main.GroupCommunication as GroupCommunication
 import CCAR.Main.UserJoined as UserJoined 
@@ -518,7 +518,7 @@ getClientsWithFilter app@(App a c) nn f = do
 getAllClients :: App -> T.Text -> STM [ClientState]
 getAllClients app@(App a c) nn = do
     nMap <- readTVar c 
-    return $ IMap.elems $ filterWithKey (\k x-> nn /= (nickName x)) nMap 
+    return $ IMap.elems $ filterWithKey (\k x-> nn /= (ClientState.nickName x)) nMap 
 
 
 
@@ -715,13 +715,13 @@ processClientLeft connection app nickNameV = do
                             mapM_ (\cs -> writeTChan (writeChan cs) (text)) clientStates                                        
                             clientStates <- getClientState nickNameV app 
                             mapM_ (\cs -> writeTChan (writeChan cs) 
-                                    (UserJoined.userLoggedIn (nickName cs))) clientStates
+                                    (UserJoined.userLoggedIn (ClientState.nickName cs))) clientStates
                             currentClientState <- getClientState nickNameV app
                             allClients <- getAllClients app nickNameV
                             mapM_ (\conn -> 
                                     mapM_ (\cs -> 
                                             writeTChan (writeChan conn) 
-                                                (UserJoined.userLoggedIn (nickName cs)) 
+                                                (UserJoined.userLoggedIn (ClientState.nickName cs)) 
                                             ) allClients
                                     ) currentClientState                            
                             mapM_ (\text -> 
@@ -940,7 +940,7 @@ cleanupStaleConnections app = loop
             staleClients <- atomically $ getStaleClients app (30 :: NominalDiffTime) currentTime
             mapM_ (\x -> do 
                     Logger.infoM "CCAR" $ "Deleting client " ++ (show x)
-                    atomically $ deleteConnection app (nickName x)
+                    atomically $ deleteConnection app (ClientState.nickName x)
                     ) staleClients
             Logger.debugM "CCAR" "Stale connections cleaned"
             loop

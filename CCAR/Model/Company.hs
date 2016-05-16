@@ -6,13 +6,15 @@ module CCAR.Model.Company
 	, parseManageCompany
 	, process
 	, queryAllCompanies
-	, ManageCompany
+	, ManageCompany(..)
 	, CompanyT
 	, assignUserToCompany
 	, QueryCompanyUsers
 	, query 
 	, AssignUser(..)
+	, CompanyT(..)
 	) where 
+{-- CompanyT is getting exposed for testing. Perhaps we could break the file further down.--}
 import Control.Monad.IO.Class 
 import Control.Monad
 import Control.Monad.Logger 
@@ -344,7 +346,7 @@ process c@(ManageCompany nickName crudType company) =  do
 	        Delete -> deleteCompany company
 
 manageCompany aNickName o@(Object a) = do 
-	case (parse parseJSON o :: Result ManageCompany) of
+	case (fromJSON o :: Result ManageCompany) of
 	    Success r@(ManageCompany a cType company) -> do
 	    		company <- process r  
 	    		return (GC.Reply, 
@@ -393,7 +395,7 @@ assignUserToCompany aNickName aValue = do
 gen (ManageCompany nickName crudType company) = object ["crudType" .= crudType
                     , "company" .= company
                     , "commandType" .= ("ManageCompany" :: T.Text)
-                    , "nickName" .= nickName]
+                    , "nickName" .= (unN nickName)]
 
 parseQueryCompany v = do 
 				QueryCompany <$> 
@@ -429,7 +431,7 @@ parseManageCompany v = do
 					nickName <- v .: "nickName"
 					crudType <- v .: "crudType"
 					company  <- v .: "company"
-					return $ ManageCompany nickName crudType company
+					return $ ManageCompany (NickName nickName) crudType company
 
 
 parseCompany v = do 
