@@ -4,7 +4,6 @@ module CCAR.Model.Portfolio (
 	, queryUniqueSymbols
 	, manage
 	, process
-	, PortfolioT(..)
 	, Portfolio(..)
 	, manageSearch
 	, testInsertPortfolio
@@ -60,7 +59,7 @@ import Database.Persist.Postgresql as Postgresql
 import HSH
 import System.IO(openFile, writeFile, IOMode(..))
 import System.Log.Logger as Logger
-
+import CCAR.Model.PortfolioT as PortfolioT
 
 --Helper functions 
 
@@ -74,10 +73,6 @@ uuidFromString aString = do
 	where 
 		x = UUID.fromString
 
--- Data types
-data CRUD = Create | Read | P_Update | Delete 
-	deriving(Show, Read, Eq, Data, Generic, Typeable)
-	
 
 data PortfolioCommands = PortfolioSymbolTypesQuery | PortfolioSymbolSidesQuery
 		deriving (Show, Read, Data, Typeable, Generic)
@@ -102,6 +97,21 @@ data PortfolioSymbolSideQuery = PortfolioSymbolSideQuery {
 
 
 -- DB queries
+queryPortfolios :: PortfolioQuery -> IO (Either T.Text PortfolioQuery)
+queryPortfolios query = do 
+	dbOps $ do  
+		company <- getBy $ UniqueCompanyId . unC . qCompanyId $ query
+		user <- getBy $ UniqueNickName . unN . qUserId $ query
+		case (company, user) of 
+			(Just (Entity cId _) , Just (Entity uId _)) -> do 
+				companyUserId <- getBy $ UniqueCompanyUser cId uId
+				case companyUserId of 
+					Just (Entity cuId value) -> do 
+						portfolios <- selectList [PortfolioCompanyUserId ==. cuId] []
+						portfolioTs <- liftIO $ mapM (\(Entity k p) -> daoToDto Read k) portfolios
+						return $ Right $ query {resultSet = portfolioTs}
+					Nothing -> return $ Left $ "Query portfolios failed"
+
 
 queryPortfolioSymbolTypes :: T.Text -> Value -> IO(GC.DestinationType, T.Text)
 queryPortfolioSymbolTypes n (Object a) = 
@@ -118,99 +128,23 @@ queryPortfolioSymbolSides n (Object a) =
 						EnTypes.getPortfolioSymbolSides)
 
 type INickName = T.Text
-type PortfolioUUID = T.Text 
-type CompanyID = T.Text
-
-data PortfolioT = PortfolioT {
-	crudType :: CRUD
-	, portfolioId :: PortfolioUUID
-	, companyId :: CompanyID
-	, userId :: INickName
-	, summary :: T.Text 
-	, createdBy :: INickName
-	, updatedBy :: INickName
-} deriving(Show, Read, Eq, Data, Generic, Typeable)
-
-data PortfolioQuery = PortfolioQuery {
-	pqCommandType :: T.Text
-	, pqNickName :: T.Text
-	, qCompanyId :: CompanyID 
-	, qUserId :: INickName
-	, resultSet :: [Either T.Text PortfolioT]
-} deriving (Show, Read, Eq, Data, Generic, Typeable)
-
-queryPortfolios :: PortfolioQuery -> IO (Either T.Text PortfolioQuery)
-queryPortfolios query = do 
-	dbOps $ do 
-		company <- getBy $ UniqueCompanyId $ qCompanyId query 
-		user <- getBy $ UniqueNickName $ qUserId query
-		case (company, user) of 
-			(Just (Entity cId _) , Just (Entity uId _)) -> do 
-				companyUserId <- getBy $ UniqueCompanyUser cId uId
-				case companyUserId of 
-					Just (Entity cuId value) -> do 
-						portfolios <- selectList [PortfolioCompanyUserId ==. cuId] []
-						portfolioTs <- liftIO $ mapM (\(Entity k p) -> daoToDto Read k) portfolios
-						return $ Right $ query {resultSet = portfolioTs}
-					Nothing -> return $ Left $ "Query portfolios failed"
 
 
-instance ToJSON PortfolioQuery where 
-	toJSON pq@(PortfolioQuery cType nickName qCid userId r) = 
-		object [
-			"commandType" .= cType 
-			, "nickName" .= nickName 
-			, "companyId" .= qCid 
-			, "useerId"  .= userId 
-			, "resultSet" .= r
-		]
-instance FromJSON PortfolioQuery where 
-	parseJSON (Object a)  = PortfolioQuery <$> 
-						a .: "commandType" <*> 
-						a .: "nickName" <*> 
-						a .: "companyId" <*> 
-						a .: "userId" <*> 
-						a .: "resultSet"
-	parseJSON _ 		 = Appl.empty
-
-instance ToJSON PortfolioT where
-	toJSON p1@(PortfolioT c p c1 u s cr up) =
-		object [
-			"crudType" .= c 
-			, "portfolioId" .= p 
-			, "companyId" .= c1 
-			, "userId" .= u 
-			, "summary" .= s 
-			, "createdBy" .= cr 
-			, "updatedBy" .= up
-			, "commandType" .= ("ManagePortfolio" :: T.Text)
-		]
-
-instance FromJSON PortfolioT where
-	parseJSON (Object a) = PortfolioT <$>
-				a .: "crudType" <*>
-				a .: "portfolioId" <*>
-				a .: "companyId" <*> 
-				a .: "userId" <*>
-				a .: "summary" <*>
-				a .: "createdBy" <*>
-				a .: "updatedBy" 
-	parseJSON _ 	= Appl.empty  
 
 {-- Make sure that the dto and the dao refer to the same thing. To be implemented. --}
 sanityCheck :: Key Portfolio -> PortfolioT -> Either T.Text Bool
 sanityCheck a b = Right True
 
-dtoToDao :: PortfolioT -> IO (Either T.Text Portfolio)
+dtoToDao :: PortfolioT -> IO (Either PortfolioUUID Portfolio)
 dtoToDao pT@(PortfolioT cType 
 			porId comId userId summary createdBy updatedBy) = do 
 	currentTime <- getCurrentTime 
 	dbOps $ do 
-			com <- getBy $ UniqueCompanyId comId 
-			porKV <- getBy $ UniquePortfolio porId 
+			com <- getBy $ UniqueCompanyId . unC $ comId 
+			porKV <- getBy . UniquePortfolio . unP $ porId 
 			case porKV of 
 				Just (Entity pKey pValue) -> return $ Right pValue
-				Nothing -> return $ Left $  "Portfolio id " `mappend` porId `mappend` " not found"
+				Nothing -> return . Left $ porId
 
 queryPortfolioUUID :: PortfolioId -> IO (Either T.Text T.Text) 
 queryPortfolioUUID = \pId -> dbOps $ do 
@@ -237,12 +171,12 @@ daoToDto crType pid = do
 						case (comUser, company, cUser, createdBy, updatedBy) of
 							(Just coUser, Just com, Just cu, Just createdByObj, Just updby) -> 
 								return $ Right $ PortfolioT crType 
-											(portfolioUuid v) 
-											(companyCompanyID com)
-											(personNickName cu)
+											(PortfolioUUID . portfolioUuid $ v) 
+											(CompanyID . companyCompanyID $ com)
+											(NickName . personNickName $ cu)
 											(portfolioSummary v)
-											(personNickName createdByObj) 
-											(personNickName updby)
+											(NickName . personNickName $ createdByObj) 
+											(NickName . personNickName $ updby)
 							_-> return $ Left $ T.pack "Unable to create portfolio transfer object.ouch!"
 			Nothing -> return $ Left $ T.pack $ 
 								"Unable to query db " `mappend` (show pid) 
@@ -353,9 +287,9 @@ insertPortfolio p@(PortfolioT cType
 		Just u -> do 
 			currentTime <- getCurrentTime
 			dbOps $ do 
-				c <- getBy $ UniqueCompanyId companyId 
-				nPerson <- getBy $ UniqueNickName userId 
-				crBy <- getBy $ UniqueNickName createdBy
+				c <- getBy $ UniqueCompanyId . unC $ companyId 
+				nPerson <- getBy $ UniqueNickName . unN $ userId 
+				crBy <- getBy $ UniqueNickName . unN $ createdBy
 				case (c, nPerson, crBy) of 
 					(Just (Entity cKey _)
 						, Just (Entity nKey _)
@@ -383,7 +317,7 @@ updatePortfolio p@(PortfolioT cType
 				   updatedBy) = do 
 	currentTime <- getCurrentTime 
 	dbOps $ do 
-		portfolio <- getBy $ UniquePortfolio portId
+		portfolio <- getBy $ UniquePortfolio . unP $ portId
 		case portfolio of 
 			Nothing -> return $ Left $ T.pack $ "Portfolio not found " `mappend` (show p)
 			Just (Entity portfolioId portfolio) -> do 
@@ -399,7 +333,7 @@ readPortfolio p@(PortfolioT cType portId
 		updateBy) = do
 		Logger.debugM iModuleName $ "Reading portfolio " ++ (show p)	
 		dbOps $ do 
-			portfolio <- getBy $ UniquePortfolio portId 
+			portfolio <- getBy $ UniquePortfolio . unP $ portId 
 			case portfolio of 
 				Nothing -> return $ Left $ T.pack $ "Portfolio not found " `mappend` (show p)
 				Just (Entity pId port) -> return $ Right  pId 
@@ -414,7 +348,7 @@ deletePortfolio p@(PortfolioT cType
 	updatedBy) = do 
 	Logger.debugM iModuleName $ "Deleting portfolio " ++ (show p)
 	dbOps $ do 
-		portfolio <- getBy $ UniquePortfolio portId 
+		portfolio <- getBy $ UniquePortfolio . unP $ portId 
 		case portfolio of
 			Nothing -> return $ Left $ T.pack $ "Portfolio not found " `mappend` (show p)  
 			Just(Entity pid port) -> do
@@ -451,11 +385,13 @@ testInsertPortfolio = do
 
 					--Create a company user
 					companyUser <- dbOps $ insert $ CompanyUser company person chatMinder support locale
-					portfolio <- insertPortfolio $ PortfolioT Create "insert_me" 
-							(uuidAsText cU) 
-							userIdAsText "Test portfolio" 
-							userIdAsText
-							userIdAsText
+					portfolio <- insertPortfolio $ PortfolioT PortfolioT.Create 
+							(PortfolioUUID "insert_me")
+							(CompanyID . uuidAsText $ cU) 
+							(NickName userIdAsText)
+							"Test portfolio" 
+							(NickName userIdAsText)
+							(NickName userIdAsText)
 					return portfolio
 					where 
 							uuidAsText = T.pack . uuidAsString 
@@ -481,14 +417,13 @@ testQueryPortfolios = do
 								case com of 
 									Just com1 -> do    
 										queryPortfolios $ PortfolioQuery queryPortfolio 
-												(personNickName u) 
-												(companyCompanyID com1)
-												(personNickName u) 
+												(NickName . personNickName $ u) 
+												(CompanyID . companyCompanyID $ com1)
+												(NickName . personNickName $ u) 
 												[]
+									Nothing -> return . Left $ "Test failed"
 
 
-instance ToJSON CRUD 
-instance FromJSON CRUD 
 instance ToJSON PortfolioCommands 
 instance FromJSON PortfolioCommands
 instance ToJSON PortfolioSymbolTypeQuery

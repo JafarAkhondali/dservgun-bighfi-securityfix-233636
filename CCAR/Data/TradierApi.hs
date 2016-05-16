@@ -630,12 +630,15 @@ type CommandType = T.Text
 computeHistoricalStress :: NickName -> [HistoricalPrice] -> PortfolioSymbol -> [Stress] -> IO [Either T.Text PortfolioStressValue]
 computeHistoricalStress nickName prices s stresses = Control.Monad.mapM  (\m -> do  
 								stress <- updateStressValue m s stresses
-								daoToDto <- daoToDtoDefaults nickName s 
+								daoToDto <- daoToDtoDefaults (unN nickName) s 
 								case daoToDto of 
-									Right dto -> return $ Right $ PortfolioStressValue nickName "HistoricalStressValueCommand" 
-																	(historicalPriceDate m) 
-																	dto  
-																	stress
+									Right dto -> return $ Right $ 
+											PortfolioStressValue 
+											(unN nickName)
+											"HistoricalStressValueCommand" 
+											(historicalPriceDate m) 
+											dto  
+											stress
 									Left x -> return $ Left x 
 							)prices 
 
@@ -698,8 +701,8 @@ tradierRunner app conn nickName terminate =
         						) $ do 
 		        			Control.Monad.mapM (\p -> do 
 		        				h <- getHistoricalPrice $ portfolioSymbolSymbol p 
-		        				activeScenario <- liftIO $ atomically $ getActiveScenario app nickName
-		        				computeHistoricalStress nickName h p activeScenario) mySymbols
+		        				activeScenario <- liftIO . atomically $ getActiveScenario app nickName
+		        				computeHistoricalStress (NickName nickName) h p activeScenario) mySymbols
 
         Logger.debugM iModuleName "Computing stress values"
         Control.Monad.mapM_ (\p -> do 

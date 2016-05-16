@@ -31,6 +31,7 @@ import							Data.Functor.Identity as Identity
 import							Control.Monad.Trans.Maybe
 import							CCAR.Main.Util(getUTCTime)
 import 							Control.Monad.Trans.Reader
+import							CCAR.Model.PortfolioT
 import							CCAR.Model.PortfolioSymbol(getPortfolioSymbols)
 
 iModuleName  = "CCAR.Analytics.EquityAnalytics"
@@ -64,8 +65,6 @@ getSectorBenchmark aSymbol = do
 		h : _ -> return h
 	return y
 
-
-type PortfolioUUID = Text
 
 portfolioBeta :: PortfolioUUID -> Text -> Text -> IO (Either Text 
 							([(Text, CCAR.Data.Stats.Gradient, Double)]

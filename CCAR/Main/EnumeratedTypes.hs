@@ -64,6 +64,7 @@ getSurveyPublicationStates = [minBound..maxBound]
 
 data RoleType = Guest | ReturningUser | Admin | Support 
 			deriving(Show, Read, Enum, Bounded, Eq, Data, Generic, Typeable)
+getRoleTypes :: [RoleType]
 getRoleTypes = [minBound..maxBound]
 
 data ContactType = Twitter | LinkedIn | Facebook | Phone | Email | Cell | Work | Home | Pinterest

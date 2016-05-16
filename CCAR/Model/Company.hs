@@ -11,6 +11,7 @@ module CCAR.Model.Company
 	, assignUserToCompany
 	, QueryCompanyUsers
 	, query 
+	, AssignUser(..)
 	) where 
 import Control.Monad.IO.Class 
 import Control.Monad
@@ -40,9 +41,7 @@ import Data.Time
 import CCAR.Main.Util 
 import System.Log.Logger as Logger
 import CCAR.Main.DBOperations (Query, query, manage, Manager)
-
-data CRUD = Create | Read | C_Update | Delete
-    deriving(Show, Eq, Read, Data, Generic, Typeable)
+import CCAR.Model.PortfolioT
 
 
 data AssignUser = AssignUser {
@@ -78,13 +77,11 @@ data QueryCompanyUsers = QueryCompanyUsers {
 
 
 data ManageCompany = ManageCompany {
-        nickName :: T.Text
+        nickName :: NickName
         , crudType :: CRUD 
         , company :: CompanyT 
     } deriving (Show, Eq)
 
-
-type CompanyID = T.Text 
 
 
 instance Query QueryCompanyUsers where 
@@ -93,7 +90,7 @@ instance Query QueryCompanyUsers where
 
 
 createQueryCompanyDTO :: NickName -> Company -> CompanyT
-createQueryCompanyDTO a co = 
+createQueryCompanyDTO _ co = 
 			CompanyT (companyCompanyName co )
 					 (companyCompanyID co)
 					 (companyCompanyImage co) 
@@ -122,7 +119,7 @@ insertCompany aNickName aCompany = do
 	Logger.debugM iModuleName $ 
 					"Inserting " `mappend` (show aCompany)
 	dbOps $ do 
-		person <- getBy $ UniqueNickName aNickName
+		person <- getBy $ UniqueNickName . unN $ aNickName
 		case person of 
 			Just(Entity personId v) -> do  
 				insert c
@@ -202,8 +199,8 @@ selectCompanyUsers :: NickName -> CompanyID -> IO [Person]
 selectCompanyUsers aNickName  = \companyText -> 
 	dbOps $ do 
 	x <- runMaybeT $ do 			
-			Just (Entity cId company) <- lift $ getBy $ UniqueCompanyId companyText
-			Just (Entity nick nickName) <- lift $ getBy $ UniqueNickName aNickName
+			Just (Entity cId company) <- lift . getBy . UniqueCompanyId . unC $ companyText
+			Just (Entity nick nickName) <- lift . getBy . UniqueNickName . unN $ aNickName
 			Just (Entity nickCompanyUserId nickNameCompanyUser) <- lift $ getBy $ UniqueCompanyUser cId nick 
 			roleTypes <- lift $ selectList [CompanyUserRoleCuId ==. nickCompanyUserId] []
 			Just admin <- return $ isAdmin roleTypes 
@@ -234,7 +231,7 @@ updateCompany aNickName aCompany@(CompanyT tName tID tImage tGen) = do
 	currentTime <- getCurrentTime
 	x <- dbOps $ do 
 		runMaybeT $ do 
-			Just (Entity p person) <- lift $ getBy $ UniqueNickName aNickName 
+			Just (Entity p person) <- lift $ getBy $ UniqueNickName . unN $ aNickName 
 			liftIO $ Logger.debugM iModuleName $ 
 							"Updating company " `mappend` (show person)
 			Just (Entity k v) <- lift $ getBy $ UniqueCompanyId tID 
@@ -263,8 +260,8 @@ insertCompanyPerson :: NickName -> CompanyID -> Bool -> IO (Either T.Text (Key C
 insertCompanyPerson aNickName aCompanyId chatMinder = do
 	currentTime <- getCurrentTime
 	x <- dbOps $ do 
-		personId <- getBy $ UniqueNickName aNickName
-		cid <- getBy $ UniqueCompanyId aCompanyId 
+		personId <- getBy . UniqueNickName . unN $ aNickName
+		cid <- getBy . UniqueCompanyId . unC $ aCompanyId 
 
 		liftIO $ Logger.debugM iModuleName $ "Company " ++ (show cid)
 		liftIO $ Logger.debugM iModuleName $ "Person " ++ (show personId)
@@ -281,9 +278,9 @@ insertCompanyPerson aNickName aCompanyId chatMinder = do
 			(_, _ ) ->do 
 				liftIO $ Logger.errorM iModuleName $ 
 						"Error inserting company user " 
-						`mappend` (T.unpack aNickName) 
+						`mappend` (T.unpack . unN $ aNickName) 
 						`mappend` " " 
-						`mappend` (T.unpack aCompanyId) 
+						`mappend` (T.unpack. unC $ aCompanyId) 
 				return $ Left "Insert/update failed"
 	return x
 
@@ -299,8 +296,8 @@ queryCompanyUser n c = do
 assignSupportForCompany :: NickName -> CompanyID -> Bool -> IO ()
 assignSupportForCompany aNickName aCompanyId support = do 
 	x <- dbOps $ do 
-		personId <- getBy $ UniqueNickName aNickName
-		cid <- getBy $ UniqueCompanyId aCompanyId 
+		personId <- getBy $ UniqueNickName . unN $ aNickName
+		cid <- getBy $ UniqueCompanyId . unC $ aCompanyId 
 		case(personId, cid) of 
 				(Just (Entity k1 p1), Just (Entity k2 p2)) -> do 
 					pcid <- getBy $ UniqueCompanyUser k2 k1
@@ -312,8 +309,8 @@ type Locale = T.Text
 updateCompanyPersonLocale :: NickName -> CompanyID -> Locale -> IO () 
 updateCompanyPersonLocale aNickName aCompanyId aLocale = do 
 	x <- dbOps $ do 
-		personId <- getBy $ UniqueNickName aNickName
-		cid <- getBy $ UniqueCompanyId aCompanyId 
+		personId <- getBy $ UniqueNickName. unN $ aNickName
+		cid <- getBy $ UniqueCompanyId . unC $ aCompanyId 
 		case(personId, cid) of 
 				(Just (Entity k1 p1), Just (Entity k2 p2)) -> do 
 					pcid <- getBy $ UniqueCompanyUser k2 k1
@@ -324,8 +321,8 @@ updateCompanyPersonLocale aNickName aCompanyId aLocale = do
 updateCompanyChatMinder :: NickName -> CompanyID -> Bool -> IO () 
 updateCompanyChatMinder aNickName aCompanyId chatMinder = do 
 	x <- dbOps $ do 
-		personId <- getBy $ UniqueNickName aNickName
-		cid <- getBy $ UniqueCompanyId aCompanyId 
+		personId <- getBy $ UniqueNickName . unN $ aNickName
+		cid <- getBy $ UniqueCompanyId. unC $ aCompanyId 
 		case(personId, cid) of 
 				(Just (Entity k1 p1), Just (Entity k2 p2)) -> do 
 					pcid <- getBy $ UniqueCompanyUser k2 k1
@@ -342,7 +339,7 @@ revokeChatMinderPermissions aNickName aCompanyId = updateCompanyChatMinder aNick
 process c@(ManageCompany nickName crudType company) =  do 
 	case crudType of 
 	        Create -> insertCompany nickName company		            		
-	        C_Update -> updateCompany nickName company 
+	        P_Update -> updateCompany nickName company 
 	        Read -> queryCompany nickName company
 	        Delete -> deleteCompany company
 
@@ -362,7 +359,7 @@ queryAllCompanies aNickName o@(Object a) = do
 			Success r -> do 
 					companiesD <- selectAllCompanies
 					companiesT <- mapM (\x@(Entity k v) -> 
-											return $ createQueryCompanyDTO aNickName v) 
+											return $ createQueryCompanyDTO (NickName aNickName) v) 
 										companiesD
 					return (GC.Reply
 							, serialize $ QueryCompany aNickName "SelectAllCompanies" companiesT)
@@ -374,16 +371,17 @@ queryAllCompanies aNickName o@(Object a) = do
 queryCompanyUsers aNickName o = do 
 	x <- case (parse parseJSON o :: Result QueryCompanyUsers) of 
 		Success r@(QueryCompanyUsers ni cType cName _) -> do 
-			companyUsers <- selectCompanyUsers ni cName 
+			companyUsers <- selectCompanyUsers (NickName ni) (CompanyID cName)
 			return $ Right $ 
 				QueryCompanyUsers ni cType cName companyUsers
 		Error s ->  return $ Left $ appError $ "Query users for a company failed  " ++ s
 	return (GC.Reply, x)
 
 assignUserToCompany aNickName aValue = do 
-	case (parse parseJSON aValue :: Result AssignUser) of 
+	liftIO $ Logger.debugM iModuleName $ "Assigning user to company  " ++ (show aValue)
+	case (fromJSON aValue :: Result AssignUser) of 
 		Success a@(AssignUser cType cID user chatMinder support) -> do 
-			x <- insertCompanyPerson user cID chatMinder 
+			x <- insertCompanyPerson (NickName user) (CompanyID cID) chatMinder 
 			case x of 
 				Right y -> return (GC.Reply, serialize a)
 				Left z -> return (GC.Reply, serialize $ 
@@ -461,7 +459,7 @@ instance ToJSON AssignUser where
 			object [
 				"commandType" .= cType
 				, "companyID" .= cID
-				, "userName " .= userName 
+				, "userName" .= userName 
 				, "isChatMinder" .= isChatMinder
 				, "isSupport" .= isSupport
 			]
@@ -494,8 +492,6 @@ instance Show Company where
 		++ ":" ++ (show u)
 
 
-instance ToJSON CRUD 
-instance FromJSON CRUD 
 instance ToJSON ManageCompany where
     toJSON  = gen
 

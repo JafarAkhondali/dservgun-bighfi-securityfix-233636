@@ -17,7 +17,9 @@ import Yesod.Static
 import Control.Exception hiding(Handler)
 import qualified GHC.Conc as GHCConc
 import CCAR.Parser.CCARParsec
+import CCAR.Model.PortfolioT
 import CCAR.Model.CcarDataTypes
+import CCAR.Main.GroupCommunication
 import Control.Monad (forever, void, when, liftM, filterM, foldM)
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Maybe
@@ -58,9 +60,11 @@ import Data.Typeable
 import Database.Persist.Postgresql as DB
 import Database.Persist 
 import Data.Map as IMap
+import CCAR.Data.ClientState
 import CCAR.Main.DBUtils
 import CCAR.Main.GroupCommunication as GroupCommunication
 import CCAR.Main.UserJoined as UserJoined 
+import CCAR.Main.Application
 import CCAR.Command.ApplicationError 
 import CCAR.Model.Person
 import CCAR.Model.Country as Country
@@ -252,10 +256,14 @@ processCommandValue app nickName aValue@(Object a)   = do
                                     GroupCommunication.Reply, 
                                     ser $ appError $ 
                                         "Parse Keep alive failed" ++ s ++ (show a))
+                String "ActivePortfolio" -> do 
+                        Logger.debugM "CCAR" $ "Updating active portfolio " ++ (show a)
+                        (dType, value) <- processActivePortfolio nickName app (Object a)
+                        return (dType, ser value)
                 String "SendMessage" -> do 
                         (dType, value) <- processSendMessage (Object a)
                         return (dType, ser value)
-                String "ManageCompany" -> Company.manageCompany nickName (Object a)
+                String "ManageCompany" -> Company.manageCompany (NickName nickName) (Object a)
                 String "SelectAllCompanies" -> Company.queryAllCompanies nickName (Object a)
                 String "ManageProject" -> Project.manageProject nickName (Object a)
                 String "SelectActiveProjects" -> Project.queryActiveProjects nickName (Object a)
@@ -274,11 +282,11 @@ processCommandValue app nickName aValue@(Object a)   = do
                 String "ManageSurvey" -> Survey.manageSurvey nickName (Object a)
                 -- Assign a user to a company.
                 String "AssignCompany" -> Company.assignUserToCompany nickName (Object a)
-                String "QueryPortfolios" -> Portfolio.manageSearch nickName (Object a)
-                String "ManagePortfolio" -> Portfolio.manage nickName (Object a)
-                String "ManagePortfolioSymbol" -> PortfolioSymbol.manage nickName (Object a)
-                String "QueryPortfolioSymbol" -> PortfolioSymbol.manageSearch nickName (Object a)
-                String "ManageEntitlements" -> Entitlements.manage nickName aValue 
+                String "QueryPortfolios" -> Portfolio.manageSearch (NickName nickName) (Object a)
+                String "ManagePortfolio" -> Portfolio.manage (NickName nickName) (Object a)
+                String "ManagePortfolioSymbol" -> PortfolioSymbol.manage (NickName nickName) (Object a)
+                String "QueryPortfolioSymbol" -> PortfolioSymbol.manageSearch (NickName nickName) (Object a)
+                String "ManageEntitlements" -> Entitlements.manage (NickName nickName) aValue 
                             >>= \(gc, either) -> 
                             return (gc, Util.serialize 
                                 (either :: Either ApplicationError 
@@ -291,7 +299,7 @@ processCommandValue app nickName aValue@(Object a)   = do
                                         (either :: 
                                                 Either ApplicationError 
                                                 Entitlements.QueryEntitlementT))
-                String "ManageCompanyEntitlements" -> Entitlements.manage nickName aValue 
+                String "ManageCompanyEntitlements" -> Entitlements.manage (NickName nickName) aValue 
                             >>= \(gc, either) ->
                             return (gc , 
                             Util.serialize 
@@ -320,12 +328,12 @@ processCommandValue app nickName aValue@(Object a)   = do
                                             Util.serialize
                                             (result ::Either ApplicationError Login))
                 String "ManageUser" ->
-                        UserOperations.manage nickName aValue 
+                        UserOperations.manage (NickName nickName) aValue 
                             >>= \(gc, either) ->
                                 return(gc, Util.serialize 
                                         (either :: Either ApplicationError UserOperations))
                 String "CCARUpload" -> 
-                        CCAR.manage nickName aValue
+                        CCAR.manage (NickName nickName) aValue
                             >>= \(gc, either) -> 
                                 return (gc, Util.serialize 
                                         (either :: Either ApplicationError CCAR.CCARUpload)) 
@@ -497,7 +505,12 @@ getStaleClients app@(App a c) interval currentTime = do
         staleClient clientState  = (timeDiffs currentTime (lastUpdateTime clientState)) 
                                                 >= (interval :: NominalDiffTime) 
 
-getClientsWithFilter :: App -> T.Text -> (NickName -> ClientState -> Bool) -> STM [ClientState]
+getActivePortfolio :: T.Text -> App -> IO (Maybe ActivePortfolio)
+getActivePortfolio nickName app@(App a c) = atomically $ do 
+        cState:_ <- getClientState nickName app 
+        return . activePortfolio $ cState
+        
+getClientsWithFilter :: App -> T.Text -> (T.Text -> ClientState -> Bool) -> STM [ClientState]
 getClientsWithFilter app@(App a c) nn f = do
     nMap  <- readTVar c 
     return $ IMap.elems $ filterWithKey f nMap
@@ -507,12 +520,6 @@ getAllClients app@(App a c) nn = do
     nMap <- readTVar c 
     return $ IMap.elems $ filterWithKey (\k x-> nn /= (nickName x)) nMap 
 
-
--- Convert a result of a map to a list
-getClientState :: T.Text -> App -> STM [ClientState]
-getClientState nickName app@(App a c) = do
-        nMap <- readTVar c
-        return $ IMap.elems $ filterWithKey(\k _ -> k ==  nickName) nMap
 
 
 getPersonNickName :: Maybe Person -> Maybe T.Text
@@ -573,7 +580,7 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
                     String "ManageUser"-> do
                         Logger.debugM iModuleName  ("Manage user " `mappend`   
                                                         (T.unpack $ aText))
-                        g@(gc, res) <- UserOperations.manage aText o 
+                        g@(gc, res) <- UserOperations.manage (NickName aText) o 
                         case res of 
                             Right x -> do 
                                     atomically $ addConnection app aConn nickName currentTime
@@ -585,7 +592,7 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
                         result <- return $ (parse parseGuestUser a)
                         case result of 
                             Success (g@(UserJoined.GuestUser guestNickName)) -> do
-                                    createGuestLogin guestNickName  
+                                    createGuestLogin (NickName guestNickName)
                                     atomically $ addConnection app aConn guestNickName  currentTime
                                     return $ (GroupCommunication.Broadcast, ser g)                          
                             Error errMessage ->  
@@ -682,7 +689,7 @@ processClientLost app connection nickNameV iText = do
                     (processClientLeft connection app nickNameV) `catch`
                                     (\a@(SomeException e) -> do  
                                             atomically $ deleteConnection app nickNameV
-                                            return "Close request")
+                                            return ("Close request" :: T.Text))
                     return ("Threads exited" :: T.Text)
 
 {- Stay inside the loop till the user answers with the correct passsword -}
@@ -973,5 +980,15 @@ driver = do
 
 
 
+-- Needs to go somewhere other than the driver.
+processActivePortfolio :: T.Text -> App -> Value -> IO (DestinationType, Either ApplicationError PortfolioT) 
+processActivePortfolio nickName app (Object a) = do 
+    let r = (parse parseJSON (Object a) :: Result PortfolioT)
+    case r of 
+        Success x -> do 
+                atomically $ updateActivePortfolio nickName app x 
+                return(CCAR.Main.GroupCommunication.Reply, Right x)
+        Error e -> 
+                return (CCAR.Main.GroupCommunication.Reply, Left $ appError e)
 
 

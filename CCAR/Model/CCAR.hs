@@ -108,7 +108,7 @@ instance Manager CCARUpload where
 
 manageCCAR :: NickName -> Value -> IO (GC.DestinationType, Either ApplicationError CCARUpload)
 manageCCAR aNickName aValue = do 
-	Logger.debugM iModuleName $ show $ T.intercalate "-" ["inside manage", aNickName, 
+	Logger.debugM iModuleName $ show $ T.intercalate "-" ["inside manage", unN aNickName, 
 				T.pack $ show aValue] 
 	case (AeTypes.parse parseJSON aValue) of 
 		Success e@(CCARUpload a b c d) -> do 			
@@ -159,12 +159,12 @@ deleteCCAR c = dbOps $ do
 
 createCCAR (CCARUpload a b (Just c) d) = do    
     ccarId <- insertCCAR c
-    Logger.infoM iModuleName $ show $ "CCAR created " 
+    Logger.infoM iModuleName $ show $ ("CCAR created " :: String)
     return $ (GC.Reply, Right $ CCARUpload a b (Just c) [])
 
 updateCCARU (CCARUpload a b (Just c) d) = do 
     c1 <- updateCCAR c 
-    Logger.infoM iModuleName $ show "CCAR updated"
+    Logger.infoM iModuleName $ show ("CCAR updated" :: T.Text)
     return (GC.Reply, Right $ CCARUpload a b (Just c) [])
 retrieveCCAR (CCARUpload a b (Just c) d) = do 
     c1 <- queryCCAR (cCARScenarioName c) 

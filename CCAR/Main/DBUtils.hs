@@ -3,11 +3,10 @@
 
 module CCAR.Main.DBUtils where
 
-import Control.Applicative as Appl
 import Database.Persist.Postgresql as DB
 import Database.Persist.TH
 import Data.Time
-import Data.Text
+import Data.Text as T
 import CCAR.Main.EnumeratedTypes 
 import System.Environment(getEnv)
 import Data.ByteString as DBS 
@@ -17,39 +16,59 @@ import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Monad.Trans.Resource(runResourceT) 
 import System.Log.Logger as Logger
+import Data.Data
+import GHC.Generics 
+import Data.Typeable
+import Data.Monoid hiding(Product)
 
 instance ToJSON OptionType
 instance FromJSON OptionType
-instance ToJSON SurveyPublicationState
-instance FromJSON SurveyPublicationState
-instance ToJSON MessageDestinationType
-instance FromJSON MessageDestinationType
-instance ToJSON Gender 
-instance FromJSON Gender
-instance ToJSON MessageCharacteristics
-instance FromJSON MessageCharacteristics
-instance ToJSON RoleType
-instance FromJSON RoleType 
-instance ToJSON ContactType
-instance FromJSON ContactType 
-instance ToJSON PortfolioSymbolType
-instance FromJSON PortfolioSymbolType 
-instance ToJSON PublishState 
-instance FromJSON PublishState 
+
+
 instance ToJSON TimeUnit 
 instance FromJSON TimeUnit 
+
+instance ToJSON MessageCharacteristics
+instance FromJSON MessageCharacteristics
+
+instance ToJSON PublishState 
+instance FromJSON PublishState 
+
 instance ToJSON ProjectReportType
 instance FromJSON ProjectReportType 
+
 instance ToJSON DocumentFileFormat
 instance FromJSON DocumentFileFormat
-instance ToJSON SupportedScript
-instance FromJSON SupportedScript
-instance ToJSON PortfolioSymbolSide
-instance FromJSON PortfolioSymbolSide
+
+instance ToJSON ContactType
+instance FromJSON ContactType 
+
+instance ToJSON RoleType
+instance FromJSON RoleType 
+
+instance ToJSON SurveyPublicationState
+instance FromJSON SurveyPublicationState
+
+instance ToJSON Gender 
+instance FromJSON Gender
+
+instance ToJSON MessageDestinationType
+instance FromJSON MessageDestinationType
+
 instance ToJSON PortfolioAnalysisResultType
 instance FromJSON PortfolioAnalysisResultType
 
-type NickName = Text
+instance ToJSON PortfolioSymbolType
+instance FromJSON PortfolioSymbolType 
+
+instance ToJSON PortfolioSymbolSide
+instance FromJSON PortfolioSymbolSide
+
+instance ToJSON SupportedScript
+instance FromJSON SupportedScript
+
+newtype NickName = NickName {unN:: T.Text} 
+    deriving (Show, Read, Eq, Data, Generic, Typeable, Monoid)
 type Base64Text = Text -- Base64 encoded text representing the image.
 
 getPoolSize :: IO Int 
@@ -204,8 +223,8 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             updatedOn UTCTime default = CURRENT_TIMESTAMP
             deriving Show Eq
         Gift json
-            from NickName 
-            to NickName
+            from Text 
+            to Text
             message Text 
             sentDate UTCTime
             acceptedDate UTCTime 
@@ -241,7 +260,7 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
         Person json
             firstName Text 
             lastName Text 
-            nickName NickName
+            nickName Text
             password Text
             locale Text Maybe
             lastLoginTime UTCTime default=CURRENT_TIMESTAMP
@@ -275,8 +294,8 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
                 -- Persistent version of messages. This table is only for general messages and private messages.
                 -- MessageDestinationType is mainly, private message or broadcast.
                 -- Group messages will be handled as part of group messages.
-            from NickName 
-            to NickName 
+            from Text 
+            to Text 
             message Text
             iReadIt MessageCharacteristics
             destination MessageDestinationType

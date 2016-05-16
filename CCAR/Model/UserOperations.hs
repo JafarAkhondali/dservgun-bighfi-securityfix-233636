@@ -113,7 +113,7 @@ testUserOperations a v = do
 
 manageUserOperations :: NickName -> Value -> IO (GC.DestinationType, Either ApplicationError UserOperations)
 manageUserOperations aNickName aValue@(Object a) = do
-	Logger.debugM iModuleName $ show $ T.intercalate "-" ["inside manage", aNickName, 
+	Logger.debugM iModuleName $ show $ T.intercalate "-" ["inside manage", unN aNickName, 
 				T.pack $ show aValue] 
 	case (parse parseJSON aValue :: Result UserOperations) of 
 		Success e@(UserOperations a b) -> do 			

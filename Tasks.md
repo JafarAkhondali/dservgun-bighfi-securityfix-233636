@@ -82,3 +82,9 @@ This overlaps with a different project. This task is to integrate with the ml ut
 * Get a sense of the current state of the ui.
 * Create expected test cases.
 * Fix ui code to pass the tests.
+
+
+12/5/2016
+### Libraries:
+* Data.Data : What does that do.
+* GADTs : Why do i need it.

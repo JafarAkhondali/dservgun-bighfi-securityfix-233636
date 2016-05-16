@@ -15,7 +15,9 @@ import GHC.Generics
 import Data.Aeson as J
 import Yesod.Core
 
+import Data.Monoid
 import CCAR.Model.Portfolio 													as Portfolio (queryPortfolioUUID)
+import CCAR.Model.PortfolioT
 import Control.Monad.Reader
 import Control.Monad.IO.Class													(liftIO)
 import Control.Concurrent
@@ -69,12 +71,10 @@ import System.Log.Logger as Logger
 iModuleName = "CCAR.Model.PortfolioSymbol"
 managePortfolioSymbolCommand = "ManagePortfolioSymbol"
 manageSearchPortfolioCommand = "QueryPortfolioSymbol"
-data CRUD = Create | Read | P_Update | Delete 
-			deriving (Show, Read, Eq, Data, Generic, Typeable)
 			
 
 data PortfolioSymbolT = PortfolioSymbolT {
-	  crudType :: CRUD
+	  pstCrudType :: CRUD
 	, commandType :: T.Text 
 	, portfolioID :: T.Text -- unique uuid for the portfolio
 	, symbol :: T.Text 
@@ -131,7 +131,7 @@ instance FromJSON PortfolioSymbolT where
 data PortfolioSymbolQueryT = PortfolioSymbolQueryT {
 	qCommandType :: T.Text 
 	, qPortfolioID :: T.Text
-	, resultSet :: [Either T.Text PortfolioSymbolT]
+	, psqtResultSet :: [Either T.Text PortfolioSymbolT]
 	, psqtNickName :: T.Text 
 } deriving (Show, Read, Eq, Data, Generic, Typeable)
 
@@ -152,19 +152,18 @@ instance FromJSON PortfolioSymbolQueryT where
 	parseJSON _ 	= Appl.empty
 
 
-type PortfolioUUID = T.Text
-
 -- | Return portfolio symbols for a given portfolio UUID.
 getPortfolioSymbols :: PortfolioUUID -> IO (Either T.Text [(T.Text, Double)])
 getPortfolioSymbols pUUID = dbOps $ do
 	result <- runMaybeT $ do 
-			Just (Entity pID pValue) <- lift $ getBy $ UniquePortfolio pUUID 
+			Just (Entity pID pValue) <- lift . getBy . UniquePortfolio . unP $ pUUID 
 			entList <- lift $ selectList [PortfolioSymbolPortfolio ==. pID] [Asc PortfolioSymbolSymbol] 
 			return $ Prelude.map (\a@(Entity k value) -> (portfolioSymbolSymbol value
 														 , Util.parse_float $ T.unpack $ 
 														 		portfolioSymbolQuantity value)) entList
 
-	return $ processError result $ T.intercalate ":" ["Error processing getPortfolioSymbols", pUUID]
+	return $ processError result $ T.intercalate ":" 
+					$ ["Error processing getPortfolioSymbols" , unP pUUID]
 
 queryPortfolioSymbol :: PortfolioSymbolQueryT -> IO (Either T.Text PortfolioSymbolQueryT) 
 queryPortfolioSymbol p@(PortfolioSymbolQueryT cType 
@@ -186,7 +185,7 @@ queryPortfolioSymbol p@(PortfolioSymbolQueryT cType
 											(personNickName upd)
 											nickName
 											pS "0.0") portfolioSymbolList
-						return $ Right $ p {resultSet = portfolioSymbolListT}
+						return $ Right $ p {psqtResultSet = portfolioSymbolListT}
 
 
 dtoToDao :: PortfolioSymbolT -> IO PortfolioSymbol 
@@ -230,7 +229,7 @@ manage aNickName aValue@(Object a) =
 			res <- process r  
 			case res of
 				Right (k, (creator, updator, portfolioUUID)) -> do 
-					case (crudType r) of 
+					case (pstCrudType r) of 
 						Delete -> do 
 							reply <- return $ Right r 
 							return (GC.Reply, serialize (reply :: Either T.Text PortfolioSymbolT))
@@ -238,8 +237,12 @@ manage aNickName aValue@(Object a) =
 							portfolioEntity <- dbOps $ get k 
 							case portfolioEntity of 
 								Just pEVa -> do 
-									res1 <- return $ daoToDto (crudType r) 
-										portfolioUUID creator updator aNickName pEVa "0.0"
+									res1 <- return $ daoToDto (pstCrudType r) 
+										portfolioUUID
+										creator
+										updator 
+										(unN aNickName)
+										pEVa "0.0"
 									case res1 of 
 										Right pT -> return (GC.Reply, serialize res1)
 										Left f -> do 
@@ -258,7 +261,7 @@ manage aNickName aValue@(Object a) =
 								"Error processing manage portfolio symbol " ++ s)
 
 process :: PortfolioSymbolT -> IO (Either T.Text (Key PortfolioSymbol, (T.Text, T.Text, T.Text)))
-process pT = case (crudType pT) of 
+process pT = case (pstCrudType pT) of 
 	Create -> insertPortfolioSymbol pT 
 	Read -> readPortfolioSymbol pT -- single record
 	P_Update -> updatePortfolioSymbol pT 
@@ -474,6 +477,4 @@ testInsertNew index pId = do
 
 		return x 
 	return xo
-instance ToJSON CRUD 
-instance FromJSON CRUD
 

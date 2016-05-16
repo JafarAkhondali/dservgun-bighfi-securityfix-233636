@@ -2,10 +2,9 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module CCAR.Main.GroupCommunication 
-	(ClientState(..)
+	(ClientState
     , createClientState
-    , lastUpdateTime
-	, ClientIdentifierMap(..)
+	, ClientIdentifierMap
 	, processSendMessage
     , getMessageHistory
 	, DestinationType(..) 
@@ -14,36 +13,20 @@ module CCAR.Main.GroupCommunication
     )
 where
 import Yesod.Core
-import Control.Monad.IO.Class(liftIO)
-import Control.Concurrent
-import Control.Concurrent.STM.Lifted
-import Control.Concurrent.Async
-import qualified  Data.Map as IMap
-import Data.Monoid ((<>), mappend)
-import Control.Exception
-import Control.Monad
-import Control.Monad.Logger(runStderrLoggingT)
-import Network.WebSockets.Connection as WSConn
 import Data.Text as T
-import Data.Text.Lazy as L 
 import Database.Persist.Postgresql as DB
-import Data.Aeson.Encode as En
-import Data.Text.Lazy.Encoding as E
 import Data.Aeson as J
 import Control.Applicative as Appl
-import Data.Aeson.Encode as En
-import Data.Aeson.Types as AeTypes(Result(..), parse, Parser)
+import Data.Aeson.Types as AeTypes(parse, Parser)
 import Data.Time(UTCTime, getCurrentTime)
 import GHC.Generics
 import Data.Data
-import Data.Map
-import Data.Typeable 
 import CCAR.Main.DBUtils
 import CCAR.Main.EnumeratedTypes as Et
 import CCAR.Command.ApplicationError
 import CCAR.Main.Util as Util
-import CCAR.Parser.CCARParsec
-import CCAR.Analytics.OptionPricer
+
+import CCAR.Data.ClientState(ClientState, createClientState, ClientIdentifier, ClientIdentifierMap)
 {- 
 	The client needs to handle
 		. Broadcast 
@@ -57,46 +40,6 @@ import CCAR.Analytics.OptionPricer
 
 {-The server state is represented as -}
 
-type ClientIdentifier = T.Text
-data ClientState = ClientState {
-			nickName :: ClientIdentifier
-			, connection :: WSConn.Connection
-			, readChan :: TChan T.Text
-			, writeChan :: TChan T.Text
-            , jobReadChan :: TChan Value 
-            , jobWriteChan :: TChan Value
-            , workingDirectory :: FilePath
-            , activeScenario :: [Stress]
-            , pricerReadQueue :: TBQueue OptionPricer
-            , lastMessageType :: T.Text
-            , lastUpdateTime :: UTCTime -- The last update time for a message.
-	}
-
-
-createClientState :: ClientIdentifier -> WSConn.Connection -> UTCTime -> STM ClientState
-createClientState nn aConn currentTime = do 
-        w <- newTChan
-        r <- dupTChan w 
-        jw <- newTChan 
-        jwr <- dupTChan jw
-        pricerReadQueue <- newTBQueue 5 
-        return ClientState{nickName = nn 
-                        , connection = aConn
-                        , readChan = r 
-                        , writeChan = w
-                        , jobWriteChan = jw 
-                        , jobReadChan = jwr
-                        , workingDirectory = ("." `mappend` (T.unpack nn))
-                        , activeScenario = []
-                        , pricerReadQueue = pricerReadQueue
-                        , lastMessageType = ""
-                        , lastUpdateTime = currentTime
-        }
-
-
-instance Show ClientState where 
-    show cs = (show $ nickName cs) ++  " Connected"
-type ClientIdentifierMap = TVar (IMap.Map ClientIdentifier ClientState)
 type GroupIdentifier = T.Text
 data DestinationType = Reply | GroupMessage GroupIdentifier | Broadcast | 
                     PrivateMessage ClientIdentifier | Internal 
@@ -109,13 +52,13 @@ data SendMessage = SendMessage { from :: T.Text
                                 , sentTime :: UTCTime } deriving (Show, Eq)
 
 createBroadcastMessage :: MessageP -> Maybe SendMessage 
-createBroadcastMessage (MessageP fr to pM _ Et.Broadcast currentTime) = Just $ 
-        SendMessage fr to pM CCAR.Main.GroupCommunication.Broadcast currentTime
-createBroadcastMessage (MessageP fr to pM _ _ aTime)            = Nothing 
+createBroadcastMessage (MessageP fr sentTo pM _ Et.Broadcast currentTime) = Just $ 
+        SendMessage fr sentTo pM CCAR.Main.GroupCommunication.Broadcast currentTime
+createBroadcastMessage _            = Nothing 
 
 createPersistentMessage :: SendMessage -> MessageP 
-createPersistentMessage cm@(SendMessage fr to pM destination currentTime) = 
-        MessageP fr to pM Et.Undecided replyType currentTime 
+createPersistentMessage (SendMessage fr sentTo pM destination currentTime) = 
+        MessageP fr sentTo pM Et.Undecided replyType currentTime 
         where replyType = 
 		      case destination of 
 			         CCAR.Main.GroupCommunication.Reply -> Et.Reply					
@@ -176,6 +119,8 @@ processSendMessage (Object a) =
             			toJSON $ appError $ "Sending message failed " ++ s ++ (show a))
 processSendMessage _ = return (CCAR.Main.GroupCommunication.Reply, 
                         toJSON $ appError ("Invalid message in processSendMessage" :: T.Text))
+
+
 
 testMessages :: IO Value
 testMessages = do 

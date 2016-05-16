@@ -12,13 +12,14 @@ import          CCAR.Main.DBUtils
 import          Data.Map as Map 
 import          Control.Concurrent.STM.Lifted
 import          CCAR.Model.CcarDataTypes
+import          CCAR.Data.ClientState
 import          CCAR.Main.GroupCommunication
 import          Database.Persist
 import          Database.Persist.TH 
 
 import Control.Monad 
 import Control.Monad.Trans(liftIO, lift)
-import Data.Monoid(mappend, (<>))
+import Data.Monoid(mappend)
 
 
 

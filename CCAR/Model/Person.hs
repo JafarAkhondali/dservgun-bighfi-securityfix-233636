@@ -129,7 +129,7 @@ createGuestLogin :: NickName -> IO (Key GuestLogin)
 createGuestLogin aNickName = do 
         currentTime <- getCurrentTime
         dbOps $ do 
-            person <- DB.getBy $ UniqueNickName aNickName 
+            person <- DB.getBy $ UniqueNickName . unN $ aNickName 
             case person of 
                 Just (Entity personId _ ) -> insert $ GuestLogin currentTime personId 
 

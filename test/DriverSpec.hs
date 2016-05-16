@@ -4,8 +4,12 @@ import Test.Hspec.WebDriver
 import Data.Text (pack, unpack, Text)
 import Control.Concurrent
 import Control.Monad.IO.Class
+
+
 main :: IO ()
-main = hspec spec
+--main = hspec spec
+main = putStrLn "Not runnig this test"
+
 
 absolute = undefined
 

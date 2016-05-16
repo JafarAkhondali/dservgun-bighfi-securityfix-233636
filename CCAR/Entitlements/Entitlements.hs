@@ -16,6 +16,7 @@ import GHC.Generics
 import Data.Aeson as J
 import Yesod.Core
 
+import CCAR.Model.PortfolioT
 import Control.Applicative 
 import Control.Monad.IO.Class(liftIO)
 import Control.Concurrent
@@ -66,10 +67,7 @@ import CCAR.Main.DBOperations (Query, query, manage, Manager)
 
 newtype ModuleName = ModuleName {unMod :: T.Text} deriving (Show, Read, Eq, Data, Generic, Typeable)
 type CommandType = T.Text
-data CRUD = Create | Read | C_Update | Delete deriving (Show, Read, Eq, Data, Generic, Typeable)
 
-instance FromJSON CRUD
-instance ToJSON CRUD 
 
 
 iModuleName = "CCAR.Model.Entitlements"
@@ -226,7 +224,7 @@ assign aNickName aValue = do
 		Success ce@(CompanyEntitlementT coType crType cId userId tabName sectionName) -> 
 				case crType of 
 					Create -> createCompanyEntitlement ce 
-					C_Update -> updateCompanyEntitlement ce 
+					P_Update -> updateCompanyEntitlement ce 
 					Read -> retrieveCompanyEntitlement ce 
 					Delete -> deleteCompanyEntitlement ce
 
@@ -280,12 +278,12 @@ queryEntitlements limit = dbOps $ selectList [] [LimitTo limit]
 {--  Manage : add/update/delete --}
 manageEntitlement :: NickName -> Value -> IO (GC.DestinationType, Either ApplicationError EntitlementT)
 manageEntitlement aNickName aValue@(Object a) = do
-	Logger.debugM iModuleName $ show $ T.intercalate "-" ["inside manage entitlement", aNickName] 
+	Logger.debugM iModuleName $ show $ T.intercalate "-" ["inside manage entitlement", unN aNickName] 
 	case (parse parseJSON aValue) of 
 		Success e@(EntitlementT c co tab sec _) -> do 			
 			case c of 
 				Create -> create e 
-				C_Update -> updateE e 
+				P_Update -> updateE e 
 				Read -> retrieve e 
 				Delete -> deleteE e
 		Error s -> return (GC.Reply, Left $ appError s)
@@ -294,13 +292,13 @@ manageEntitlement aNickName aValue@(Object a) = do
 {-- | Manage entitlements for a user for a company --}
 manageCompanyEntitlement :: NickName -> Value -> IO (GC.DestinationType, Either ApplicationError CompanyEntitlementT) 
 manageCompanyEntitlement aNickName aValue = do 
-	Logger.debugM iModuleName $ show $ T.intercalate "-" ["Inside manage", aNickName
+	Logger.debugM iModuleName $ show $ T.intercalate "-" ["Inside manage", unN aNickName
 										, T.pack $ show aValue]
 	case (parse parseJSON aValue) of 
 		Success ce -> do 
 			case c of 
 				Create -> createCompanyEntitlement ce 
-				C_Update -> updateCompanyEntitlement ce 
+				P_Update -> updateCompanyEntitlement ce 
 				Read -> retrieveCompanyEntitlement ce 
 				Delete -> deleteCompanyEntitlement ce 
 			where 

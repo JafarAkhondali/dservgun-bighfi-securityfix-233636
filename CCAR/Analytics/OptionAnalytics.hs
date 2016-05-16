@@ -52,6 +52,7 @@ import 							Control.Concurrent.Async as A (waitSTM, wait, async
 									, cancel, waitEither, waitBoth, waitAny
                         			, concurrently,asyncThreadId)
 
+import							CCAR.Data.ClientState
 import 							GHC.Conc(labelThread)
 import 							Debug.Trace(traceEventIO)
 import							Data.Array.Storable 

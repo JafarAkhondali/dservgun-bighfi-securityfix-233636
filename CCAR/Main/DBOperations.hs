@@ -4,14 +4,14 @@ import Data.Text as T
 import Data.Aeson as J
 import CCAR.Main.GroupCommunication as GC
 import CCAR.Command.ApplicationError as AppError
-
+import CCAR.Main.DBUtils
 
 class Query a where 
 	query :: T.Text -> Value -> IO (GC.DestinationType, Either ApplicationError a) 
 
 
 class Manager a where 
-	manage :: T.Text -> Value -> IO (GC.DestinationType,  Either ApplicationError a)
+	manage :: NickName -> Value -> IO (GC.DestinationType,  Either ApplicationError a)
 
 
 class ModuleInfo a where 

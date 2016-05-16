@@ -33,6 +33,9 @@ instance Error Text where
 instance Error (LH.HashMap T.Text Value) where 
 	appError = parseApplicationError
 
+instance Error Value where 
+	appError value = ApplicationError {errorCode = T.pack "Error", message = T.pack $ show value}
+
 appErrorString errorMessage = ApplicationError {errorCode = T.pack "Error" 
                                        , message = T.pack errorMessage}
 
