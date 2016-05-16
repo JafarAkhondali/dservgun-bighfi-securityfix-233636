@@ -60,8 +60,8 @@ instance ToJSON PortfolioQuery where
 	toJSON pq@(PortfolioQuery cType nickName qCid userId r) = 
 		object [
 			"commandType" .= cType 
-			, "nickName" .= nickName 
-			, "companyId" .= qCid 
+			, "nickName" .=  unN nickName 
+			, "companyId" .= unC qCid 
 			, "useerId"  .= userId 
 			, "resultSet" .= r
 		]

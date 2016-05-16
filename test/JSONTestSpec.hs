@@ -35,9 +35,14 @@ specManageCompany = do
 					let testToJSON = toJSON testManageCompany
 					(fromJSON testToJSON) `shouldBe` (Success testManageCompany)
 
+
+
 {-- How do we run multiple specs within a single module --}
-spec = specManageCompany
+spec = do 
+	specManageCompany
+	specAssignUser
+	
 main :: IO ()
-main = do 
-	hspec specAssignUser
-	hspec specManageCompany
+main = do hspec $ do 
+		specAssignUser
+		specManageCompany
