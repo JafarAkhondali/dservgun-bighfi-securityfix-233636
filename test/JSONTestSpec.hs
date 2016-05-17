@@ -27,8 +27,6 @@ testCompany = CompanyT "testCompanyName" "testCompanyId" "Image goes here" "test
 testManageCompany :: ManageCompany
 testManageCompany = ManageCompany (NickName "test_nick_name") Create testCompany  
 
-testPortfolioQuery :: PortfolioQuery  
-testPortfolioQuery = undefined
 
 specManageCompany :: Spec 
 specManageCompany = do 
@@ -46,12 +44,17 @@ specParsePortfolioQuery = describe "Parse portfolio query request correctly" $ d
 					(fromJSON . toJSON $ testPortfolioQuery) `shouldBe`
 							(Success testPortfolioQuery)
 
+testPortfolioQuery :: PortfolioQuery  
+testPortfolioQuery = PortfolioQuery "testcommandType" (NickName "test_nick_name") 
+							(CompanyID "test_company") 
+							(NickName "test_user")
+							[]
 
 {-- How do we run multiple specs within a single module --}
 spec = do 
 	specManageCompany
 	specAssignUser
-	
+	specParsePortfolioQuery
 main :: IO ()
 main = do hspec $ do 
 		specAssignUser

@@ -8,7 +8,7 @@ module CCAR.Model.PortfolioT
 
 import Data.Aeson
 import Data.Aeson.Types
-import Control.Applicative as Appl ((<*>), (<$>), empty)
+import Control.Applicative as Appl ((<*>), (<$>), empty, pure)
 import Data.Text as T 
 import Data.Typeable
 import Data.Data
@@ -62,16 +62,22 @@ instance ToJSON PortfolioQuery where
 			"commandType" .= cType 
 			, "nickName" .=  unN nickName 
 			, "companyId" .= unC qCid 
-			, "useerId"  .= userId 
+			, "userId"  .= unN userId 
 			, "resultSet" .= r
 		]
+
+{-- Notes about the parentheses: 
+	I could not get the function to compile without
+	explicitly adding parentheses. 
+	This is one way to unwrap values into a newtype.
+ --}
 instance FromJSON PortfolioQuery where 
 	parseJSON (Object a)  = PortfolioQuery <$> 
-						a .: "commandType" <*> 
-						a .: "nickName" <*> 
-						a .: "companyId" <*> 
-						a .: "userId" <*> 
-						a .: "resultSet"
+					a .: "commandType" <*> 
+					(NickName <$>  a .: "nickName"  ) <*> 
+					(CompanyID <$> a .: "companyId" ) <*> 
+					(NickName <$> a .: "userId" 	)<*> 
+					a .: "resultSet"
 	parseJSON _ 		 = Appl.empty
 
 instance ToJSON PortfolioT where
