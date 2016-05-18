@@ -96,6 +96,8 @@ import GHC.Conc(labelThread)
 import Debug.Trace(traceEventIO)
 import                          CCAR.Analytics.MarketDataLanguage(evalMDL)
 import                          CCAR.Data.EquityBenchmark as EquityBenchmark
+import  CCAR.Data.ClientState(runAP)
+
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
 
@@ -979,11 +981,12 @@ driver = do
 -- Needs to go somewhere other than the driver.
 processActivePortfolio :: T.Text -> App -> Value -> IO (DestinationType, Either ApplicationError PortfolioT) 
 processActivePortfolio nickName app (Object a) = do 
-    let r = (parse parseJSON (Object a) :: Result PortfolioT)
+    let r = (parse parseJSON (Object a) :: Result ActivePortfolio)
     case r of 
         Success x -> do 
-                atomically $ updateActivePortfolio nickName app x 
-                return(CCAR.Main.GroupCommunication.Reply, Right x)
+                let p = runAP x
+                atomically $ updateActivePortfolio nickName app p 
+                return(CCAR.Main.GroupCommunication.Reply, Right p)
         Error e -> 
                 return (CCAR.Main.GroupCommunication.Reply, Left $ appError e)
 

@@ -21,11 +21,25 @@ import CCAR.Analytics.OptionPricer
 import Data.Typeable
 import Data.Data
 import GHC.Generics
+import Control.Applicative as Appl
 
 
 type ClientIdentifier = T.Text
 newtype ActivePortfolio = ActivePortfolio {unP :: PortfolioT} 
         deriving(Show, Read, Eq, Data, Generic, Typeable)
+
+instance FromJSON ActivePortfolio where 
+    parseJSON (Object a)  = ActivePortfolio <$> 
+                    a .: "portfolio"  
+    parseJSON _          = Appl.empty
+
+instance ToJSON ActivePortfolio where
+    toJSON p1@(ActivePortfolio p) =
+        object [
+            "commandType" .= ("ActivePortfolio" :: T.Text)
+            , "portfolio" .= p 
+        ]
+
 
 makeActivePortfolio = ActivePortfolio 
 runAP (ActivePortfolio p) = p

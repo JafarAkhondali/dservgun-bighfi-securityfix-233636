@@ -28,6 +28,12 @@ typedef PortfolioSymbolT =  {
 	  var nickName : String;
 }
 
+typedef ActivePortfolio = {
+	var commandType : String;
+	var portfolio : PortfolioT;
+	var nickName : String;
+}
+
 typedef PortfolioSymbolQueryT  = {
 	var commandType : String;
 	var portfolioId : String; 
@@ -107,8 +113,16 @@ class PortfolioSymbol  {
 		trace("Process active portfolio " + a);
 		this.activePortfolio = a;
 		sendPortfolioSymbolQuery();
+		sendActivePortfolioCommand(a);
 	}
-
+	private function sendActivePortfolioCommand(a : PortfolioT) {
+		var payload : ActivePortfolio = {
+			"commandType" : "ActivePortfolio"
+			, "portfolio" : a
+			, "nickName"  : MBooks_im.getSingleton().getNickName()
+		};
+		MBooks_im.getSingleton().doSendJSON(payload);
+	}
 	private function sendPortfolioSymbolQuery() {
 		if(this.activePortfolio == null){
 			throw ("No active portfolio selected. Not fetching symbols");

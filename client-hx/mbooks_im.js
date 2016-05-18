@@ -3014,11 +3014,16 @@ model.PortfolioSymbol.prototype = {
 		var payload = { commandType : "QueryPortfolioSymbol", portfolioId : this.activePortfolio.portfolioId, nickName : MBooks_im.getSingleton().getNickName(), resultSet : []};
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
+	,sendActivePortfolioCommand: function(a) {
+		var payload = { commandType : "ActivePortfolio", portfolio : a, nickName : MBooks_im.getSingleton().getNickName()};
+		MBooks_im.getSingleton().doSendJSON(payload);
+	}
 	,processActivePortfolio: function(a) {
 		if(a == null) throw "Active portfolio not defined " + Std.string(a);
 		console.log("Process active portfolio " + Std.string(a));
 		this.activePortfolio = a;
 		this.sendPortfolioSymbolQuery();
+		this.sendActivePortfolioCommand(a);
 	}
 	,__class__: model.PortfolioSymbol
 }
