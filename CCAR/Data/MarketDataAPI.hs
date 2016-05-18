@@ -1,7 +1,8 @@
 module CCAR.Data.MarketDataAPI 
 	(MarketDataServer(..), getActiveScenario, updateActiveScenario
         , queryMarketData
-        , queryOptionMarketData)
+        , queryOptionMarketData
+        , getActivePortfolio)
 where
 
 import          Data.Text as T 
@@ -16,11 +17,11 @@ import          CCAR.Data.ClientState
 import          CCAR.Main.GroupCommunication
 import          Database.Persist
 import          Database.Persist.TH 
-
+import Control.Applicative ((<$>), (<*>), (*>), (<*), (<$))
 import Control.Monad 
 import Control.Monad.Trans(liftIO, lift)
 import Data.Monoid(mappend)
-
+import Control.Monad.Trans.Maybe
 
 
 
@@ -31,6 +32,11 @@ class MarketDataServer a where
 	runner :: a -> App -> WSConn.Connection -> T.Text -> Bool -> IO ()
 
 
+getActivePortfolio :: T.Text -> App -> STM (Maybe ActivePortfolio)
+getActivePortfolio nickName app@(App a c) = do 
+    cMap <- readTVar . nickNameMap $ app 
+    let clientState = Map.lookup nickName cMap 
+    return $ activePortfolio =<< clientState
 
 getActiveScenario :: App -> T.Text -> STM [Stress]
 getActiveScenario app nn = do 

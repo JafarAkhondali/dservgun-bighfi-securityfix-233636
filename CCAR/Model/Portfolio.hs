@@ -2,6 +2,7 @@ module CCAR.Model.Portfolio (
 	queryPortfolioSymbolTypes
 	, queryPortfolioSymbolSides
 	, queryUniqueSymbols
+	, queryUniqueSymbolsFor
 	, manage
 	, process
 	, Portfolio(..)
@@ -54,6 +55,7 @@ import qualified CCAR.Main.EnumeratedTypes as EnTypes
 import qualified CCAR.Main.GroupCommunication as GC
 import CCAR.Main.Util as Util
 import CCAR.Command.ApplicationError
+import CCAR.Data.ClientState
 import Database.Persist.Postgresql as Postgresql 
 -- For haskell shell
 import HSH
@@ -236,7 +238,16 @@ process pT = case (crudType pT) of
 	Delete -> deletePortfolio pT 		
 
 
-{-- | This gets all the symbols for a user registered in any company. Usually there should be 
+
+queryUniqueSymbolsFor userId Nothing = return []
+queryUniqueSymbolsFor userId (Just activePortfolio) = do 
+	portfolio <- liftIO . readPortfolio . runAP $ activePortfolio  
+	case portfolio of 
+		Left _ -> 	return [] 
+		Right p -> 	dbOps $ selectList [PortfolioSymbolPortfolio ==. p] []
+	
+
+{-- | This function gets all the symbols for a user registered in any company. Usually there should be 
 only one such company. Admins or super users could probably share or regulators for example.--}
 queryUniqueSymbols userId = dbOps $ do 
 	x <- runMaybeT $ do 

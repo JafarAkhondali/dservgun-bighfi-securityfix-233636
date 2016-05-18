@@ -5,6 +5,7 @@ module CCAR.Data.ClientState
     , ActivePortfolio
     , createClientState
     , makeActivePortfolio
+    , runAP
     , nickName) where 
 
 import qualified Data.Map as Map
@@ -27,6 +28,7 @@ newtype ActivePortfolio = ActivePortfolio {unP :: PortfolioT}
         deriving(Show, Read, Eq, Data, Generic, Typeable)
 
 makeActivePortfolio = ActivePortfolio 
+runAP (ActivePortfolio p) = p
 
 data ClientState = ClientState {
 			nickName :: ClientIdentifier

@@ -505,10 +505,6 @@ getStaleClients app@(App a c) interval currentTime = do
         staleClient clientState  = (timeDiffs currentTime (lastUpdateTime clientState)) 
                                                 >= (interval :: NominalDiffTime) 
 
-getActivePortfolio :: T.Text -> App -> IO (Maybe ActivePortfolio)
-getActivePortfolio nickName app@(App a c) = atomically $ do 
-        cState:_ <- getClientState nickName app 
-        return . activePortfolio $ cState
         
 getClientsWithFilter :: App -> T.Text -> (T.Text -> ClientState -> Bool) -> STM [ClientState]
 getClientsWithFilter app@(App a c) nn f = do

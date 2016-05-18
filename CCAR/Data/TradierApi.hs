@@ -657,8 +657,13 @@ tradierRunner app conn nickName terminate =
         return ()
     else do 
         Logger.debugM iModuleName "Waiting for data"
-        tradierPollingInterval >>= \x -> threadDelay x        
-        mySymbols <- Portfolio.queryUniqueSymbols nickName
+        tradierPollingInterval >>= \x -> threadDelay x
+        activePortfolio <- liftIO .  atomically $ 
+        						MarketDataAPI.getActivePortfolio 
+        							nickName app         
+        mySymbols <- Portfolio.queryUniqueSymbolsFor nickName activePortfolio >>= \x -> 
+        							Control.Monad.mapM (\a@(Entity k v) ->  return v) x
+        					
         marketDataMap <- MarketDataAPI.queryMarketData
         portfolioIds <- Control.Monad.mapM (\p -> return $ portfolioSymbolPortfolio p) mySymbols
         pSet <- return $ Set.fromList portfolioIds
