@@ -41,42 +41,44 @@ import 			Data.Time
 import			Data.Map
 import 			System.Locale(defaultTimeLocale)
 import			System.Environment(getEnv)
-import Control.Monad.IO.Class 
-import Control.Monad
-import Control.Monad.Logger 
-import Control.Monad.Trans(lift)
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.Resource
-import Control.Applicative as Appl
-import Data.Monoid(mappend, (<>))
-import CCAR.Main.DBUtils
-import CCAR.Command.ApplicationError(appError)
+import 			Control.Monad.IO.Class 
+import 			Control.Monad
+import 			Control.Monad.Logger 
+import 			Control.Monad.Trans(lift)
+import 			Control.Monad.Trans.Maybe
+import 			Control.Monad.Trans.Resource
+import 			Control.Applicative as Appl
+import 			Data.Monoid(mappend, (<>))
+import 			CCAR.Main.DBUtils
+import 			CCAR.Command.ApplicationError(appError)
 
-import System.Environment(getEnv)
-import GHC.Generics
-import GHC.IO.Exception
-import Data.Vector
-import Data.Scientific
-import Data.Data
-import Data.Monoid (mappend)
-import Data.Typeable 
-import Control.Monad.Trans.Resource
-import Control.Monad.Trans.Maybe(runMaybeT)
-import Control.Monad.Trans(lift)
-import System.Log.Logger as Logger
-import Data.Conduit.Binary as B (sinkFile, lines, sourceFile) 
-import Data.Conduit.List as CL 
-import Data.ByteString.Char8 as BS(ByteString, pack, unpack) 
-import Data.Conduit ( ($$), (=$=), (=$), Conduit, await, yield)
-import CCAR.Data.MarketDataAPI as MarketDataAPI
-import CCAR.Model.Portfolio as Portfolio
-import CCAR.Model.PortfolioSymbol as PortfolioSymbol hiding (symbol)
-import CCAR.Main.Util as Util
-import Network.WebSockets.Connection as WSConn
-import CCAR.Model.CcarDataTypes
-import CCAR.Main.Application
-import Control.Concurrent.STM.Lifted
-import CCAR.Analytics.MarketDataLanguage
+import 			System.Environment(getEnv)
+import 			GHC.Generics
+import 			GHC.IO.Exception
+import 			Data.Vector
+import 			Data.Scientific
+import 			Data.Data
+import 			Data.Monoid (mappend)
+import 			Data.Typeable 
+import 			Control.Monad.Trans.Resource
+import 			Control.Monad.Trans.Maybe(runMaybeT)
+import 			Control.Monad.Trans(lift)
+import 			System.Log.Logger as Logger
+import 			Data.Conduit.Binary as B (sinkFile, lines, sourceFile) 
+import 			Data.Conduit.List as CL 
+import 			Data.ByteString.Char8 as BS(ByteString, pack, unpack) 
+import 			Data.Conduit ( ($$), (=$=), (=$), Conduit, await, yield)
+import 			CCAR.Data.MarketDataAPI as MarketDataAPI
+import			CCAR.Model.PortfolioT as PortfolioT
+import 			CCAR.Model.Portfolio as Portfolio
+import 			CCAR.Model.PortfolioSymbol as PortfolioSymbol hiding (symbol)
+import 			CCAR.Main.Util as Util
+import 			Network.WebSockets.Connection as WSConn
+import 			CCAR.Model.CcarDataTypes
+import 			CCAR.Main.Application
+import 			Control.Concurrent.STM.Lifted
+import 			CCAR.Analytics.MarketDataLanguage
+import			CCAR.Data.ClientState
 
 iModuleName = "CCAR.Data.TradierApi"
 baseUrl =  "https://sandbox.tradier.com/v1"
@@ -661,19 +663,9 @@ tradierRunner app conn nickName terminate =
         activePortfolio <- liftIO .  atomically $ 
         						MarketDataAPI.getActivePortfolio 
         							nickName app         
-        mySymbols <- Portfolio.queryUniqueSymbolsFor nickName activePortfolio >>= \x -> 
-        							Control.Monad.mapM (\a@(Entity k v) ->  return v) x
+        mySymbols <- Portfolio.queryUniqueSymbols nickName
         					
         marketDataMap <- MarketDataAPI.queryMarketData
-        portfolioIds <- Control.Monad.mapM (\p -> return $ portfolioSymbolPortfolio p) mySymbols
-        pSet <- return $ Set.fromList portfolioIds
-        portfoliom  <- Control.Monad.mapM (\x -> do 
-                        p <- dbOps $  DB.get x 
-                        case p of 
-                            Just x2 -> return (x, portfolioUuid x2)
-                            Nothing -> return (x, "INVALID PORTFOLIO")) 
-                        (Set.toList pSet)
-        portfolioMap <- return $ Map.fromList portfoliom
         upd <- Control.Monad.mapM (\x -> do 
                 activeScenario <- liftIO $ atomically $ getActiveScenario app nickName 
                 Logger.debugM iModuleName $ " Active scenario " `mappend` (show activeScenario)
@@ -685,10 +677,9 @@ tradierRunner app conn nickName terminate =
                             					(historicalPriceClose v) * 
                             					(parse_float $ (T.unpack $ portfolioSymbolQuantity x))}) 
                         Nothing -> return (0.0, x)
-                x2 <- return $ Map.lookup (portfolioSymbolPortfolio x) portfolioMap 
-                pid <- case x2 of 
+                pid <- case activePortfolio of 
                     Nothing -> return "INVALID PORTFOLIO" 
-                    Just y -> return y                  
+                    Just y -> return . unP . (PortfolioT.portfolioId) . runAP $ y                  
                 return $ daoToDto PortfolioSymbol.P_Update pid 
                             nickName nickName nickName p $ (T.pack . show) stressValue
             ) mySymbols
