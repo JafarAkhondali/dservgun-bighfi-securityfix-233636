@@ -14,13 +14,13 @@ the user with a multi-lingual version of the agreements form.
 Kick user text box should only be visible to users with appropriate permissions.
 
 ### Enable oauth2 login
-Support oauth2.
+Support oauth2. -- long overdue.
 
 ### Integrate with JIRA (from the client)
 Create a jira account to allow users to reduce friction in reporting bugs/issues.
 
 ### Add lambda support to the dsl
-Create simple lambda functions to allow users greater control.
+Create simple lambda functions to allow users greater control. -- Use the interpreter loop thread.
 
 ### Setup an R server
 The current process is not ideal, where the call to the r script happens in the same vm, although, the 
@@ -88,3 +88,50 @@ This overlaps with a different project. This task is to integrate with the ml ut
 ### Libraries:
 * Data.Data : What does that do.
 * GADTs : Why do i need it.
+
+19/5/2016
+ * Setup docker files
+ * Fix ui bugs in portfolio dropdown list
+ * Add qandl integration to download all of the data for a user
+ * Create an option put portfolio.
+ * Create a generic table display for historical time series.
+ * Display beta (sector beta and index beta).
+ * Update sector level info to compute sector beta.
+ * Creata an ods plugin using uno api.
+ * Add sharing of portfolios.
+ * Add test cases for 
+ 	** Haxe (selenium and unit tests)
+ 	** Haskell (model tests, protocol tests)
+ * Refactor
+ * Create a gmail/linked in login to enable a marketing campaign.
+ * Create a ux for the page.
+
+
+ ### UX description
+ * First time users should have very little friction when using the site:
+ 		* User can login using custom login 
+ 		* Or use gmail/fb/in accounts.
+ 		* Successful login will present the user to the community.
+
+ * User selects the company that the user is associated with. 
+ 		* This company drop down field needs to be a part of the registration process somehow
+ 		  or tied to the url so the company is appropriated selected.
+ 		* Once the user is associated with a company, present the user with the portfolio tab with 
+ 			clear directions about how to go about using the site.
+ 
+ * Main analysis page
+ 	* Allow users to upload symbols or upload using a csv file.
+ 	* The portfolio analysis page should display the following:
+ 		* Portfolio details
+ 		* Portfolio historical values
+ 		* Symbol charts.
+ 		* Symbol beta. 
+ 		* Portfolio beta
+ 		* Sector beta.
+ 		* Option charts
+ 		* Portfolio hedge.
+ 		* Regression of portfolio hedge.
+
+ 	* Test for ui issues: adding/deleting symbols to reflect the correct values.
+
+

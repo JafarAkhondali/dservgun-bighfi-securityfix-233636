@@ -5,8 +5,7 @@ module CCAR.Data.ClientState
     , ActivePortfolio
     , createClientState
     , makeActivePortfolio
-    , runAP
-    , nickName) where 
+    , runAP) where 
 
 import qualified Data.Map as Map
 import Control.Concurrent.STM.Lifted 
