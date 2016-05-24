@@ -185,7 +185,8 @@ queryPortfolioSymbol p@(PortfolioSymbolQueryT cType
 											(personNickName upd)
 											nickName
 											pS "0.0") portfolioSymbolList
-						return $ Right $ p {psqtResultSet = portfolioSymbolListT}
+						return . Right $ p {psqtResultSet = portfolioSymbolListT}
+					Nothing -> return . Left $ "Unable to delete portfolio " <> (T.pack . show $ p)
 
 
 dtoToDao :: PortfolioSymbolT -> IO PortfolioSymbol 

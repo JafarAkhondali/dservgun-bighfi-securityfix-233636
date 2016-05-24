@@ -3015,6 +3015,7 @@ model.PortfolioSymbol.prototype = {
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
 	,sendActivePortfolioCommand: function(a) {
+		a.commandType = "";
 		var payload = { commandType : "ActivePortfolio", portfolio : a, nickName : MBooks_im.getSingleton().getNickName()};
 		MBooks_im.getSingleton().doSendJSON(payload);
 	}
@@ -3023,7 +3024,6 @@ model.PortfolioSymbol.prototype = {
 		console.log("Process active portfolio " + Std.string(a));
 		this.activePortfolio = a;
 		this.sendPortfolioSymbolQuery();
-		this.sendActivePortfolioCommand(a);
 	}
 	,__class__: model.PortfolioSymbol
 }

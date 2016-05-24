@@ -113,9 +113,10 @@ class PortfolioSymbol  {
 		trace("Process active portfolio " + a);
 		this.activePortfolio = a;
 		sendPortfolioSymbolQuery();
-		sendActivePortfolioCommand(a);
+		//sendActivePortfolioCommand(a);
 	}
 	private function sendActivePortfolioCommand(a : PortfolioT) {
+		a.commandType = "";
 		var payload : ActivePortfolio = {
 			"commandType" : "ActivePortfolio"
 			, "portfolio" : a
