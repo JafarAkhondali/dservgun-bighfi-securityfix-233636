@@ -894,7 +894,7 @@ class MBooks_im {
 			return;
 		}
 		if(getPassword() != this.person.password){
-			js.Lib.alert("Invalid password. Try again");
+			Browser.alert("Invalid password. Try again");
 			attempts++;
 			if(attempts > maxAttempts){
 				loginAsGuest();

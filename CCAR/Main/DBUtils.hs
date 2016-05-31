@@ -636,7 +636,7 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             change Text 
             openInterest Text 
             marketDataProvider MarketDataProviderId 
-            deriving Show Eq 
+            deriving Show Eq Typeable
         Project json 
             identification Text 
             companyId CompanyId

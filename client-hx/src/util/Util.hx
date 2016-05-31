@@ -49,99 +49,11 @@ class Util {
 		//newline, tab or carriage return
 		return (code == TAB() || code == NEW_LINE() || code == CR());
 	}
-	public static function createDivTag(document : Document, className : String) : DivElement {
-		trace("Creating DIV tag "  + className);
-		var div : DivElement = cast document.getElementById(className);
-		if (div == null) {
-			div = cast document.createDivElement();
-			div.className = className;
-			div.id = "DIV" +  "_" + className;
-			document.body.appendChild(div);
-		}else {
-			trace("Div tag exists -> " + className);
-		}
-		return div;
-	}
 
 
-	public static function createInputElement(document : Document, 
-		parent : DivElement, elementClass : String
-		, elementName : String): Void {
-		//trace("Creating input element " + elementName);
-		var inputElement = document.createInputElement();
-		inputElement.id = elementName;
-		parent.appendChild(inputElement);
-	}
 
-	public static function createTextAreaElement(document : Document
-		, parent : DivElement 
-		, elementName : String
-		, elementClass : String) : Void {
-			//trace("Creating text area element");
-			var areaElement = document.createTextAreaElement();
-			areaElement.id = elementName;
-			areaElement.rows = DEFAULT_ROWS;
-			areaElement.cols = DEFAULT_COLS;
-			parent.appendChild(areaElement);
-	}
 
-	public static function createListElement(document : Document
-		, parent : DivElement
-		, elementClass : String
-		, elementName : String) : Void {
-			//trace("Creating list element");
-			var listElement = document.createUListElement();
-			listElement.id = elementName;
-			parent.appendChild(listElement);
-		}
-	public static function createButtonElement (document : Document
-		, parent : DivElement
-		, elementClass : String
-		, elementName : String): Void {
-			//trace("Creating button element");
-			var element : ButtonElement = document.createButtonElement();
-			element.value = elementName;
-			element.id = elementName;
-			element.innerHTML = elementName;
-			parent.appendChild(element);
-		}
-	public static function createSelectElement(document : Document 
-					, parent : DivElement
-					, elementClass : String
-					, elementName : String){
-			//trace("Create selection element");
-			var element : SelectElement = document.createSelectElement();
-			element.id = elementName;
-			parent.appendChild(element);
-		}
 
-	public static function createElementWithLabel(document : Document
-			, parent : DivElement, elementId : String, elementLabel : String) : Void{
-			//trace("Element id " + elementId + "->" + "Label " + elementLabel);
-
-			var inputLabel = document.createLabelElement();
-			var input = document.createInputElement();
-			input.id = elementId;
-			inputLabel.id = LABEL + elementId;
-			inputLabel.innerHTML = elementLabel;
-			parent.appendChild(inputLabel);
-            parent.appendChild(input);
-
-	}
-
-	public static function createTextAreaElementWithLabel(document : Document
-			, parent : DivElement
-			, elementId : String 
-			, elementLabel : String) : Void {
-			
-			var inputLabel = document.createLabelElement();
-			inputLabel.id = LABEL + elementId;
-			inputLabel.innerHTML = elementLabel;
-			trace("Element id before calling textareaelement " + elementId);
-			createTextAreaElement(document, parent, elementId, elementId);			
-			var textAreaElement : Text = cast document.getElementById(elementId);
-
-	}
 
 	public static function showDivField(fieldName : String) {
 		var div : DivElement = cast (Browser.document.getElementById(fieldName));

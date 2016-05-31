@@ -101,56 +101,7 @@
 		}
 	} 
 
-	public function createCCARForm(parent : DivElement){
-		//trace("Creating CCAR form ");
-		var div : DivElement = Util.createDivTag(document, CCAR_DIV_TAG);
-		Util.createElementWithLabel(document, div
-			, NAME_CLASS
-			, NAME);
-		Util.createTextAreaElementWithLabel(document, div 
-			, TEXT_CLASS
-			, TEXT);
-		var scenarioAreaElement : TextAreaElement = cast document.getElementById(TEXT_CLASS);
-		var scenarioAreaElementStream = MBooks.getMBooks().initializeElementStream(scenarioAreaElement, "change");
-		scenarioAreaElementStream.then(scenarioAreaElementUpdate);
 
-		trace("Class name " + PARSED_CLASS);
-		Util.createTextAreaElementWithLabel(document, div
-			, PARSED_CLASS
-			, PARSED_TEXT);
-		Util.createSelectElement(document, div , LIST_CLASS, CCAR_DIV_TAG + LIST);
-		Util.createButtonElement(document, div, UPLOAD_BUTTON_CLASS, UPLOAD_BUTTON);
-		Util.createButtonElement(document, div, DELETE_BUTTON_CLASS, DELETE_BUTTON);
-		Util.createTextAreaElementWithLabel(document, div, SEND_MESSAGE_TEXT_AREA_CLASS, SEND_MESSAGE_TEXT_AREA);
-		Util.createTextAreaElementWithLabel(document, div, SEND_MESSAGE_INPUT_AREA_CLASS, SEND_MESSAGE_INPUT_AREA);
-		var messageInputElement : TextAreaElement = cast document.getElementById(SEND_MESSAGE_INPUT_AREA_CLASS);
-		messageInputElement.rows = 2;
-		Util.createButtonElement(document, div, SEND_MESSAGE_BUTTON_CLASS, SEND_MESSAGE_BUTTON);
-		var sendButtonElement : ButtonElement = cast document.getElementById(SEND_MESSAGE_BUTTON);
-		var sendButtonStream = MBooks.getMBooks().initializeElementStream(sendButtonElement, "click");
-		sendButtonStream.then(sendPrivateMessage);
-		var selectElement : SelectElement = getCCARListElement();
-		var buttonElement : ButtonElement = 
-		cast document.getElementById(UPLOAD_BUTTON);
-		var scenarioUploadButtonStream = MBooks.getMBooks().initializeElementStream(buttonElement, "click");
-		scenarioUploadButtonStream.then(uploadCCARData);
-
-		var deleteButton : ButtonElement = cast document.getElementById(DELETE_BUTTON);
-		var deleteButtonStream = MBooks.getMBooks().initializeElementStream(deleteButton, "click");
-		deleteButtonStream.then(deleteScenario);
-		var listStream : Stream<Dynamic> = MBooks.getMBooks().initializeElementStream(selectElement, "change");
-		listStream.then(selectScenario);	
-		var keyboardListStream : Stream<Dynamic> = MBooks.getMBooks().initializeElementStream(selectElement, "keydown");
-		keyboardListStream.then(selectScenarioKb);		
-		parent.appendChild(div);
-		
-		var scenarioNameElement : InputElement = cast document.getElementById(NAME_CLASS);
-		var scenarioNameStream : Stream<Dynamic> = MBooks.getMBooks().initializeElementStream(scenarioNameElement, "keyup");
-		var keydownStream : Stream<Dynamic> = MBooks.getMBooks().initializeElementStream(scenarioNameElement, "keydown");
-		scenarioNameStream.then(scenarioNameUpdate);
-		scenarioNameElement.focus();
-		keydownStream.then(scenarioNameUpdate);
-	}
 
 	private function getCCARListElement() : SelectElement {
 		var selectElement : SelectElement = 

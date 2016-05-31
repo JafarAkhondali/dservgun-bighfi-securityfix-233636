@@ -24,6 +24,11 @@ data OptionPricer = OptionPricer {
 
 } deriving (Show, Generic, Typeable)
 
+
+data TestTypeable = TestTypeable {
+	name :: String
+} deriving(Show, Generic, Typeable)
+
 instance ToJSON OptionPricer 
 instance FromJSON OptionPricer
 
