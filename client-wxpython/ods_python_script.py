@@ -1,12 +1,31 @@
 import sys
-
-
+import urllib
+import asyncio
+import websockets
 ##### Note: 
 ##### It seems to be that all functions in a macro need to reside in a single file.
 ##### We will break them down into modules as the size of the macros grow.
 
 
+def clientConnection () : 
+    #return "https://beta.ccardemo.tech/chat"
+    return "ws://localhost:3000/chat"
+
+@asyncio.coroutine
+def hello(userName, password):
+    websocket = yield from websockets.connect(clientConnection())
+    try:
+        yield from websocket.send(userName)
+        print(userName)
+
+        greeting = yield from websocket.recv()
+        print(greeting)
+
+    finally:
+        yield from websocket.close()
+
 def login (userName, password) :
+    asyncio.get_event_loop().run_until_complete(hello(userName, password))
     return (userName + "_" + "***************")
 
 
