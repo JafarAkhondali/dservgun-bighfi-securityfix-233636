@@ -218,7 +218,7 @@ def handleHistoricalStressValue(jsonResponse):
 ## https returns and invalid url. 
 def clientConnection () : 
     #return "https://beta.ccardemo.tech/chat"
-    return "ws://localhost:3000/chat"
+    return "wss://beta.ccardemo.tech/chat"
 
 @asyncio.coroutine
 def hello(userName, password):
