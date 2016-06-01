@@ -69,6 +69,152 @@ def sendQuerySupportedScripts(aJsonRequest) :
     pass 
 def handleQuerySupportedScripts(aJsonResponse):
     pass 
+def sendQueryActiveWorkbenches(aJsonRequest) :
+    pass 
+def handleQueryActiveWorkbenches(aJsonResponse):
+    pass 
+
+def sendManageWorkbench(aJsonRequest):
+    pass 
+def handleManageWorkbench(aJsonResponse):
+    pass 
+def sendExecuteWorkbench(jsonReuest) : 
+    pass
+def handleExecuteWorkbench(jsonRequest) :
+    pass 
+def sendSelectActiveProjects (jsonReequest) :
+    pass 
+def handleSelectActiveProjects(jsonRequest) :
+    pass
+def sendManageProject (jsonRequest) :
+    pass 
+def handleManageProject (jsonRequest) :
+    pass 
+def sendParsedCCARText(jsonRequest) :
+    pass 
+def handleParsedCCARText(jsonRequest) :
+    pass 
+def sendManageUser (jsonRequest) :
+    pass 
+def handleManageUser (jsonRequest) :
+    pass 
+def sendCreateUserTerms(jsonRequest) :
+    pass 
+def handleCreateUserTerms(jsonReques) :
+    pass 
+def sendUpdateUserTerms(jsonRequest): 
+    pass 
+def handleUpdateUserTerms (jsonRequest):
+    pass
+def sendDeleteUserTerms(jsonRequest):
+    pass 
+def handleDeleteUserTerms(jsonRequest) :
+    pass 
+def sendQueryUserTerms(jsonRequest) : 
+    pass 
+def handleQueryUserTerms(jsonRequest) :
+    pass
+def sendCreateUserPreferences(jsonRequest) :
+    pass 
+def handleCreateUserPreferences(jsonRequest) :
+    pass
+def sendUpdateUserPreferences(jsonRequest) :
+    pass 
+def handleUpdateUserPreferences(jsonRequest) :
+    pass
+def sendQueryUserPreferences(jsonRequest):
+    pass 
+def handleQueryUserPreferences(jsonRequest):
+    pass
+def sendDeleteUserPreferences(jsonRequest):
+    pass 
+def handleDeleteUserPreferences(jsonRequest) :
+    pass 
+def sendMessage(jsonRequest): 
+    pass
+def handleSendMessage(jsonResponse):
+    pass
+def sendUserJoined(jsonRequest) :
+    pass
+
+def handleUserJoined(jsonRequest) :
+    pass
+def sendUserBanned(jsonRequest):
+    pass 
+def handleUserBanned(jsonResponse): 
+    pass 
+def sendUserLoggedIn (jsonRequest): 
+    pass 
+def handleUserLoggedIn(jsonRequest):
+    pass 
+def sendUserLeft (jsonRequest) :
+    pass 
+def handleUserLeft (jsonRequest) :
+    pass 
+def sendAssignCompany(jsonRequest): 
+    pass 
+## This functionality should go as an desktop 
+## may not arbitrarily assign a user to a company
+def handleAssignCompany(jsonResponse): 
+    pass
+def sendKeepAlive(jsonRequest) :
+    pass
+def handleKeepAlive(jsonRequest) :
+    pass 
+def sendPortfolioSymbolTypesQuery(jsonRequest) :
+    pass 
+def handlePortfolioSymbolTypesQuery(jsonResponse):
+    pass 
+def senddPortfolioSymbolSidesQuery(jsonRequest): 
+    pass 
+def handlePortfolioSymbolSidesQuery(jsonResponse):
+    pass 
+def sendQueryPortfolios(jsonRequest):
+    pass 
+def handleQueryPortfolios(jsonResponse): 
+    pass 
+def sendManagePortfolio(jsonRequest): 
+    pass 
+def handleManagePortfolio(jsonResponse):
+    pass
+def sendManagePortfolioSymbol(jsonRequest) :
+    pass 
+def handleManagePortfolioSymbol(jsonResponse):
+    pass 
+def sendQueryPortfolioSymbol(jsonRequest): 
+    pass 
+def handleQueryPortfolioSymbol(jsonRequest) :
+    pass 
+def sendManageEntitlements(jsonRequest):
+    pass 
+def handleManageEntitlements(jsonResponse): 
+    pass 
+def sendQueryEntitlements(jsonRequest): 
+    pass 
+def handleQueryEntitlements(jsonRequest):
+    pass 
+def sendQueryCompanyUsers(jsonRequest): 
+    pass 
+def handleQueryCompanyUsers(jsonRequest): 
+    pass 
+def sendMarketDataUpdate(jsonRequest):
+    pass 
+def handleMarketDataUpdate(jsonResponse):
+    pass 
+def sendOptionAnalytics(jsonRequest) :
+    pass 
+def handleQptionAnalytics(jsonResponse): 
+    pass 
+def sendQueryMarketData(jsonRequest):
+    pass 
+def handleQueryMarketData(jsonRequest) :
+    pass 
+def sendHistoricalStressValue(jsonRequest):
+    pass
+def handleHistoricalStressValue(jsonResponse): 
+    pass
+
+
 ## https returns and invalid url. 
 def clientConnection () : 
     #return "https://beta.ccardemo.tech/chat"
