@@ -65,7 +65,7 @@ queryLogin nickName aValue = do
                     Nothing -> return $ Right $ login {loginStatus = Just UserNotFound}
                     Just (Entity k val)       -> return $ Right $ login {login = Just val, 
                                                 loginStatus = Just UserExists}
-            Error s -> return $ Left $ appError s 
+            Error s -> return $ Left $ appError aValue 
     return $ (GC.Reply, x)
 
 

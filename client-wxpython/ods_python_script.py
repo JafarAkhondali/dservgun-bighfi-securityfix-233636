@@ -13,6 +13,8 @@ import json
 ##### Package the server interaction as a library.
 
 
+
+
 def convertToBool(aString):
     if aString.capitalize() == "True" : 
         return True
@@ -114,8 +116,7 @@ def sendLoginRequest(userName, password) :
         'commandType' : 'Login',
         'nickName' : userName, 
         'loginStatus' : "Undefined",
-        'login' : userName
-
+        'login' : None
     }
     return json.dumps(login)
 
@@ -360,9 +361,10 @@ def ccarLoop(userName, password, useSsl):
         payload = sendLoginRequest(userName, password);
         yield from websocket.send(payload)
         reply = yield from websocket.recv()
-        print(reply)
-    finally:
+        updateErrorWorksheet(reply)
+    except:
         updateErrorWorksheet(traceback.format_exc())
+    finally:
         yield from websocket.close()
 
 
