@@ -13,7 +13,7 @@ import json
 ##### Package the server interaction as a library.
 
 
-
+serverHandle = None
 
 def convertToBool(aString):
     if aString.capitalize() == "True" : 
@@ -354,11 +354,18 @@ def clientConnection () :
     #return "https://beta.ccardemo.tech/chat"
     return "wss://localhost:3000/chat"
 
+def updateModel(aConnection) :
+    """Update the document model with the current server handle. """
+    global serverHandle 
+    serverHandle = aConnection
+
+
 @asyncio.coroutine
 def ccarLoop(userName, password, useSsl):
     websocket = yield from websockets.connect(clientConnection(), ssl=useSsl)
     try:
         payload = sendLoginRequest(userName, password);
+        updateModel(websocket)
         yield from websocket.send(payload)
         reply = yield from websocket.recv()
         updateErrorWorksheet(reply)
