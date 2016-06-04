@@ -387,8 +387,8 @@ def login (userName, password, ssl) :
     finally:
         return "Finished processing login"
 
-def PythonVersion(*args):
-    """Prints the Python version into the current document"""
+def StartClient(*args):
+    """Starts the CCAR client."""
 #get the doc from the scripting context which is made available to all scripts
     desktop = XSCRIPTCONTEXT.getDesktop()
     model = desktop.getCurrentComponent()
@@ -398,11 +398,6 @@ def PythonVersion(*args):
             "private:factory/scalc","_blank", 0, () )
 #get the XText interface
     sheet = model.Sheets.getByIndex(0)
-#create an XTextRange at the end of the document
-    tRange = sheet.getCellRangeByName("C4")
-#and set the string
-    tRange.String = "The Python version is %s.%s.%s" % sys.version_info[:3]
-#do the same for the python executable path
     tRange = sheet.getCellRangeByName("C5")
     tRange.String = sys.executable
     tRange = sheet.getCellRangeByName("C10")
@@ -414,5 +409,5 @@ def PythonVersion(*args):
     return None
 
 
-g_ExportedScripts = PythonVersion
+g_ExportedScripts = StartClient
 
