@@ -113,7 +113,8 @@ def sendLoginRequest(userName, password) :
     login = {
         'commandType' : 'Login',
         'nickName' : userName, 
-        'loginStatus' : "Undefined"
+        'loginStatus' : "Undefined",
+        'login' : userName
 
     }
     return json.dumps(login)
@@ -332,6 +333,7 @@ def PASSWORD_CELL() :
 
 def ERROR_CELL(): 
     return "A29"
+
 def updateErrorWorksheet(aMessage) :
     sheet = getWorksheet(0);
     tRange = sheet.getCellRangeByName(ERROR_CELL())
@@ -349,18 +351,18 @@ def getCellContent(aCell):
 ## https returns and invalid url. 
 def clientConnection () : 
     #return "https://beta.ccardemo.tech/chat"
-    return "wss://beta.ccardemo.tech/chat"
+    return "wss://localhost:3000/chat"
 
 @asyncio.coroutine
 def ccarLoop(userName, password, useSsl):
     websocket = yield from websockets.connect(clientConnection(), ssl=useSsl)
     try:
-        yield from websocket.send(userName)
-        print(userName)
-        greeting = yield from websocket.recv()
-        print(greeting)
+        payload = sendLoginRequest(userName, password);
+        yield from websocket.send(payload)
+        reply = yield from websocket.recv()
+        print(reply)
     finally:
-        updateErrorWorksheet("Get the exception handler here")
+        updateErrorWorksheet(traceback.format_exc())
         yield from websocket.close()
 
 
