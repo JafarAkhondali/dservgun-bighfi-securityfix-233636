@@ -48,51 +48,115 @@ def parseIncomingMessage(incomingJson) :
 
 def commandDictionary () :
     {
-        "Login"                 : 0
-    ,   "CCARUpload"            : 1
-    , "ManageCompany"           : 2
-    , "SelectAllCompanies"      : 3
-    , "QuerySupportedScripts"   : 4
-    , "QueryActiveWorkbenches"  : 5
-    , "ManageWorkbench"         : 6
-    , "ExecuteWorkbench"        : 7
-    , "SelectActiveProjects"    : 8
-    , "ManageProject"           : 9
-    , "ParsedCCARText"          : 10
-    , "ManageUser"              : 11
-    , "CreateUserTerms"         : 12
-    , "UpdateUserTerms"         : 13
-    , "DeleteUserTerms"         : 14
-    , "QueryUserTerms"          : 15
-    , "CreateUserPreferences"   : 16
-    , "UpdateUserPreferences"   : 17
-    , "QueryUserPreferences"    : 18
-    , "DeleteUserPreferences"   : 19
-    , "SendMessage"             : 20
-    , "UserJoined"              : 21
-    , "UserBanned"              : 22
-    , "UserLoggedIn"            : 23
-    , "UserLeft"                : 24
-    , "AssignCompany"           : 25
-    , "keepAlive"               : 26
-    , "PortfolioSymbolTypesQuery" : 27
-    , "PortfolioSymbolSidesQuery" : 28
-    , "QueryPortfolios"         : 29
-    , "ManagePortfolio"         : 30
-    , "ManagePortfolioSymbol"   : 31
-    , "QueryPortfolioSymbol"    : 32
-    , "ManageEntitlements"      : 33
-    , "QueryEntitlements"       : 34
-    , "QueryCompanyUsers"       : 35
-    , "MarketDataUpdate"        : 36
-    , "OptionAnalytics"         : 37
-    , "QueryMarketData"         : 38
-    , "HistoricalStressValueCommand" : 39
+        "Login"                 : 0 ,   "CCARUpload"            : 1
+    , "ManageCompany"           : 2 , "SelectAllCompanies"      : 3
+    , "QuerySupportedScripts"   : 4 , "QueryActiveWorkbenches"  : 5
+    , "ManageWorkbench"         : 6 , "ExecuteWorkbench"        : 7
+    , "SelectActiveProjects"    : 8 , "ManageProject"           : 9
+    , "ParsedCCARText"          : 10 , "ManageUser"              : 11
+    , "CreateUserTerms"         : 12 , "UpdateUserTerms"         : 13
+    , "DeleteUserTerms"         : 14 , "QueryUserTerms"          : 15
+    , "CreateUserPreferences"   : 16 , "UpdateUserPreferences"   : 17
+    , "QueryUserPreferences"    : 18 , "DeleteUserPreferences"   : 19
+    , "SendMessage"             : 20 , "UserJoined"              : 21
+    , "UserBanned"              : 22 , "UserLoggedIn"            : 23
+    , "UserLeft"                : 24 , "AssignCompany"           : 25
+    , "KeepAlive"               : 26 , "PortfolioSymbolTypesQuery" : 27
+    , "PortfolioSymbolSidesQuery" : 28 , "QueryPortfolios"         : 29
+    , "ManagePortfolio"         : 30 , "ManagePortfolioSymbol"   : 31
+    , "QueryPortfolioSymbol"    : 32 , "ManageEntitlements"      : 33
+    , "QueryEntitlements"       : 34 , "QueryCompanyUsers"       : 35
+    , "MarketDataUpdate"        : 36 , "OptionAnalytics"         : 37
+    , "QueryMarketData"         : 38 , "HistoricalStressValueCommand" : 39
     , "Undefined"               : 40
-
     }
 
 
+def processIncomingCommand(payload) :
+    commandType = getCommandType(payload)
+    reply = None
+    if commandType == LOGIN_COMMAND: 
+        reply = handleLoginResponse(payload);
+    elif commandType == CCAR_UPLOAD_COMMAND:
+        reply = handleCCARUpload(paylad)
+    elif commandTYpe == MANAGE_COMPANY:
+        reply = handleManageCompany(payload);
+    elif commandType == SELECT_ALL_COMPANIES: 
+        reply = handleSelectAllCompanies(payload);
+    elif commandType == QUERY_SUPPORTED_SCRIPTS:
+        reply = handleQuerySupportedScripts(payload);
+    elif commandType = QUERY_ACTIVE_WORKBENCHES:  
+        reply = handleQueryActiveWorkbenches(payload);
+    elif commandType == MANAGE_WORKBENCH:
+        reply = handleManageWorkbench(payload);
+    elif commandType == EXECUTE_WORKBENCH:
+        reply = handleExecuteWorkbench(payload);
+    elif commandType == SELECT_ACTIVE_PROJECTS:
+        reply = handleSelectActiveProjects(payload);
+    elif commandType == MANAGE_PROJECT: 
+        reply = handleManageProject(payload);
+    elif commandType == PARSED_CCAR_TEXT:
+        reply = handleParsedCCARText(payload);
+    elif commandType == MANAGE_USER:
+        reply = handleManageUser(payload);
+    elif commandType == CREATE_USER_TERMS:
+        reply = handleCreateUserTerms(payload);
+    elif commandType == UPDATE_USER_TERMS:
+        reply = handleUpdateUserTerms(payload);
+    elif commandType == DELETE_USER_TERMS:
+        reply = handleDeleteUserTerms(payload);
+    elif commandType == QUERY_USER_TERMS:
+        reply = handleQueryUserTerms(payload);
+    elif commandType == CREATE_USER_PREFERENCES:
+        reply = handleCreateUserPreferences(payload);
+    elif commandType == UPDATE_USER_PREFERENCES:
+        reply = handleUpdateUserPreferences(payload);
+    elif commandType == QUERY_USER_PREFERENCES:
+        reply = handleQueryUserPreferences(payload);
+    elif commandType == DELETE_USER_PREFERENCES:
+        reply = handleDeleteUserPreferences(payload);
+    elif commandType == SEND_MESSAGE:
+        reply = handleSendMessage(paylaod);
+    elif commandType == USER_BANNED:
+        reply = handleUserBanned(payload);
+    elif commandType == USER_JOINED:
+        reply = handleUserJoined(payload);
+    elif commandType == USER_LOGGED_IN:
+        reply = handleUserLoggedIn(payload);
+    elif commandType == USER_LEFT:
+        reply = handleUserLeft(payload);
+    elif commandType == ASSIGN_COMPANY:
+        reply = handleAssignCompany(payload);
+    elif commandType ==  KEEP_ALIVE:
+        reply = handleKeepAlive(payload);
+    elif commandType == PORTFOLIO_SYMBOL_TYPES_QUERY:
+        reply = handlePortfolioSymbolTypesQuery(payload);
+    elif commandType == PORTFOLIO_SYMBOL_SIDES_QUERY:
+        reply = handlePortfolioSymbolSidesQuery(payload);
+    elif commandType == QUERY_PORTFOLIOS:
+        reply = handleQueryPortfolios(payload);
+    elif commandType == MANAGE_PORTFOLIO:
+        reply = handleManagePortfolio(payload);
+    elif commandType == MANAGE_PORTFOLIO_SYMBOL:
+        reply = handleManagePortfolioSymbol(payload);
+    elif commandType == QUERY_PORTFOLIO_SYMBOL:
+        reply = handleQueryPortfolioSymbol(payload);
+    elif commandType == MANAGE_ENTITLEMENTS:
+        reply = handleManageEntitlements(payload);
+    elif commandType == QUERY_ENTITLEMENTS:
+        reply = handleQueryEntitlements(payload);
+    elif commandType == QUERY_COMPANY_USERS:
+        reply = handleQueryCompanyUsers(payload);
+    elif commandType == MARKET_DATA_UPDATE:
+        reply = handleMarketDataUpdate(payload);
+    elif commandType == OPTION_ANALYTICS:
+        reply = handleQptionAnalytics(payload);
+    elif commandType == QUERY_MARKET_DATA:
+        reply = handleQueryMarketData(payload);
+    elif commandType == HISTORICAL_STRESS_VALUE_COMMAND:
+        reply = handleHistoricalStressValue(payload);
+    elif 
+        raise (new BaseException("Invalid command " + payload))
 
 # Indexes are zero based.
 def getWorksheet(anIndex) :
@@ -123,7 +187,7 @@ def sendLoginRequest(userName, password) :
 
 def handleLoginResponse(incomingJson) :
     data = json.loads(incomingJson);
-
+    
 
 def handleUserNotFound (incomingJson) :
     # If the user is not found, let the 
@@ -363,8 +427,6 @@ def updateModel(aConnection) :
     serverHandle = aConnection
 
 
-def processIncomingCommand(websocket, payload) :
-    pass
 @asyncio.coroutine
 def ccarLoop(userName, password, useSsl):
     websocket = yield from websockets.connect(clientConnection(), ssl=useSsl)
