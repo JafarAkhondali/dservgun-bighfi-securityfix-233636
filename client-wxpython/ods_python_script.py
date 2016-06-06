@@ -45,6 +45,7 @@ def parseIncomingMessage(incomingJson) :
         handleQueryActiveWorkbenches(incomingJson)
     else:
         pass
+
 def commandDictionary () :
     {
         "Login"                 : 0
@@ -351,8 +352,10 @@ def getCellContent(aCell):
     return tRange.String
 ## https returns and invalid url. 
 def clientConnection () : 
-    #return "https://beta.ccardemo.tech/chat"
-    return "wss://localhost:3000/chat"
+    CONNECTION_CELL = "C3";
+    return getCellContent(CONNECTION_CELL);
+    #return "https://beta.ccardemo.tech"
+    #return "wss://beta.ccardemo.tech/chat"
 
 def updateModel(aConnection) :
     """Update the document model with the current server handle. """
@@ -360,6 +363,8 @@ def updateModel(aConnection) :
     serverHandle = aConnection
 
 
+def processIncomingCommand(websocket, payload) :
+    pass
 @asyncio.coroutine
 def ccarLoop(userName, password, useSsl):
     websocket = yield from websockets.connect(clientConnection(), ssl=useSsl)
@@ -367,7 +372,7 @@ def ccarLoop(userName, password, useSsl):
         payload = sendLoginRequest(userName, password);
         updateModel(websocket)
         yield from websocket.send(payload)
-        reply = yield from websocket.recv()
+        reply = processIncomingCommand(websocket, payload)
         updateErrorWorksheet(reply)
     except:
         updateErrorWorksheet(traceback.format_exc())
