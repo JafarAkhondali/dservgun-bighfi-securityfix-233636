@@ -52,14 +52,36 @@ CCAR_UPLOAD_COMMAND = 1001
 MANAGE_COMPANY = 1002
 SELECT_ALL_COMPANIES = 1003
 QUERY_SUPPORTED_SCRIPTS = 1004
-
+QUERY_ACTIVE_WORKBENCHES = 1005
+MANAGE_WORKBENCH = 1006
+EXECUTE_WORKBENCH = 1007
+SELECT_ACTIVE_PROJECTS = 1008
+MANAGE_PROJECT = 1009
+PARSED_CCAR_TEXT = 1010
+MANAGE_USER = 1011
+CREATE_USER_TERMS = 1012
+UPDATE_USER_TERMS = 1013
+DELETE_USER_TERMS = 1014
+QUERY_USER_TERMS = 1015
+CREATE_USER_PREFERENCES = 1016
+UPDATE_USER_PREFERENCES = 1017
+QUERY_USER_PREFERENCES = 1018
+DELETE_USER_PREFERENCES = 1019; SEND_MESSAGE = 1020
+USER_JOINED = 1021
+USER_BANNED = 1022
+USER_LOGGED_IN = 1023;USER_LEFT = 1024
+ASSIGN_COMPANY = 1025;KEEP_ALIVE = 1026
+PORTFOLIO_SYMBOL_TYPES_QUERY = 1027;PORTFOLIO_SYMBOL_SIDES_QUERY = 1028
+QUERY_PORTFOLIOS = 1029; MANAGE_PORTFOLIO = 1030; MANAGE_PORTFOLIO_SYMBOL =1031
+QUERY_PORTFOLIO_SYMBOL = 1032; MANAGE_ENTITLEMENTS = 1033; QUERY_ENTITLEMENTS = 1034
+QUERY_COMPANY_USERS = 1035; MARKET_DATA_UPDATE = 1036; OPTION_ANALYTICS = 1037
+QUERY_MARKET_DATA = 1038; HISTORICAL_STRESS_VALUE_COMMAND = 1039; UNDEFINED = 1040
 
 def commandDictionary () :
     {
         "Login"                 : LOGIN_COMMAND ,   "CCARUpload"            : CCAR_UPLOAD_COMMAND
     , "ManageCompany"           : MANAGE_COMPANY , "SelectAllCompanies"      : SELECT_ALL_COMPANIES
-    , "QuerySupportedScripts"   : QUERY_SUPPORTED_SCRIPTS 
-    , "QueryActiveWorkbenches"  : QUERY_ACTIVE_WORKBENCHES
+    , "QuerySupportedScripts"   : QUERY_SUPPORTED_SCRIPTS , "QueryActiveWorkbenches"  : QUERY_ACTIVE_WORKBENCHES
     , "ManageWorkbench"         : MANAGE_WORKBENCH 
     , "ExecuteWorkbench"        : EXECUTE_WORKBENCH
     , "SelectActiveProjects"    : SELECT_ACTIVE_PROJECTS 
@@ -94,7 +116,7 @@ def commandDictionary () :
     , "OptionAnalytics"         : OPTION_ANALYTICS
     , "QueryMarketData"         : QUERY_MARKET_DATA 
     , "HistoricalStressValueCommand" : HISTORICAL_STRESS_VALUE_COMMAND
-    , "Undefined"               : 40
+    , "Undefined"               : UNDEFINED
     }
 
 
@@ -389,7 +411,7 @@ def processIncomingCommand(payload) :
         reply = handleSelectAllCompanies(payload);
     elif commandType == QUERY_SUPPORTED_SCRIPTS:
         reply = handleQuerySupportedScripts(payload);
-    elif commandType = QUERY_ACTIVE_WORKBENCHES:  
+    elif commandType == QUERY_ACTIVE_WORKBENCHES:  
         reply = handleQueryActiveWorkbenches(payload);
     elif commandType == MANAGE_WORKBENCH:
         reply = handleManageWorkbench(payload);
@@ -459,8 +481,8 @@ def processIncomingCommand(payload) :
         reply = handleQueryMarketData(payload);
     elif commandType == HISTORICAL_STRESS_VALUE_COMMAND:
         reply = handleHistoricalStressValue(payload);
-    elif 
-        raise (new BaseException("Invalid command " + payload))
+    else:
+        raise (BaseException("Invalid command " + payload))
 
 
 #################### Begin loop ##############################
