@@ -27,21 +27,51 @@ def SECURITY_CELL():
 def SECURITY_CELL_LOG(): 
     return "B16"
 
+def LOGIN_CELL() :
+    return"B5" 
+def PASSWORD_CELL() :
+    return "B6"
+
+def INFO_CELL() :
+    return "A32";
+
+def ERROR_CELL(): 
+    return "A29"
+
+def updateInfoWorksheet(aMessage) :
+    sheet = getWorksheet(0);
+    tRange = sheet.getCellRangeByName(INFO_CELL())
+    tRange.String = aMessage    
+
+def updateErrorWorksheet(aMessage) :
+    sheet = getWorksheet(0);
+    tRange = sheet.getCellRangeByName(ERROR_CELL())
+    tRange.String = aMessage    
+
+def updateCellContent(aCell, aValue) : 
+    sheet = getWorksheet(0);
+    tRange = sheet.getCellRangeByName(aCell)
+    tRange.String = aValue
+
+def getCellContent(aCell): 
+    sheet = getWorksheet(0);
+    tRange = sheet.getCellRangeByName(aCell)
+    return tRange.String
 
 
 def parseIncomingMessage(incomingJson) : 
     commandType = getCommandType(incomingJson)
-    if commandType == 0 :
+    if commandType == LOGIN_COMMAND :
         handleLoginResponse(incomingJson)
-    elif commandType == 1 :
+    elif commandType == CCAR_UPLOAD_COMMAND :
         handleCCARUpload(incomingJson)
-    elif commandType == 2: 
+    elif commandType == MANAGE_COMPANY: 
         handleManageCompany(incomingJson)
-    elif commandType == 3 :
+    elif commandType == SELECT_ALL_COMPANIES :
         handleSelectAllCompanies(incomingJson)
-    elif commandType == 4 : 
+    elif commandType == QUERY_SUPPORTED_SCRIPTS : 
         handleQuerySupportedScripts(incomingJson)
-    elif commandType == 5 : 
+    elif commandType == QUERY_ACTIVE_WORKBENCHES : 
         handleQueryActiveWorkbenches(incomingJson)
     else:
         pass
@@ -178,6 +208,7 @@ def keepAliveTimer () :
 
 def getCommandType(incomingJson) : 
     data = json.loads(incomingJson);
+    updateInfoWorksheet(incomingJson)
     try :
         if data.has_key("commandType"):
             cType =  data["commandType"]
@@ -188,7 +219,7 @@ def getCommandType(incomingJson) :
         else:
             return commandDictionary()["Undefined"]
     except :
-        updateErrorWorkSheet("InvalidCommandType " + incomingJson)
+        updateErrorWorksheet("InvalidCommandType " + incomingJson)
         cType = commandDictionary()["Undefined"]
 
 
@@ -362,28 +393,6 @@ def handleHistoricalStressValue(jsonResponse):
     pass
 
 
-def LOGIN_CELL() :
-    return"B5" 
-def PASSWORD_CELL() :
-    return "B6"
-
-def ERROR_CELL(): 
-    return "A29"
-
-def updateErrorWorksheet(aMessage) :
-    sheet = getWorksheet(0);
-    tRange = sheet.getCellRangeByName(ERROR_CELL())
-    tRange.String = aMessage    
-
-def updateCellContent(aCell, aValue) : 
-    sheet = getWorksheet(0);
-    tRange = sheet.getCellRangeByName(aCell)
-    tRange.String = aValue
-
-def getCellContent(aCell): 
-    sheet = getWorksheet(0);
-    tRange = sheet.getCellRangeByName(aCell)
-    return tRange.String
 
 ## https returns and invalid url. 
 def clientConnection () : 
@@ -489,12 +498,12 @@ def processIncomingCommand(payload) :
 
 @asyncio.coroutine
 def ccarLoop(userName, password, useSsl):
-    websocket = yield from websockets.connect(clientConnection(), ssl=useSsl)
+    websocket = yield from websockets.connect(clientConnection())
     try:
         payload = sendLoginRequest(userName, password);
         updateModel(websocket)
         yield from websocket.send(payload)
-        reply = processIncomingCommand(websocket, payload)
+        reply = processIncomingCommand(payload)
         updateErrorWorksheet(reply)
     except:
         updateErrorWorksheet(traceback.format_exc())
