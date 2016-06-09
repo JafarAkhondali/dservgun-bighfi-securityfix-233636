@@ -41,12 +41,12 @@ def ERROR_CELL():
 def updateInfoWorksheet(aMessage) :
     sheet = getWorksheet(0);
     tRange = sheet.getCellRangeByName(INFO_CELL())
-    tRange.String = aMessage    
+    tRange.String = tRange.String + "\n" + (str(aMessage))
 
 def updateErrorWorksheet(aMessage) :
     sheet = getWorksheet(0);
     tRange = sheet.getCellRangeByName(ERROR_CELL())
-    tRange.String = aMessage    
+    tRange.String = tRange.String + "\n" + (str (aMessage))
 
 def updateCellContent(aCell, aValue) : 
     sheet = getWorksheet(0);
@@ -60,7 +60,7 @@ def getCellContent(aCell):
 
 
 def parseIncomingMessage(incomingJson) : 
-    commandType = getCommandType(incomingJson)
+    commandType = getCommandTypeValue(incomingJson)
     if commandType == LOGIN_COMMAND :
         handleLoginResponse(incomingJson)
     elif commandType == CCAR_UPLOAD_COMMAND :
@@ -108,8 +108,8 @@ QUERY_COMPANY_USERS = 1035; MARKET_DATA_UPDATE = 1036; OPTION_ANALYTICS = 1037
 QUERY_MARKET_DATA = 1038; HISTORICAL_STRESS_VALUE_COMMAND = 1039; UNDEFINED = 1040
 
 def commandDictionary () :
-    {
-        "Login"                 : LOGIN_COMMAND ,   "CCARUpload"            : CCAR_UPLOAD_COMMAND
+    return {
+    u"Login"                 : LOGIN_COMMAND ,   "CCARUpload"            : CCAR_UPLOAD_COMMAND
     , "ManageCompany"           : MANAGE_COMPANY , "SelectAllCompanies"      : SELECT_ALL_COMPANIES
     , "QuerySupportedScripts"   : QUERY_SUPPORTED_SCRIPTS , "QueryActiveWorkbenches"  : QUERY_ACTIVE_WORKBENCHES
     , "ManageWorkbench"         : MANAGE_WORKBENCH 
@@ -170,15 +170,17 @@ def getSecuritySettings() :
 def sendLoginRequest(userName, password) : 
     #create a login json request
     login = {
-        'commandType' : 'Login',
-        'nickName' : userName, 
-        'loginStatus' : "Undefined",
-        'login' : None
+        u'commandType' : 'Login',
+        u'nickName' : userName, 
+        u'loginStatus' : "Undefined",
+        u'login' : None
     }
     return json.dumps(login)
 
 def handleLoginResponse(incomingJson) :
     data = json.loads(incomingJson);
+    updateInfoWorksheet("Login response")
+    updateInfoWorksheet(data);
     loginStatus = data['loginStatus']
     if loginStatus != "UserExists":
         updateErrorWorksheet("User not found. Power users need to be registered");
@@ -206,21 +208,21 @@ def keepAliveTimer () :
     # once a user is validated.
     pass
 
-def getCommandType(incomingJson) : 
+def getCommandType(incomingJson) :
     data = json.loads(incomingJson);
-    updateInfoWorksheet(incomingJson)
-    try :
-        if data.has_key("commandType"):
-            cType =  data["commandType"]
-            return commandDictionary()[cType]
-        elif data.has_key("Right"):
-            cType = (data["Right"])["commandType"]
-            return commandDictionary()[cType]
-        else:
-            return commandDictionary()["Undefined"]
-    except :
-        updateErrorWorksheet("InvalidCommandType " + incomingJson)
-        cType = commandDictionary()["Undefined"]
+    updateInfoWorksheet("Inside getCommandType");
+    updateInfoWorksheet(data.keys())
+    updateInfoWorksheet(data)
+    if "commandType" in data: 
+        return data["commandType"]
+    elif "Right" in data:
+        return (data["Right"])["commandType"]
+    else:
+        return "Undefined"
+
+def getCommandTypeValue(aCommandType) : 
+    updateInfoWorksheet("Processing commandType " + aCommandType)
+    return commandDictionary()[aCommandType]
 
 
 
@@ -408,13 +410,15 @@ def updateModel(aConnection) :
 
 
 def processIncomingCommand(payload) :
-    commandType = getCommandType(payload)
+    cType = getCommandType(payload);
+    updateInfoWorksheet("###Command Type ### " + cType)
+    commandType = getCommandTypeValue(cType)
     
     if commandType == LOGIN_COMMAND: 
         reply = handleLoginResponse(payload);
     elif commandType == CCAR_UPLOAD_COMMAND:
         reply = handleCCARUpload(paylad)
-    elif commandTYpe == MANAGE_COMPANY:
+    elif commandType == MANAGE_COMPANY:
         reply = handleManageCompany(payload);
     elif commandType == SELECT_ALL_COMPANIES: 
         reply = handleSelectAllCompanies(payload);
@@ -492,7 +496,7 @@ def processIncomingCommand(payload) :
         reply = handleHistoricalStressValue(payload);
     else:
         raise (BaseException("Invalid command " + payload))
-
+    return reply
 
 #################### Begin loop ##############################
 
@@ -501,9 +505,12 @@ def ccarLoop(userName, password, useSsl):
     websocket = yield from websockets.connect(clientConnection())
     try:
         payload = sendLoginRequest(userName, password);
+        commandType = getCommandType(payload);
+        updateInfoWorksheet("Login request command type " + commandType);
         updateModel(websocket)
         yield from websocket.send(payload)
-        reply = processIncomingCommand(payload)
+        ### Understand what yield from is doing.
+        reply = processIncomingCommand(response)
         updateErrorWorksheet(reply)
     except:
         updateErrorWorksheet(traceback.format_exc())
@@ -516,11 +523,9 @@ def LOGGER_CELL():
 
 def login (userName, password, ssl) :
     try:
-        updateCellContent(LOGGER_CELL(), "Username" + "tbd-")
         if userName == None or userName == "" or password == None or password == "":
             updateCellContent(LOGGER_CELL(), "User name and or password not found")
             return;
-        updateCellContent(LOGGER_CELL(), "After user name");
         asyncio.get_event_loop().run_until_complete(ccarLoop(userName, password, ssl))
         return (userName + "_" + "***************")
     except:
