@@ -38,10 +38,21 @@ def INFO_CELL() :
 def ERROR_CELL(): 
     return "A29"
 
+def clearInfoWorksheet():
+    sheet = getWorksheet(0);
+    tRange = sheet.getCellRangeByName(INFO_CELL())
+    tRange.String = ""
+
+
 def updateInfoWorksheet(aMessage) :
     sheet = getWorksheet(0);
     tRange = sheet.getCellRangeByName(INFO_CELL())
     tRange.String = tRange.String + "\n" + (str(aMessage))
+
+def clearErrorWorksheet():
+    sheet = getWorksheet(0);
+    tRange = sheet.getCellRangeByName(ERROR_CELL())
+    tRange.String = ""
 
 def updateErrorWorksheet(aMessage) :
     sheet = getWorksheet(0);
@@ -58,23 +69,12 @@ def getCellContent(aCell):
     tRange = sheet.getCellRangeByName(aCell)
     return tRange.String
 
+def getUserName() :
+    return getCellContent(LOGIN_CELL())
 
-def parseIncomingMessage(incomingJson) : 
-    commandType = getCommandTypeValue(incomingJson)
-    if commandType == LOGIN_COMMAND :
-        handleLoginResponse(incomingJson)
-    elif commandType == CCAR_UPLOAD_COMMAND :
-        handleCCARUpload(incomingJson)
-    elif commandType == MANAGE_COMPANY: 
-        handleManageCompany(incomingJson)
-    elif commandType == SELECT_ALL_COMPANIES :
-        handleSelectAllCompanies(incomingJson)
-    elif commandType == QUERY_SUPPORTED_SCRIPTS : 
-        handleQuerySupportedScripts(incomingJson)
-    elif commandType == QUERY_ACTIVE_WORKBENCHES : 
-        handleQueryActiveWorkbenches(incomingJson)
-    else:
-        pass
+def clearCells():
+    clearInfoWorksheet();
+    clearErrorWorksheet();
 
 
 LOGIN_COMMAND = 1000
@@ -167,6 +167,13 @@ def getSecuritySettings() :
     tRangeO.String = "Using " + tRange.String
     return tRange.String
 
+def sendSelectAllCompaniesRequest(aJsonMessage) :
+    payload = {
+        'nickName' : getUserName()
+        , 'commandType' : "SelectAllCompanies"
+    };
+    return payload
+
 def sendLoginRequest(userName, password) : 
     #create a login json request
     login = {
@@ -177,8 +184,19 @@ def sendLoginRequest(userName, password) :
     }
     return json.dumps(login)
 
-def handleLoginResponse(incomingJson) :
-    data = json.loads(incomingJson);
+def sendUserLoggedIn (jsonRequest): 
+    userLoggedIn = {
+        'commandType' : 'UserLoggedIn'
+        , 'userName' : jsonRequest['login']['nickName']}
+    return userLoggedIn
+
+     
+def handleUserLoggedIn(response):
+    updateInfoWorksheet("User logged in");
+    updateInfoWorksheet(response)
+    return sendSelectAllCompaniesRequest(response);
+
+def handleLoginResponse(data) :
     updateInfoWorksheet("Login response")
     updateInfoWorksheet(data);
     loginStatus = data['loginStatus']
@@ -186,10 +204,11 @@ def handleLoginResponse(incomingJson) :
         updateErrorWorksheet("User not found. Power users need to be registered");
         return;
     lPassword = getCellContent(PASSWORD_CELL());
-    if lPassword != data['password']:
+    if lPassword != data['login']['password']:
         updateErrorWorksheet("Invalid user name password. Call support");
         return;
-    return data
+    return sendUserLoggedIn(data);
+
 
 def handleUserNotFound (incomingJson) :
     # If the user is not found, let the 
@@ -236,14 +255,9 @@ def sendManageCompany(aJsonMessage) :
 def handleManageCompany(aJsonResponse): 
     #Handle manage company
     pass
-def sendSelectAllCompaniesRequest(aJsonMessage) :
-    # A request to return all the companies
-    pass 
 
-def handleSelectAllCompaniesResponse(): 
-    # Server response to return all the companies
-    # Company reference is to help whitelabel the client.
-    pass
+def handleSelectAllCompaniesResponse(response): 
+    updateInfoWorksheet(response);
 
 def sendQuerySupportedScripts(aJsonRequest) : 
     pass 
@@ -322,10 +336,6 @@ def handleUserJoined(jsonRequest) :
 def sendUserBanned(jsonRequest):
     pass 
 def handleUserBanned(jsonResponse): 
-    pass 
-def sendUserLoggedIn (jsonRequest): 
-    pass 
-def handleUserLoggedIn(jsonRequest):
     pass 
 def sendUserLeft (jsonRequest) :
     pass 
@@ -409,8 +419,17 @@ def updateModel(aConnection) :
     serverHandle = aConnection
 
 
-def processIncomingCommand(payload) :
-    cType = getCommandType(payload);
+### Right in the json response implies no errors.
+def processIncomingCommand(payloadI) :
+    cType = getCommandType(payloadI);
+    payloadJ = json.loads(payloadI)
+    if "Right" in  payloadJ:
+        payload = payloadJ["Right"]; 
+    elif "Left" in payloadJ:
+        updateErrorWorksheet(payloadJ);
+        return;
+    else:
+        payload = payloadJ
     updateInfoWorksheet("###Command Type ### " + cType)
     commandType = getCommandTypeValue(cType)
     
@@ -455,7 +474,7 @@ def processIncomingCommand(payload) :
     elif commandType == DELETE_USER_PREFERENCES:
         reply = handleDeleteUserPreferences(payload);
     elif commandType == SEND_MESSAGE:
-        reply = handleSendMessage(paylaod);
+        reply = handleSendMessage(payload);
     elif commandType == USER_BANNED:
         reply = handleUserBanned(payload);
     elif commandType == USER_JOINED:
@@ -503,15 +522,19 @@ def processIncomingCommand(payload) :
 @asyncio.coroutine
 def ccarLoop(userName, password, useSsl):
     websocket = yield from websockets.connect(clientConnection())
+    updateModel(websocket)
+
     try:
         payload = sendLoginRequest(userName, password);
-        commandType = getCommandType(payload);
-        updateInfoWorksheet("Login request command type " + commandType);
-        updateModel(websocket)
         yield from websocket.send(payload)
-        ### Understand what yield from is doing.
-        reply = processIncomingCommand(response)
-        updateErrorWorksheet(reply)
+        while True:
+            response = yield from websocket.recv()
+            commandType = getCommandType(response);
+            updateInfoWorksheet("Login request command type " + commandType);
+            reply = processIncomingCommand(response)
+            updateInfoWorksheet("Sending reply " + str(reply))
+            yield from websocket.send(json.dumps(reply))
+            updateInfoWorksheet("Reply sent");
     except:
         updateErrorWorksheet(traceback.format_exc())
     finally:
@@ -549,6 +572,7 @@ def StartClient(*args):
     tRange = sheet.getCellRangeByName("C5")
     tRange.String = sys.executable
     tRange = sheet.getCellRangeByName("C10")
+    clearCells();
     s = getSecuritySettings()
     l = getCellContent(LOGIN_CELL())
     p = getCellContent(PASSWORD_CELL())
