@@ -99,13 +99,24 @@ QUERY_USER_PREFERENCES = 1018
 DELETE_USER_PREFERENCES = 1019; SEND_MESSAGE = 1020
 USER_JOINED = 1021
 USER_BANNED = 1022
-USER_LOGGED_IN = 1023;USER_LEFT = 1024
-ASSIGN_COMPANY = 1025;KEEP_ALIVE = 1026
-PORTFOLIO_SYMBOL_TYPES_QUERY = 1027;PORTFOLIO_SYMBOL_SIDES_QUERY = 1028
-QUERY_PORTFOLIOS = 1029; MANAGE_PORTFOLIO = 1030; MANAGE_PORTFOLIO_SYMBOL =1031
-QUERY_PORTFOLIO_SYMBOL = 1032; MANAGE_ENTITLEMENTS = 1033; QUERY_ENTITLEMENTS = 1034
-QUERY_COMPANY_USERS = 1035; MARKET_DATA_UPDATE = 1036; OPTION_ANALYTICS = 1037
-QUERY_MARKET_DATA = 1038; HISTORICAL_STRESS_VALUE_COMMAND = 1039; UNDEFINED = 1040
+USER_LOGGED_IN = 1023
+USER_LEFT = 1024
+ASSIGN_COMPANY = 1025
+KEEP_ALIVE = 1026
+PORTFOLIO_SYMBOL_TYPES_QUERY = 1027
+PORTFOLIO_SYMBOL_SIDES_QUERY = 1028
+QUERY_PORTFOLIOS = 1029
+MANAGE_PORTFOLIO = 1030
+MANAGE_PORTFOLIO_SYMBOL =1031
+QUERY_PORTFOLIO_SYMBOL = 1032
+MANAGE_ENTITLEMENTS = 1033
+QUERY_ENTITLEMENTS = 1034
+QUERY_COMPANY_USERS = 1035
+MARKET_DATA_UPDATE = 1036
+OPTION_ANALYTICS = 1037
+QUERY_MARKET_DATA = 1038
+HISTORICAL_STRESS_VALUE_COMMAND = 1039
+UNDEFINED = 1040
 
 def commandDictionary () :
     return {
@@ -168,6 +179,7 @@ def getSecuritySettings() :
     return tRange.String
 
 def sendSelectAllCompaniesRequest(aJsonMessage) :
+    updateInfoWorksheet("Processing sending select all companies " + str(aJsonMessage))
     payload = {
         'nickName' : getUserName()
         , 'commandType' : "SelectAllCompanies"
@@ -186,14 +198,14 @@ def sendLoginRequest(userName, password) :
 
 def sendUserLoggedIn (jsonRequest): 
     userLoggedIn = {
-        'commandType' : 'UserLoggedIn'
-        , 'userName' : jsonRequest['login']['nickName']}
+        'nickName' : getUserName()
+        , 'commandType' : 'UserLoggedIn'
+        , 'userName' : getUserName()}
     return userLoggedIn
 
      
 def handleUserLoggedIn(response):
-    updateInfoWorksheet("User logged in");
-    updateInfoWorksheet(response)
+    updateInfoWorksheet("User logged in: some server response?" + str(response));
     return sendSelectAllCompaniesRequest(response);
 
 def handleLoginResponse(data) :
@@ -327,7 +339,8 @@ def handleDeleteUserPreferences(jsonRequest) :
 def sendMessage(jsonRequest): 
     pass
 def handleSendMessage(jsonResponse):
-    pass
+    updateInfoWorksheet("Not handling " + str(jsonResponse));
+    return None
 def sendUserJoined(jsonRequest) :
     pass
 
@@ -423,6 +436,7 @@ def updateModel(aConnection) :
 def processIncomingCommand(payloadI) :
     cType = getCommandType(payloadI);
     payloadJ = json.loads(payloadI)
+    updateInfoWorksheet("Payload j " + str(payloadJ));
     if "Right" in  payloadJ:
         payload = payloadJ["Right"]; 
     elif "Left" in payloadJ:
@@ -430,11 +444,14 @@ def processIncomingCommand(payloadI) :
         return;
     else:
         payload = payloadJ
+
     updateInfoWorksheet("###Command Type ### " + cType)
+    updateInfoWorksheet("Payload " + str(payload))
     commandType = getCommandTypeValue(cType)
-    
+    updateInfoWorksheet("Command type code: " + str(commandType))
     if commandType == LOGIN_COMMAND: 
         reply = handleLoginResponse(payload);
+        updateInfoWorksheet("LOGIN_COMMAND " + str(reply))
     elif commandType == CCAR_UPLOAD_COMMAND:
         reply = handleCCARUpload(paylad)
     elif commandType == MANAGE_COMPANY:
@@ -480,6 +497,7 @@ def processIncomingCommand(payloadI) :
     elif commandType == USER_JOINED:
         reply = handleUserJoined(payload);
     elif commandType == USER_LOGGED_IN:
+        updateInfoWorksheet("##Command type " + str(commandType) + "--->" + str(payload))
         reply = handleUserLoggedIn(payload);
     elif commandType == USER_LEFT:
         reply = handleUserLeft(payload);
@@ -514,7 +532,8 @@ def processIncomingCommand(payloadI) :
     elif commandType == HISTORICAL_STRESS_VALUE_COMMAND:
         reply = handleHistoricalStressValue(payload);
     else:
-        raise (BaseException("Invalid command " + payload))
+        reply = None
+    updateInfoWorksheet("processInFcomingCommand : reply" + str(reply))
     return reply
 
 #################### Begin loop ##############################
@@ -528,13 +547,23 @@ def ccarLoop(userName, password, useSsl):
         payload = sendLoginRequest(userName, password);
         yield from websocket.send(payload)
         while True:
-            response = yield from websocket.recv()
-            commandType = getCommandType(response);
-            updateInfoWorksheet("Login request command type " + commandType);
-            reply = processIncomingCommand(response)
-            updateInfoWorksheet("Sending reply " + str(reply))
-            yield from websocket.send(json.dumps(reply))
-            updateInfoWorksheet("Reply sent");
+            try: 
+                response = yield from websocket.recv()
+                commandType = getCommandType(response);
+                updateInfoWorksheet("Login request command type " + commandType);
+                updateInfoWorksheet("Server response :" + response)
+                reply = processIncomingCommand(response)
+                updateInfoWorksheet("Reply " + str(reply));
+                if reply == None:
+                    updateInfoWorksheet("Ignoring " + response);                    
+                else:
+                    updateInfoWorksheet("Sending reply " + str(reply))
+                    yield from websocket.send(json.dumps(reply))
+                    updateInfoWorksheet("Reply sent");
+            except:
+                error = traceback.format_exc()
+                updateErrorWorksheet(error)
+                return "Loop exiting"
     except:
         updateErrorWorksheet(traceback.format_exc())
     finally:
