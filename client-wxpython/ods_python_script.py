@@ -4,6 +4,8 @@ import asyncio
 import websockets
 import traceback
 import json
+import ssl
+import threading
 ##### Note: Requires python 3.4 or above
 ##### It seems to be that all functions in a macro need to reside in a single file.
 ##### We will break them down into modules as the size of the macros grow.
@@ -37,6 +39,9 @@ def INFO_CELL() :
 
 def ERROR_CELL(): 
     return "A29"
+
+def KEEP_ALIVE_CELL():
+    return "B25"
 
 def clearInfoWorksheet():
     sheet = getWorksheet(0);
@@ -203,7 +208,39 @@ def sendUserLoggedIn (jsonRequest):
         , 'userName' : getUserName()}
     return userLoggedIn
 
-     
+def sendKeepAlive(jsonRequest) :
+    k = {
+        "nickName" : getUserName()
+        , "commandType" : "KeepAlive"
+        , "keepAlive" : "Ping"
+    }
+    return k;
+    
+def handleKeepAlive(jsonRequest) :
+    pass 
+
+#################### Begin loop ##############################
+def keepAliveInterval() :
+    interval = getCellContent(KEEP_ALIVE_CELL())
+    return int(interval)
+
+## Send a keep alive request every n seconds. 
+## This is not entirely accurate: the client needs to send 
+## a message only after n seconds of idle period. TODO
+def keepAlivePing():
+    try:
+        updateInfoWorksheet("Calling keep alive timer");
+        reply = sendKeepAlive();
+        yield from serverHandle.send(reply)
+        updateInfoWorksheet("Keep alive timer " + reply)
+    except:
+        updateErrorWorksheet(traceback.format_exc())
+
+def keepAliveTimerThread() :
+    keepAlivePing(); # Init.
+    updateInfoWorksheet("Calling keep alive ping" + str(keepAliveInterval));
+    t = threading.Timer(keepAliveInterval(), keepAlivePing);
+    t.start()
 def handleUserLoggedIn(response):
     updateInfoWorksheet("User logged in: some server response?" + str(response));
     return sendSelectAllCompaniesRequest(response);
@@ -219,6 +256,8 @@ def handleLoginResponse(data) :
     if lPassword != data['login']['password']:
         updateErrorWorksheet("Invalid user name password. Call support");
         return;
+    updateInfoWorksheet("Calling keep alive ping")
+    keepAliveTimerThread()
     return sendUserLoggedIn(data);
 
 
@@ -338,9 +377,18 @@ def handleDeleteUserPreferences(jsonRequest) :
     pass 
 def sendMessage(jsonRequest): 
     pass
+
 def handleSendMessage(jsonResponse):
-    updateInfoWorksheet("Not handling " + str(jsonResponse));
-    return None
+    updateInfoWorksheet("Before the try block : handleSendMessage");
+    try:    
+        updateInfoWorksheet("Not handling " + str(jsonResponse));
+        r = sendKeepAlive(jsonResponse);
+        updateInfoWorksheet("Send keep alive " + (str(r)))
+        yield from serverHandle.send(json.dumps(r))
+        return None
+    except:
+        updateErrorWorksheet(traceback.format_exc())
+        return None
 def sendUserJoined(jsonRequest) :
     pass
 
@@ -360,10 +408,6 @@ def sendAssignCompany(jsonRequest):
 ## may not arbitrarily assign a user to a company
 def handleAssignCompany(jsonResponse): 
     pass
-def sendKeepAlive(jsonRequest) :
-    pass
-def handleKeepAlive(jsonRequest) :
-    pass 
 def sendPortfolioSymbolTypesQuery(jsonRequest) :
     pass 
 def handlePortfolioSymbolTypesQuery(jsonResponse):
@@ -491,6 +535,7 @@ def processIncomingCommand(payloadI) :
     elif commandType == DELETE_USER_PREFERENCES:
         reply = handleDeleteUserPreferences(payload);
     elif commandType == SEND_MESSAGE:
+        updateInfoWorksheet("##Command type " + str(commandType) + "--->" + str(payload))        
         reply = handleSendMessage(payload);
     elif commandType == USER_BANNED:
         reply = handleUserBanned(payload);
@@ -533,13 +578,18 @@ def processIncomingCommand(payloadI) :
         reply = handleHistoricalStressValue(payload);
     else:
         reply = None
-    updateInfoWorksheet("processInFcomingCommand : reply" + str(reply))
+    updateInfoWorksheet("processIncomingCommand : reply" + str(reply))
     return reply
 
-#################### Begin loop ##############################
 
+def certificateFileName():
+    return "/home/stack/" + "/asm-ccar/bighfi/config/nginx_beta" + "/beta.ccardemo.tech.crt"
 @asyncio.coroutine
-def ccarLoop(userName, password, useSsl):
+def ccarLoop(userName, password):
+    sslCtx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    sslCtx.verify_mode = ssl.CERT_REQUIRED
+    sslCtx.check_hostname = True
+    sslCtx.load_verify_locations(certificateFileName())
     websocket = yield from websockets.connect(clientConnection())
     updateModel(websocket)
 
@@ -578,7 +628,8 @@ def login (userName, password, ssl) :
         if userName == None or userName == "" or password == None or password == "":
             updateCellContent(LOGGER_CELL(), "User name and or password not found")
             return;
-        asyncio.get_event_loop().run_until_complete(ccarLoop(userName, password, ssl))
+        asyncio.get_event_loop().run_until_complete(ccarLoop(userName, 
+                    password))
         return (userName + "_" + "***************")
     except:
         error = traceback.format_exc() 
