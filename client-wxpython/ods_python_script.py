@@ -101,7 +101,8 @@ QUERY_USER_TERMS = 1015
 CREATE_USER_PREFERENCES = 1016
 UPDATE_USER_PREFERENCES = 1017
 QUERY_USER_PREFERENCES = 1018
-DELETE_USER_PREFERENCES = 1019; SEND_MESSAGE = 1020
+DELETE_USER_PREFERENCES = 1019
+SEND_MESSAGE = 1020
 USER_JOINED = 1021
 USER_BANNED = 1022
 USER_LOGGED_IN = 1023
@@ -384,9 +385,10 @@ def handleSendMessage(jsonResponse):
         updateInfoWorksheet("Not handling " + str(jsonResponse));
         r = sendKeepAlive(jsonResponse);
         updateInfoWorksheet("Send keep alive " + (str(r)))
-        yield from serverHandle.send(json.dumps(r))
+        serverHandle.send(json.dumps(r))
         return None
     except:
+
         updateErrorWorksheet(traceback.format_exc())
         return None
 def sendUserJoined(jsonRequest) :
