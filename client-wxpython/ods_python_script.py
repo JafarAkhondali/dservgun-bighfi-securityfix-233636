@@ -16,6 +16,7 @@ import threading
 
 
 serverHandle = None
+INFO_ROW_COUNT = 0
 
 def convertToBool(aString):
     if aString.capitalize() == "True" : 
@@ -35,7 +36,9 @@ def PASSWORD_CELL() :
     return "B6"
 
 def INFO_CELL() :
-    return "A32";
+    global INFO_ROW_COUNT;
+    INFO_ROW_COUNT = INFO_ROW_COUNT + 1
+    return ("A" + str(INFO_ROW_COUNT));
 
 def ERROR_CELL(): 
     return "A29"
@@ -43,16 +46,17 @@ def ERROR_CELL():
 def KEEP_ALIVE_CELL():
     return "B25"
 
+INFO_WORK_SHEET = 2
 def clearInfoWorksheet():
-    sheet = getWorksheet(0);
+    sheet = getWorksheet(INFO_WORK_SHEET);
     tRange = sheet.getCellRangeByName(INFO_CELL())
     tRange.String = ""
 
 
 def updateInfoWorksheet(aMessage) :
-    sheet = getWorksheet(0);
+    sheet = getWorksheet(INFO_WORK_SHEET);
     tRange = sheet.getCellRangeByName(INFO_CELL())
-    tRange.String = tRange.String + "\n" + (str(aMessage))
+    tRange.String = (str(aMessage))
 
 def clearErrorWorksheet():
     sheet = getWorksheet(0);
@@ -230,25 +234,20 @@ def keepAliveInterval() :
 ## a message only after n seconds of idle period. TODO
 def keepAlivePing():
     try:
-        updateInfoWorksheet("Calling keep alive timer");
         reply = sendKeepAlive();
         yield from serverHandle.send(reply)
-        updateInfoWorksheet("Keep alive timer " + reply)
     except:
         updateErrorWorksheet(traceback.format_exc())
 
 def keepAliveTimerThread() :
     keepAlivePing(); # Init.
-    updateInfoWorksheet("Calling keep alive ping" + str(keepAliveInterval));
     t = threading.Timer(keepAliveInterval(), keepAlivePing);
     t.start()
+
 def handleUserLoggedIn(response):
-    updateInfoWorksheet("User logged in: some server response?" + str(response));
     return sendSelectAllCompaniesRequest(response);
 
 def handleLoginResponse(data) :
-    updateInfoWorksheet("Login response")
-    updateInfoWorksheet(data);
     loginStatus = data['loginStatus']
     if loginStatus != "UserExists":
         updateErrorWorksheet("User not found. Power users need to be registered");
@@ -257,7 +256,6 @@ def handleLoginResponse(data) :
     if lPassword != data['login']['password']:
         updateErrorWorksheet("Invalid user name password. Call support");
         return;
-    updateInfoWorksheet("Calling keep alive ping")
     keepAliveTimerThread()
     return sendUserLoggedIn(data);
 
@@ -281,9 +279,6 @@ def keepAliveTimer () :
 
 def getCommandType(incomingJson) :
     data = json.loads(incomingJson);
-    updateInfoWorksheet("Inside getCommandType");
-    updateInfoWorksheet(data.keys())
-    updateInfoWorksheet(data)
     if "commandType" in data: 
         return data["commandType"]
     elif "Right" in data:
@@ -292,7 +287,6 @@ def getCommandType(incomingJson) :
         return "Undefined"
 
 def getCommandTypeValue(aCommandType) : 
-    updateInfoWorksheet("Processing commandType " + aCommandType)
     return commandDictionary()[aCommandType]
 
 
@@ -310,6 +304,7 @@ def handleManageCompany(aJsonResponse):
 
 def handleSelectAllCompaniesResponse(response): 
     updateInfoWorksheet(response);
+    return None
 
 def sendQuerySupportedScripts(aJsonRequest) : 
     pass 
@@ -380,7 +375,6 @@ def sendMessage(jsonRequest):
     pass
 
 def handleSendMessage(jsonResponse):
-    updateInfoWorksheet("Before the try block : handleSendMessage");
     try:    
         updateInfoWorksheet("Not handling " + str(jsonResponse));
         r = sendKeepAlive(jsonResponse);
@@ -482,7 +476,6 @@ def updateModel(aConnection) :
 def processIncomingCommand(payloadI) :
     cType = getCommandType(payloadI);
     payloadJ = json.loads(payloadI)
-    updateInfoWorksheet("Payload j " + str(payloadJ));
     if "Right" in  payloadJ:
         payload = payloadJ["Right"]; 
     elif "Left" in payloadJ:
@@ -491,13 +484,9 @@ def processIncomingCommand(payloadI) :
     else:
         payload = payloadJ
 
-    updateInfoWorksheet("###Command Type ### " + cType)
-    updateInfoWorksheet("Payload " + str(payload))
     commandType = getCommandTypeValue(cType)
-    updateInfoWorksheet("Command type code: " + str(commandType))
     if commandType == LOGIN_COMMAND: 
         reply = handleLoginResponse(payload);
-        updateInfoWorksheet("LOGIN_COMMAND " + str(reply))
     elif commandType == CCAR_UPLOAD_COMMAND:
         reply = handleCCARUpload(paylad)
     elif commandType == MANAGE_COMPANY:
@@ -537,14 +526,12 @@ def processIncomingCommand(payloadI) :
     elif commandType == DELETE_USER_PREFERENCES:
         reply = handleDeleteUserPreferences(payload);
     elif commandType == SEND_MESSAGE:
-        updateInfoWorksheet("##Command type " + str(commandType) + "--->" + str(payload))        
         reply = handleSendMessage(payload);
     elif commandType == USER_BANNED:
         reply = handleUserBanned(payload);
     elif commandType == USER_JOINED:
         reply = handleUserJoined(payload);
     elif commandType == USER_LOGGED_IN:
-        updateInfoWorksheet("##Command type " + str(commandType) + "--->" + str(payload))
         reply = handleUserLoggedIn(payload);
     elif commandType == USER_LEFT:
         reply = handleUserLeft(payload);
@@ -580,7 +567,6 @@ def processIncomingCommand(payloadI) :
         reply = handleHistoricalStressValue(payload);
     else:
         reply = None
-    updateInfoWorksheet("processIncomingCommand : reply" + str(reply))
     return reply
 
 
@@ -602,16 +588,13 @@ def ccarLoop(userName, password):
             try: 
                 response = yield from websocket.recv()
                 commandType = getCommandType(response);
-                updateInfoWorksheet("Login request command type " + commandType);
-                updateInfoWorksheet("Server response :" + response)
+                updateInfoWorksheet("Server response <--" + response)
                 reply = processIncomingCommand(response)
-                updateInfoWorksheet("Reply " + str(reply));
+                updateInfoWorksheet("Reply --> " + str(reply));
                 if reply == None:
                     updateInfoWorksheet("Ignoring " + response);                    
                 else:
-                    updateInfoWorksheet("Sending reply " + str(reply))
                     yield from websocket.send(json.dumps(reply))
-                    updateInfoWorksheet("Reply sent");
             except:
                 error = traceback.format_exc()
                 updateErrorWorksheet(error)

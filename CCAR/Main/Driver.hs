@@ -856,8 +856,8 @@ writerThread app connection nickName terminate = do
             error1  <- liftIO $ runErrorT $ runP $ nickName2 $ incomingDictionary (msg :: T.Text)
             case error1 of 
                 Left driverError -> do 
-                        Logger.debugM iModuleName ("Driver error " ++ (show driverError))
-                        liftIO $ WSConn.sendClose connection (T.pack $ show driverError)
+                        Logger.errorM iModuleName ("Driver error " ++ (show msg))
+                        liftIO $ WSConn.sendClose connection (T.pack $ show msg)
                         return ()
                 Right nickName -> do
                         (dest, x) <- liftIO $ processIncomingMessage app connection nickName 
