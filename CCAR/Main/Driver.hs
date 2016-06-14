@@ -845,7 +845,8 @@ writerThread app connection nickName terminate = do
                             do 
                             _ <- handleDisconnects app connection nickName h
                             Logger.errorM iModuleName  "Close request received"                        
-                            return "Close request received"
+                            return . T.pack 
+                                    $ "Close request received " <> (show a) <> (show b)
                         _ -> do 
                             handleDisconnects app connection nickName h 
                             Logger.errorM iModuleName $ "Unknown exception " `mappend` (show h)

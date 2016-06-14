@@ -95,7 +95,7 @@ createQueryCompanyDTO :: NickName -> Company -> CompanyT
 createQueryCompanyDTO _ co = 
 			CompanyT (companyCompanyName co )
 					 (companyCompanyID co)
-					 (companyCompanyImage co) 
+					 (T.take 100 $ companyCompanyImage co) 
 					 (companyGeneralMailbox co)	
 
 -- A type converter. The dto/dao hibernate model 

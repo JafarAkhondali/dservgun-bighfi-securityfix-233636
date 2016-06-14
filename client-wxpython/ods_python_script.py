@@ -1,11 +1,17 @@
 import sys
 import urllib
+import os
+os.environ['PYTHONASYNCIODEBUG'] = '1'
 import asyncio
 import websockets
 import traceback
 import json
 import ssl
 import threading
+import logging
+
+logging.basicConfig(filename="ods_template.log", level = logging.DEBUG)
+
 ##### Note: Requires python 3.4 or above
 ##### It seems to be that all functions in a macro need to reside in a single file.
 ##### We will break them down into modules as the size of the macros grow.
@@ -586,9 +592,9 @@ def ccarLoop(userName, password):
         yield from websocket.send(payload)
         while True:
             try: 
-                response = yield from websocket.recv()
-                commandType = getCommandType(response);
+                response = yield from  websocket.recv()
                 updateInfoWorksheet("Server response <--" + response)
+                commandType = getCommandType(response);                
                 reply = processIncomingCommand(response)
                 updateInfoWorksheet("Reply --> " + str(reply));
                 if reply == None:
@@ -602,6 +608,7 @@ def ccarLoop(userName, password):
     except:
         updateErrorWorksheet(traceback.format_exc())
     finally:
+        updateInfoWorksheet("Closing websocket connection")
         yield from websocket.close()
 
 
@@ -613,6 +620,8 @@ def login (userName, password, ssl) :
         if userName == None or userName == "" or password == None or password == "":
             updateCellContent(LOGGER_CELL(), "User name and or password not found")
             return;
+
+        asyncio.get_event_loop().set_debug(enabled=True);
         asyncio.get_event_loop().run_until_complete(ccarLoop(userName, 
                     password))
         return (userName + "_" + "***************")
@@ -628,6 +637,8 @@ def StartClient(*args):
 #get the doc from the scripting context which is made available to all scripts
     desktop = XSCRIPTCONTEXT.getDesktop()
     model = desktop.getCurrentComponent()
+    global INFO_ROW_COUNT;
+    INFO_ROW_COUNT = 0
 #check whether there's already an opened document. Otherwise, create a new one
     if not hasattr(model, "Sheets"):
         model = desktop.loadComponentFromURL(
