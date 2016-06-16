@@ -133,6 +133,18 @@ OPTION_ANALYTICS = 1037
 QUERY_MARKET_DATA = 1038
 HISTORICAL_STRESS_VALUE_COMMAND = 1039
 UNDEFINED = 1040
+COMPANY_SELECTION_LIST_CONTROL = "BrokerList"
+COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
+
+def getCompanySelectListBox():
+#get the doc from the scripting context which is made available to all scripts
+    desktop = XSCRIPTCONTEXT.getDesktop()
+    model = desktop.getCurrentComponent()
+    sheet = model.Sheets.getByIndex(0)
+    oDrawPage = sheet.DrawPage
+    companyList = oDrawPage.getForms().getByIndex(0).getByName(COMPANY_SELECTION_LIST_CONTROL)
+    companyListControl = model.getCurrentController().getControl(companyList)
+    return companyListControl
 
 def commandDictionary () :
     return {
@@ -308,9 +320,23 @@ def handleManageCompany(aJsonResponse):
     #Handle manage company
     pass
 
+# Server response <--
+#{"commandType":"SelectAllCompanies",
+#"company":
+#[{"companyID":"test","companyImage":
+#"data:image/png;base64,
+#iVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4CAIAAABnsVYUAAAAA3NCSVQICAjb4U/gAAAAGXRFWHRTb2",
+#"companyName":"test","generalMailbox":"test@tess.org"},{"companyID":"test123",
+#"companyImage":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4CAIAAABnsVYUAAAAA3NCSVQICAjb4U/gAAAAGXRFWHRTb2",
+#"companyName":"test123","generalMailbox":"test123"}],"nickName":"test","crudType":"SelectAllCompanies"}
+
 def handleSelectAllCompaniesResponse(response): 
-    updateInfoWorksheet(response);
-    return None
+    companiesList = response['company'];
+    companyIDList = []
+    count = 0
+    for aCompany in companiesList:
+        getCompanySelectListBox().addItem(aCompany["companyID"], count)
+        count = count + 1
 
 def sendQuerySupportedScripts(aJsonRequest) : 
     pass 
@@ -385,7 +411,7 @@ def handleSendMessage(jsonResponse):
         updateInfoWorksheet("Not handling " + str(jsonResponse));
         r = sendKeepAlive(jsonResponse);
         updateInfoWorksheet("Send keep alive " + (str(r)))
-        serverHandle.send(json.dumps(r))
+        #serverHandle.send(json.dumps(r))
         return None
     except:
 
@@ -498,7 +524,7 @@ def processIncomingCommand(payloadI) :
     elif commandType == MANAGE_COMPANY:
         reply = handleManageCompany(payload);
     elif commandType == SELECT_ALL_COMPANIES: 
-        reply = handleSelectAllCompanies(payload);
+        reply = handleSelectAllCompaniesResponse(payload);
     elif commandType == QUERY_SUPPORTED_SCRIPTS:
         reply = handleQuerySupportedScripts(payload);
     elif commandType == QUERY_ACTIVE_WORKBENCHES:  
@@ -631,6 +657,7 @@ def login (userName, password, ssl) :
         return "Error while logging in" 
     finally:
         return "Finished processing login"
+
 
 def StartClient(*args):
     """Starts the CCAR client."""
