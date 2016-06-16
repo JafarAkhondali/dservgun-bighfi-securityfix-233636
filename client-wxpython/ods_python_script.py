@@ -47,7 +47,7 @@ def INFO_CELL() :
     return ("A" + str(INFO_ROW_COUNT));
 
 def ERROR_CELL(): 
-    return "A29"
+    return "A23"
 
 def KEEP_ALIVE_CELL():
     return "B25"
@@ -237,7 +237,7 @@ def sendKeepAlive(jsonRequest) :
         , "commandType" : "KeepAlive"
         , "keepAlive" : "Ping"
     }
-    return k;
+    return k
     
 def handleKeepAlive(jsonRequest) :
     pass 
@@ -250,17 +250,18 @@ def keepAliveInterval() :
 ## Send a keep alive request every n seconds. 
 ## This is not entirely accurate: the client needs to send 
 ## a message only after n seconds of idle period. TODO
-def keepAlivePing():
+
+@asyncio.coroutine
+def keepAlivePing(serverConnection):
     try:
-        reply = sendKeepAlive();
-        yield from serverHandle.send(reply)
+        while True: 
+            reply = sendKeepAlive();
+            updateInfoWorksheet("Keep alive ping:" + str(reply) + " Sleeping " + keepAliveInterval())        
+            yield from serverConnection.send(reply)
+            yield from asyncio.sleep(keepAliveInterval())
     except:
         updateErrorWorksheet(traceback.format_exc())
 
-def keepAliveTimerThread() :
-    keepAlivePing(); # Init.
-    t = threading.Timer(keepAliveInterval(), keepAlivePing);
-    t.start()
 
 def handleUserLoggedIn(response):
     return sendSelectAllCompaniesRequest(response);
@@ -274,7 +275,8 @@ def handleLoginResponse(data) :
     if lPassword != data['login']['password']:
         updateErrorWorksheet("Invalid user name password. Call support");
         return;
-    keepAliveTimerThread()
+    updateInfoWorksheet("Handling login response: " + str(data))
+    keepAlivePing()
     return sendUserLoggedIn(data);
 
 
@@ -290,10 +292,6 @@ def handleUserNotFound (incomingJson) :
     pass
 
 
-def keepAliveTimer () :
-    # A keep alive timer thread that starts
-    # once a user is validated.
-    pass
 
 def getCommandType(incomingJson) :
     data = json.loads(incomingJson);
@@ -333,6 +331,7 @@ def handleManageCompany(aJsonResponse):
 def handleSelectAllCompaniesResponse(response): 
     companiesList = response['company'];
     companyIDList = []
+
     count = 0
     for aCompany in companiesList:
         getCompanySelectListBox().addItem(aCompany["companyID"], count)
@@ -409,12 +408,8 @@ def sendMessage(jsonRequest):
 def handleSendMessage(jsonResponse):
     try:    
         updateInfoWorksheet("Not handling " + str(jsonResponse));
-        r = sendKeepAlive(jsonResponse);
-        updateInfoWorksheet("Send keep alive " + (str(r)))
-        #serverHandle.send(json.dumps(r))
         return None
     except:
-
         updateErrorWorksheet(traceback.format_exc())
         return None
 def sendUserJoined(jsonRequest) :
@@ -648,6 +643,7 @@ def login (userName, password, ssl) :
             return;
 
         asyncio.get_event_loop().set_debug(enabled=True);
+        tasks = [ccarLoop(userName, password), keepAlivePing()]
         asyncio.get_event_loop().run_until_complete(ccarLoop(userName, 
                     password))
         return (userName + "_" + "***************")
