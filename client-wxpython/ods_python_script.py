@@ -98,6 +98,25 @@ class CCARClient:
         return ("A" + str(self.INFO_ROW_COUNT))
 
 
+    def getCellContent(self, aCell): 
+        sheet = self.getWorksheet(0);
+        tRange = sheet.getCellRangeByName(aCell)
+        return tRange.String
+
+    def certificateFileName(self):
+        return self.getCellContent("E3")
+
+    def getSSLClientContext(self):
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        sslCertificateFileName = self.certificateFileName()
+        if sslCertificateFileName == "" or sslCertificateFileName == None:
+            return None
+        logger.debug("Using certificate " + self.certificateFileName())
+        ssl_context.load_verify_locations(self.certificateFileName())
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
+        return ssl_context
+
+
     # Indexes are zero based.
     def getWorksheet(self, anIndex) :
         desktop = XSCRIPTCONTEXT.getDesktop()
@@ -135,11 +154,6 @@ class CCARClient:
         sheet = self.getWorksheet(0);
         tRange = sheet.getCellRangeByName(aCell)
         tRange.String = aValue
-
-    def getCellContent(self, aCell): 
-        sheet = self.getWorksheet(0);
-        tRange = sheet.getCellRangeByName(aCell)
-        return tRange.String
 
     def getUserName(self) :
         return self.getCellContent(self.LOGIN_CELL)
@@ -216,9 +230,9 @@ class CCARClient:
         return tRange.String
 
     def sendSelectAllCompaniesRequest(self, aJsonMessage) :
-        updateInfoWorksheet("Processing sending select all companies " + str(aJsonMessage))
+        logger.debug("Processing sending select all companies " + str(aJsonMessage))
         payload = {
-            'nickName' : getUserName()
+            'nickName' : self.getUserName()
             , 'commandType' : "SelectAllCompanies"
         };
         return payload
@@ -237,14 +251,14 @@ class CCARClient:
 
     def sendUserLoggedIn (self, jsonRequest): 
         userLoggedIn = {
-            'nickName' : getUserName()
+            'nickName' : self.getUserName()
             , 'commandType' : 'UserLoggedIn'
-            , 'userName' : getUserName()}
+            , 'userName' : self.getUserName()}
         return userLoggedIn
 
     def sendKeepAlive(jsonRequest) :
         k = {
-            "nickName" : getUserName()
+            "nickName" : self.getUserName()
             , "commandType" : "KeepAlive"
             , "keepAlive" : "Ping"
         }
@@ -278,23 +292,23 @@ class CCARClient:
             updateErrorWorksheet(traceback.format_exc())
 
 
-    def handleUserLoggedIn(response):
-        return sendSelectAllCompaniesRequest(response);
+    def handleUserLoggedIn(self, response):
+        return self.sendSelectAllCompaniesRequest(response);
 
-    def handleLoginResponse(data) :
+    def handleLoginResponse(self, data) :
         loginStatus = data['loginStatus']
         if loginStatus != "UserExists":
-            updateErrorWorksheet("User not found. Power users need to be registered");
+            self.updateErrorWorksheet("User not found. Power users need to be registered");
             return;
-        lPassword = getCellContent(PASSWORD_CELL());
+        lPassword = self.getCellContent(self.PASSWORD_CELL);
         if lPassword != data['login']['password']:
-            updateErrorWorksheet("Invalid user name password. Call support");
+            self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
-        updateInfoWorksheet("Handling login response: " + str(data))
-        return sendUserLoggedIn(data);
+        self.updateInfoWorksheet("Handling login response: " + str(data))
+        return self.sendUserLoggedIn(data);
 
 
-    def handleUserNotFound (incomingJson) :
+    def handleUserNotFound (self, incomingJson) :
         # If the user is not found, let the 
         # register on the website. This 
         # might be a useful feature, security wise
@@ -307,7 +321,7 @@ class CCARClient:
 
 
 
-    def getCommandType(incomingJson) :
+    def getCommandType(self, incomingJson) :
         data = json.loads(incomingJson);
         if "commandType" in data: 
             return data["commandType"]
@@ -316,186 +330,176 @@ class CCARClient:
         else:
             return "Undefined"
 
-    def getCommandTypeValue(aCommandType) : 
-        return commandDictionary()[aCommandType]
+    def getCommandTypeValue(self, aCommandType) : 
+        return self.commandDictionary()[aCommandType]
 
 
 
-    def handleUndefinedCommandType(incomingMessage) :
+    def handleUndefinedCommandType(self, incomingMessage) :
         # Do something when command type is not defined.
         pass
 
-    def sendManageCompany(aJsonMessage) :
+    def sendManageCompany(self, aJsonMessage) :
         # Send a manage company json request
         pass
-    def handleManageCompany(aJsonResponse): 
+    def handleManageCompany(self, aJsonResponse): 
         #Handle manage company
         pass
 
-    # Server response <--
-    #{"commandType":"SelectAllCompanies",
-    #"company":
-    #[{"companyID":"test","companyImage":
-    #"data:image/png;base64,
-    #iVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4CAIAAABnsVYUAAAAA3NCSVQICAjb4U/gAAAAGXRFWHRTb2",
-    #"companyName":"test","generalMailbox":"test@tess.org"},{"companyID":"test123",
-    #"companyImage":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4CAIAAABnsVYUAAAAA3NCSVQICAjb4U/gAAAAGXRFWHRTb2",
-    #"companyName":"test123","generalMailbox":"test123"}],"nickName":"test","crudType":"SelectAllCompanies"}
-
-    def handleSelectAllCompaniesResponse(response): 
+    def handleSelectAllCompaniesResponse(self, response): 
         companiesList = response['company'];
         companyIDList = []
 
         count = 0
         for aCompany in companiesList:
-            getCompanySelectListBox().addItem(aCompany["companyID"], count)
+            self.getCompanySelectListBox().addItem(aCompany["companyID"], count)
             count = count + 1
 
-    def sendQuerySupportedScripts(aJsonRequest) : 
+    def sendQuerySupportedScripts(self, aJsonRequest) : 
         pass 
-    def handleQuerySupportedScripts(aJsonResponse):
+    def handleQuerySupportedScripts(self, aJsonResponse):
         pass 
-    def sendQueryActiveWorkbenches(aJsonRequest) :
+    def sendQueryActiveWorkbenches(self, aJsonRequest) :
         pass 
-    def handleQueryActiveWorkbenches(aJsonResponse):
+    def handleQueryActiveWorkbenches(self, aJsonResponse):
         pass 
 
-    def sendManageWorkbench(aJsonRequest):
+    def sendManageWorkbench(self, aJsonRequest):
         pass 
-    def handleManageWorkbench(aJsonResponse):
+    def handleManageWorkbench(self, aJsonResponse):
         pass 
-    def sendExecuteWorkbench(jsonReuest) : 
+    def sendExecuteWorkbench(self, jsonReuest) : 
         pass
-    def handleExecuteWorkbench(jsonRequest) :
+    def handleExecuteWorkbench(self, jsonRequest) :
         pass 
-    def sendSelectActiveProjects (jsonReequest) :
+    def sendSelectActiveProjects (self, jsonReequest) :
         pass 
-    def handleSelectActiveProjects(jsonRequest) :
+    def handleSelectActiveProjects(self, jsonRequest) :
         pass
-    def sendManageProject (jsonRequest) :
+    def sendManageProject (self, jsonRequest) :
         pass 
-    def handleManageProject (jsonRequest) :
+    def handleManageProject (self, jsonRequest) :
         pass 
-    def sendParsedCCARText(jsonRequest) :
+    def sendParsedCCARText(self, jsonRequest) :
         pass 
-    def handleParsedCCARText(jsonRequest) :
+    def handleParsedCCARText(self, jsonRequest) :
         pass 
-    def sendManageUser (jsonRequest) :
+    def sendManageUser (self, jsonRequest) :
         pass 
-    def handleManageUser (jsonRequest) :
+    def handleManageUser (self, jsonRequest) :
         pass 
-    def sendCreateUserTerms(jsonRequest) :
+    def sendCreateUserTerms(self, jsonRequest) :
         pass 
-    def handleCreateUserTerms(jsonReques) :
+    def handleCreateUserTerms(self, jsonReques) :
         pass 
-    def sendUpdateUserTerms(jsonRequest): 
+    def sendUpdateUserTerms(self, jsonRequest): 
         pass 
-    def handleUpdateUserTerms (jsonRequest):
+    def handleUpdateUserTerms (self, jsonRequest):
         pass
-    def sendDeleteUserTerms(jsonRequest):
+    def sendDeleteUserTerms(self, jsonRequest):
         pass 
-    def handleDeleteUserTerms(jsonRequest) :
+    def handleDeleteUserTerms(self, jsonRequest) :
         pass 
-    def sendQueryUserTerms(jsonRequest) : 
+    def sendQueryUserTerms(self, jsonRequest) : 
         pass 
-    def handleQueryUserTerms(jsonRequest) :
+    def handleQueryUserTerms(self, jsonRequest) :
         pass
-    def sendCreateUserPreferences(jsonRequest) :
+    def sendCreateUserPreferences(self, jsonRequest) :
         pass 
-    def handleCreateUserPreferences(jsonRequest) :
+    def handleCreateUserPreferences(self, jsonRequest) :
         pass
-    def sendUpdateUserPreferences(jsonRequest) :
+    def sendUpdateUserPreferences(self, jsonRequest) :
         pass 
-    def handleUpdateUserPreferences(jsonRequest) :
+    def handleUpdateUserPreferences(self, jsonRequest) :
         pass
-    def sendQueryUserPreferences(jsonRequest):
+    def sendQueryUserPreferences(self, jsonRequest):
         pass 
-    def handleQueryUserPreferences(jsonRequest):
+    def handleQueryUserPreferences(self, jsonRequest):
         pass
-    def sendDeleteUserPreferences(jsonRequest):
+    def sendDeleteUserPreferences(self, jsonRequest):
         pass 
-    def handleDeleteUserPreferences(jsonRequest) :
+    def handleDeleteUserPreferences(self, jsonRequest) :
         pass 
-    def sendMessage(jsonRequest): 
+    def sendMessage(self, jsonRequest): 
         pass
 
-    def handleSendMessage(jsonResponse):
+    def handleSendMessage(self, jsonResponse):
         try:    
-            updateInfoWorksheet("Not handling " + str(jsonResponse));
+            self.updateInfoWorksheet("Not handling " + str(jsonResponse));
             return None
         except:
-            updateErrorWorksheet(traceback.format_exc())
+            self.updateErrorWorksheet(traceback.format_exc())
             return None
-    def sendUserJoined(jsonRequest) :
+    def sendUserJoined(self, jsonRequest) :
         pass
 
-    def handleUserJoined(jsonRequest) :
+    def handleUserJoined(self, jsonRequest) :
         pass
-    def sendUserBanned(jsonRequest):
+    def sendUserBanned(self, jsonRequest):
         pass 
-    def handleUserBanned(jsonResponse): 
+    def handleUserBanned(self, jsonResponse): 
         pass 
-    def sendUserLeft (jsonRequest) :
+    def sendUserLeft (self, jsonRequest) :
         pass 
-    def handleUserLeft (jsonRequest) :
+    def handleUserLeft (self, jsonRequest) :
         pass 
-    def sendAssignCompany(jsonRequest): 
+    def sendAssignCompany(self, jsonRequest): 
         pass 
     ## This functionality should go as an desktop 
     ## may not arbitrarily assign a user to a company
-    def handleAssignCompany(jsonResponse): 
+    def handleAssignCompany(self, jsonResponse): 
         pass
-    def sendPortfolioSymbolTypesQuery(jsonRequest) :
+    def sendPortfolioSymbolTypesQuery(self, jsonRequest) :
         pass 
-    def handlePortfolioSymbolTypesQuery(jsonResponse):
+    def handlePortfolioSymbolTypesQuery(self, jsonResponse):
         pass 
-    def senddPortfolioSymbolSidesQuery(jsonRequest): 
+    def sendPortfolioSymbolSidesQuery(self, jsonRequest): 
         pass 
-    def handlePortfolioSymbolSidesQuery(jsonResponse):
+    def handlePortfolioSymbolSidesQuery(self, jsonResponse):
         pass 
-    def sendQueryPortfolios(jsonRequest):
+    def sendQueryPortfolios(self, jsonRequest):
         pass 
-    def handleQueryPortfolios(jsonResponse): 
+    def handleQueryPortfolios(self, jsonResponse): 
         pass 
-    def sendManagePortfolio(jsonRequest): 
+    def sendManagePortfolio(self, jsonRequest): 
         pass 
-    def handleManagePortfolio(jsonResponse):
+    def handleManagePortfolio(self, jsonResponse):
         pass
-    def sendManagePortfolioSymbol(jsonRequest) :
+    def sendManagePortfolioSymbol(self, jsonRequest) :
         pass 
-    def handleManagePortfolioSymbol(jsonResponse):
+    def handleManagePortfolioSymbol(self, jsonResponse):
         pass 
-    def sendQueryPortfolioSymbol(jsonRequest): 
+    def sendQueryPortfolioSymbol(self, jsonRequest): 
         pass 
-    def handleQueryPortfolioSymbol(jsonRequest) :
+    def handleQueryPortfolioSymbol(self, jsonRequest) :
         pass 
-    def sendManageEntitlements(jsonRequest):
+    def sendManageEntitlements(self, jsonRequest):
         pass 
-    def handleManageEntitlements(jsonResponse): 
+    def handleManageEntitlements(self, jsonResponse): 
         pass 
-    def sendQueryEntitlements(jsonRequest): 
+    def sendQueryEntitlements(self, jsonRequest): 
         pass 
-    def handleQueryEntitlements(jsonRequest):
+    def handleQueryEntitlements(self, jsonRequest):
         pass 
-    def sendQueryCompanyUsers(jsonRequest): 
+    def sendQueryCompanyUsers(self, jsonRequest): 
         pass 
-    def handleQueryCompanyUsers(jsonRequest): 
+    def handleQueryCompanyUsers(self, jsonRequest): 
         pass 
-    def sendMarketDataUpdate(jsonRequest):
+    def sendMarketDataUpdate(self, jsonRequest):
         pass 
-    def handleMarketDataUpdate(jsonResponse):
+    def handleMarketDataUpdate(self, jsonResponse):
         pass 
-    def sendOptionAnalytics(jsonRequest) :
+    def sendOptionAnalytics(self, jsonRequest) :
         pass 
-    def handleQptionAnalytics(jsonResponse): 
+    def handleQptionAnalytics(self, jsonResponse): 
         pass 
-    def sendQueryMarketData(jsonRequest):
+    def sendQueryMarketData(self, jsonRequest):
         pass 
-    def handleQueryMarketData(jsonRequest) :
+    def handleQueryMarketData(self, jsonRequest) :
         pass 
-    def sendHistoricalStressValue(jsonRequest):
+    def sendHistoricalStressValue(self, jsonRequest):
         pass
-    def handleHistoricalStressValue(jsonResponse): 
+    def handleHistoricalStressValue(self, jsonResponse): 
         pass
 
 
@@ -507,98 +511,98 @@ class CCARClient:
 
 
     ### Right in the json response implies no errors.
-    def processIncomingCommand(payloadI) :
-        cType = getCommandType(payloadI);
+    def processIncomingCommand(self, payloadI) :
+        cType = self.getCommandType(payloadI);
         payloadJ = json.loads(payloadI)
         if "Right" in  payloadJ:
             payload = payloadJ["Right"]; 
         elif "Left" in payloadJ:
-            updateErrorWorksheet(payloadJ);
+            self.updateErrorWorksheet(payloadJ);
             return;
         else:
             payload = payloadJ
 
-        commandType = getCommandTypeValue(cType)
+        commandType = self.getCommandTypeValue(cType)
         if commandType == LOGIN_COMMAND: 
-            reply = handleLoginResponse(payload);
+            reply = self.handleLoginResponse(payload);
         elif commandType == CCAR_UPLOAD_COMMAND:
-            reply = handleCCARUpload(paylad)
+            reply = self.handleCCARUpload(paylad)
         elif commandType == MANAGE_COMPANY:
-            reply = handleManageCompany(payload);
+            reply = self.handleManageCompany(payload);
         elif commandType == SELECT_ALL_COMPANIES: 
-            reply = handleSelectAllCompaniesResponse(payload);
+            reply = self.handleSelectAllCompaniesResponse(payload);
         elif commandType == QUERY_SUPPORTED_SCRIPTS:
-            reply = handleQuerySupportedScripts(payload);
+            reply = self.handleQuerySupportedScripts(payload);
         elif commandType == QUERY_ACTIVE_WORKBENCHES:  
-            reply = handleQueryActiveWorkbenches(payload);
+            reply = self.handleQueryActiveWorkbenches(payload);
         elif commandType == MANAGE_WORKBENCH:
-            reply = handleManageWorkbench(payload);
+            reply = self.handleManageWorkbench(payload);
         elif commandType == EXECUTE_WORKBENCH:
-            reply = handleExecuteWorkbench(payload);
+            reply = self.handleExecuteWorkbench(payload);
         elif commandType == SELECT_ACTIVE_PROJECTS:
-            reply = handleSelectActiveProjects(payload);
+            reply = self.handleSelectActiveProjects(payload);
         elif commandType == MANAGE_PROJECT: 
-            reply = handleManageProject(payload);
+            reply = self.handleManageProject(payload);
         elif commandType == PARSED_CCAR_TEXT:
-            reply = handleParsedCCARText(payload);
+            reply = self.handleParsedCCARText(payload);
         elif commandType == MANAGE_USER:
-            reply = handleManageUser(payload);
+            reply = self.handleManageUser(payload);
         elif commandType == CREATE_USER_TERMS:
-            reply = handleCreateUserTerms(payload);
+            reply = self.handleCreateUserTerms(payload);
         elif commandType == UPDATE_USER_TERMS:
-            reply = handleUpdateUserTerms(payload);
+            reply = self.handleUpdateUserTerms(payload);
         elif commandType == DELETE_USER_TERMS:
-            reply = handleDeleteUserTerms(payload);
+            reply = self.handleDeleteUserTerms(payload);
         elif commandType == QUERY_USER_TERMS:
-            reply = handleQueryUserTerms(payload);
+            reply = self.handleQueryUserTerms(payload);
         elif commandType == CREATE_USER_PREFERENCES:
-            reply = handleCreateUserPreferences(payload);
+            reply = self.handleCreateUserPreferences(payload);
         elif commandType == UPDATE_USER_PREFERENCES:
-            reply = handleUpdateUserPreferences(payload);
+            reply = self.handleUpdateUserPreferences(payload);
         elif commandType == QUERY_USER_PREFERENCES:
-            reply = handleQueryUserPreferences(payload);
+            reply = self.handleQueryUserPreferences(payload);
         elif commandType == DELETE_USER_PREFERENCES:
-            reply = handleDeleteUserPreferences(payload);
+            reply = self.handleDeleteUserPreferences(payload);
         elif commandType == SEND_MESSAGE:
-            reply = handleSendMessage(payload);
+            reply = self.handleSendMessage(payload);
         elif commandType == USER_BANNED:
-            reply = handleUserBanned(payload);
+            reply = self.handleUserBanned(payload);
         elif commandType == USER_JOINED:
-            reply = handleUserJoined(payload);
+            reply = self.handleUserJoined(payload);
         elif commandType == USER_LOGGED_IN:
-            reply = handleUserLoggedIn(payload);
+            reply = self.handleUserLoggedIn(payload);
         elif commandType == USER_LEFT:
-            reply = handleUserLeft(payload);
+            reply = self.handleUserLeft(payload);
         elif commandType == ASSIGN_COMPANY:
-            reply = handleAssignCompany(payload);
+            reply = self.handleAssignCompany(payload);
         elif commandType ==  KEEP_ALIVE:
-            reply = handleKeepAlive(payload);
+            reply = self.handleKeepAlive(payload);
         elif commandType == PORTFOLIO_SYMBOL_TYPES_QUERY:
-            reply = handlePortfolioSymbolTypesQuery(payload);
+            reply = self.handlePortfolioSymbolTypesQuery(payload);
         elif commandType == PORTFOLIO_SYMBOL_SIDES_QUERY:
-            reply = handlePortfolioSymbolSidesQuery(payload);
+            reply = self.handlePortfolioSymbolSidesQuery(payload);
         elif commandType == QUERY_PORTFOLIOS:
-            reply = handleQueryPortfolios(payload);
+            reply = self.handleQueryPortfolios(payload);
         elif commandType == MANAGE_PORTFOLIO:
-            reply = handleManagePortfolio(payload);
+            reply = self.handleManagePortfolio(payload);
         elif commandType == MANAGE_PORTFOLIO_SYMBOL:
-            reply = handleManagePortfolioSymbol(payload);
+            reply = self.handleManagePortfolioSymbol(payload);
         elif commandType == QUERY_PORTFOLIO_SYMBOL:
-            reply = handleQueryPortfolioSymbol(payload);
+            reply = self.handleQueryPortfolioSymbol(payload);
         elif commandType == MANAGE_ENTITLEMENTS:
-            reply = handleManageEntitlements(payload);
+            reply = self.handleManageEntitlements(payload);
         elif commandType == QUERY_ENTITLEMENTS:
-            reply = handleQueryEntitlements(payload);
+            reply = self.handleQueryEntitlements(payload);
         elif commandType == QUERY_COMPANY_USERS:
-            reply = handleQueryCompanyUsers(payload);
+            reply = self.handleQueryCompanyUsers(payload);
         elif commandType == MARKET_DATA_UPDATE:
-            reply = handleMarketDataUpdate(payload);
+            reply = self.handleMarketDataUpdate(payload);
         elif commandType == OPTION_ANALYTICS:
-            reply = handleQptionAnalytics(payload);
+            reply = self.handleQptionAnalytics(payload);
         elif commandType == QUERY_MARKET_DATA:
-            reply = handleQueryMarketData(payload);
+            reply = self.handleQueryMarketData(payload);
         elif commandType == HISTORICAL_STRESS_VALUE_COMMAND:
-            reply = handleHistoricalStressValue(payload);
+            reply = self.handleHistoricalStressValue(payload);
         else:
             reply = None
         return reply
@@ -607,8 +611,11 @@ class CCARClient:
     
     @asyncio.coroutine
     def ccarLoop(self, userName, password):
-        sslCtx = None # Use ssl client context to test.
-        websocket = yield from websockets.connect(self.clientConnection())
+        sslCtx = self.getSSLClientContext() # Use ssl client context to test.
+        if sslCtx == None:
+            websocket = yield from websockets.connect(self.clientConnection())
+        else:
+            websocket = yield from websockets.connect(self.clientConnection(), ssl = sslCtx)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
             payload = self.sendLoginRequest(userName, password);
