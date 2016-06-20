@@ -277,20 +277,21 @@ class CCARClient:
     ## a message only after n seconds of idle period. TODO
 
     @asyncio.coroutine
-    def keepAlivePing():
+    def keepAlivePing(self):
         try:
+            logger.debug("Starting the keep alive timer..")
             while True: 
                 reply = sendKeepAlive();
-                global serverHandle
-                serverConnection = serverHandle
+                serverConnection = self.websocket
                 if serverConnection == None:
-                    yield from asincio.sleep(5)
+                    yield from asincio.sleep(keepAliveInterval())
                 updateInfoWorksheet("Keep alive ping:" + str(reply) + " Sleeping " + keepAliveInterval())        
                 yield from serverConnection.send(reply)
                 yield from asyncio.sleep(keepAliveInterval())
+                return None
         except:
             updateErrorWorksheet(traceback.format_exc())
-
+            return None
 
     def handleUserLoggedIn(self, response):
         return self.sendSelectAllCompaniesRequest(response);
@@ -304,6 +305,9 @@ class CCARClient:
         if lPassword != data['login']['password']:
             self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
+        logger.debug("Yield from , keep alive ping")
+        y = yield from self.keepAlivePing()
+        logger.debug ("keep alive ping %s", y)
         self.updateInfoWorksheet("Handling login response: " + str(data))
         return self.sendUserLoggedIn(data);
 
@@ -613,16 +617,16 @@ class CCARClient:
     def ccarLoop(self, userName, password):
         sslCtx = self.getSSLClientContext() # Use ssl client context to test.
         if sslCtx == None:
-            websocket = yield from websockets.connect(self.clientConnection())
+            self.websocket = yield from websockets.connect(self.clientConnection())
         else:
-            websocket = yield from websockets.connect(self.clientConnection(), ssl = sslCtx)
+            self.websocket = yield from websockets.connect(self.clientConnection(), ssl = sslCtx)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
             payload = self.sendLoginRequest(userName, password);
-            yield from websocket.send(payload)
+            yield from self.websocket.send(payload)
             while True:
                 try: 
-                    response = yield from  websocket.recv()
+                    response = yield from  self.websocket.recv()
                     self.updateInfoWorksheet("Server response <--" + response)
                     commandType = self.getCommandType(response);                
                     reply = self.processIncomingCommand(response)
@@ -630,14 +634,14 @@ class CCARClient:
                     if reply == None:
                         self.updateInfoWorksheet("Ignoring " + response);                    
                     else:
-                        yield from websocket.send(json.dumps(reply))
+                        yield from self.websocket.send(json.dumps(reply))
                 except:
                     error = traceback.format_exc()
                     logger.error(error)
                     return "Loop exiting"
         except:
             self.updateErrorWorksheet(traceback.format_exc())
-            yield from websocket.close()
+            yield from self.websocket.close()
         
 
     def LOGGER_CELL():
