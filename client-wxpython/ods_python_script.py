@@ -256,7 +256,7 @@ class CCARClient:
             , 'userName' : self.getUserName()}
         return userLoggedIn
 
-    def sendKeepAlive(jsonRequest) :
+    def sendKeepAlive(self) :
         k = {
             "nickName" : self.getUserName()
             , "commandType" : "KeepAlive"
@@ -264,13 +264,13 @@ class CCARClient:
         }
         return k
         
-    def handleKeepAlive(jsonRequest) :
-        pass 
+    def handleKeepAlive(self, jsonRequest) :
+        return None 
 
     #################### Begin loop ##############################
-    def keepAliveInterval() :
-        interval = getCellContent(KEEP_ALIVE_CELL())
-        return int(interval)
+    def keepAliveInterval(self) :
+        self.interval = self.getCellContent(self.KEEP_ALIVE_CELL)
+        return self.interval
 
     ## Send a keep alive request every n seconds. 
     ## This is not entirely accurate: the client needs to send 
@@ -281,16 +281,16 @@ class CCARClient:
         try:
             logger.debug("Starting the keep alive timer..")
             while True: 
-                reply = sendKeepAlive();
-                serverConnection = self.websocket
-                if serverConnection == None:
-                    yield from asincio.sleep(keepAliveInterval())
-                updateInfoWorksheet("Keep alive ping:" + str(reply) + " Sleeping " + keepAliveInterval())        
-                yield from serverConnection.send(reply)
-                yield from asyncio.sleep(keepAliveInterval())
-                return None
+                logger.debug("Inside loop")
+                reply = self.sendKeepAlive();
+                logger.debug("Reply " + str(reply))
+                serverConnection = self.websocket                                
+                logger.debug("Keep alive ping:" + str(reply) + " Sleeping " + self.keepAliveInterval())        
+                yield from serverConnection.send(json.dumps(reply))
+                yield from asyncio.sleep(int(self.keepAliveInterval()))
+                
         except:
-            updateErrorWorksheet(traceback.format_exc())
+            logger.error(traceback.format_exc())
             return None
 
     def handleUserLoggedIn(self, response):
@@ -305,11 +305,12 @@ class CCARClient:
         if lPassword != data['login']['password']:
             self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
+        (asyncio.get_event_loop().create_task(self.keepAlivePing()))
         logger.debug("Yield from , keep alive ping")
-        y = yield from self.keepAlivePing()
-        logger.debug ("keep alive ping %s", y)
-        self.updateInfoWorksheet("Handling login response: " + str(data))
-        return self.sendUserLoggedIn(data);
+        logger.debug ("keep alive ping")
+        logger.debug("Handling login response: " + str(data))
+        result = self.sendUserLoggedIn(data);
+        return result
 
 
     def handleUserNotFound (self, incomingJson) :
@@ -627,10 +628,10 @@ class CCARClient:
             while True:
                 try: 
                     response = yield from  self.websocket.recv()
-                    self.updateInfoWorksheet("Server response <--" + response)
+                    self.updateInfoWorksheet(response)
                     commandType = self.getCommandType(response);                
                     reply = self.processIncomingCommand(response)
-                    self.updateInfoWorksheet("Reply --> " + str(reply));
+                    logger.debug("Reply --> " + str(reply));
                     if reply == None:
                         self.updateInfoWorksheet("Ignoring " + response);                    
                     else:
@@ -652,9 +653,7 @@ class CCARClient:
             if userName == None or userName == "" or password == None or password == "":
                 updateCellContent(LOGGER_CELL(), "User name and or password not found")
                 return;
-            
             asyncio.get_event_loop().run_until_complete(self.ccarLoop(userName, password))
-            return (userName + "_" + "***************")
         except:
             error = traceback.format_exc() 
             logger.error(error);
