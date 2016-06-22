@@ -287,7 +287,7 @@ class CCARClient:
                 serverConnection = self.websocket                                
                 logger.debug("Keep alive ping:" + str(reply) + " Sleeping " + self.keepAliveInterval())        
                 yield from serverConnection.send(json.dumps(reply))
-                yield from asyncio.sleep(int(self.keepAliveInterval()))
+                yield from asyncio.sleep(int(self.keepAliveInterval()), loop = self.loop)
                 
         except:
             logger.error(traceback.format_exc())
@@ -305,7 +305,7 @@ class CCARClient:
         if lPassword != data['login']['password']:
             self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
-        (asyncio.get_event_loop().create_task(self.keepAlivePing()))
+        (self.loop.create_task(self.keepAlivePing()))
         logger.debug("Yield from , keep alive ping")
         logger.debug ("keep alive ping")
         logger.debug("Handling login response: " + str(data))
@@ -618,9 +618,9 @@ class CCARClient:
     def ccarLoop(self, userName, password):
         sslCtx = self.getSSLClientContext() # Use ssl client context to test.
         if sslCtx == None:
-            self.websocket = yield from websockets.connect(self.clientConnection())
+            self.websocket = yield from websockets.connect(self.clientConnection(), loop = self.loop)
         else:
-            self.websocket = yield from websockets.connect(self.clientConnection(), ssl = sslCtx)
+            self.websocket = yield from websockets.connect(self.clientConnection(), ssl = sslCtx, loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
             payload = self.sendLoginRequest(userName, password);
@@ -647,13 +647,14 @@ class CCARClient:
 
     def LOGGER_CELL():
         return "A23"
-    def login (self, userName, password, ssl):
+    def login (self, loop, userName, password, ssl):
         try:
+            self.loop = loop
             logger.debug("Connecting using %s -> %s", userName, password)
             if userName == None or userName == "" or password == None or password == "":
                 updateCellContent(LOGGER_CELL(), "User name and or password not found")
                 return;
-            asyncio.get_event_loop().run_until_complete(self.ccarLoop(userName, password))
+            loop.run_until_complete(self.ccarLoop(userName, password))
         except:
             error = traceback.format_exc() 
             logger.error(error);
@@ -673,7 +674,10 @@ def StartClient(*args):
         s = client.getSecuritySettings()
         l = client.getCellContent(client.LOGIN_CELL)
         p = client.getCellContent(client.PASSWORD_CELL)
-        client.login(l, p, convertToBool(s))
+        loop = asyncio.get_event_loop()
+        import threading
+        t = threading.Thread(target = client.login, args=(loop, l, p, convertToBool(s)))
+        t.start()
     except:
         logger.errors(traceback.format_exc())
 
