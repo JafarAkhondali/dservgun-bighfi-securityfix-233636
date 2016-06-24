@@ -66,11 +66,62 @@ UNDEFINED = 1040
 COMPANY_SELECTION_LIST_CONTROL = "BrokerList"
 COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
 
-def convertToBool(aString):
-    if aString.capitalize() == "True" : 
-        return True
-    else: 
-        return False
+
+class Util:
+    # Indexes are zero based.
+    @staticmethod
+    def getWorksheetByIndex(worksheetIndex): 
+        desktop = XSCRIPTCONTEXT.getDesktop()
+        model = desktop.getCurrentComponent()
+        sheet = model.Sheets.getByIndex(worksheetIndex)    
+
+    @staticmethod
+    def getWorksheetByName(worksheetName): 
+        desktop = XSCRIPTCONTEXT.getDesktop()
+        model = desktop.getCurrentComponent()
+        sheet = model.Sheets.getByName(worksheetName) 
+        return sheet   
+    @staticmethod
+    def convertToBool(aString):    
+        if aString.capitalize() == "True" : 
+            return True
+        else: 
+            return False
+    @staticmethod
+    def updateCellContent(worksheet, cell, value):
+        sheet = Util.getWorksheetByName(worksheet)
+        tRange = sheet.getCellRangeByName(cell)
+        tRange.String = value
+
+
+class PortfolioGroup:
+    def __init__(self, portfolioSummaries):
+        self.portfolioWorksheet = "portfolio_analysis_sheet"
+        self.portfolioDetailCount = 0
+        self.portfolioDetailStartRow = 5
+
+        self.portfolioDetailColumns = {"companyId" : "A"
+                                        , "portfolioId" : "B"
+                                        , "summary" : "C" }
+        self.portfolioSummaries = portfolioSummaries
+
+    def updateContents(self):
+        for summaryDictionary in self.portfolioSummaries:
+            summary = summaryDictionary["Right"]
+            cellPosition = str(self.portfolioDetailCount + self.portfolioDetailStartRow)
+            companyCol = self.portfolioDetailColumns["companyId"]
+            portfolioCol = self.portfolioDetailColumns["portfolioId"]
+            summaryCol = self.portfolioDetailColumns["summary"]
+
+            Util.updateCellContent(self.portfolioWorksheet, 
+                                summaryCol + cellPosition, summary["summary"])
+            Util.updateCellContent(self.portfolioWorksheet, 
+                                portfolioCol + cellPosition, summary["portfolioId"])
+            Util.updateCellContent(self.portfolioWorksheet, 
+                                companyCol + cellPosition, summary["companyId"])
+            self.portfolioDetailCount  = self.portfolioDetailCount + 1                
+
+
 
 class CCARClient:
     def __init__(self):
@@ -122,7 +173,6 @@ class CCARClient:
         return ssl_context
 
 
-    # Indexes are zero based.
     def getWorksheet(self, anIndex) :
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
@@ -454,7 +504,7 @@ class CCARClient:
 
     def handleSendMessage(self, jsonResponse):
         try:    
-            self.updateInfoWorksheet("Not handling " + str(jsonResponse));
+            logger.debug("Not handling " + str(jsonResponse));
             return None
         except:
             self.updateErrorWorksheet(traceback.format_exc())
@@ -489,16 +539,9 @@ class CCARClient:
     def sendQueryPortfolios(self, jsonRequest):
         pass
 
-    def displayPortfolioDetails(self, aPortfolioRecord):
-        cellPosition = str(self.portfolioDetailCount + self.portfolioDetailStartRow)
-        self.updateCellContent(self.portfolioDetailStartCol + cellPosition, aPortfolioRecord["summary"])
-        self.updateCellContent(self.portfolioDetailStartCol1 + cellPosition, aPortfolioRecord["companyId"])
-        self.portfolioDetailCount  = self.portfolioDetailCount + 1                
     def updatePortfolios(self, portfolioList):
-        logger.debug("Updating portfolios ")
-        for aDict in portfolioList:
-            pDetails = aDict["Right"]
-            self.displayPortfolioDetails(pDetails);
+        p = PortfolioGroup(portfolioList);
+        p.updateContents();        
 
     def handleQueryPortfolios(self, jsonResponse): 
         logger.debug("Handling query portfolios " + str(jsonResponse));
@@ -672,7 +715,7 @@ class CCARClient:
                     reply = self.processIncomingCommand(response)
                     logger.debug("Reply --> " + str(reply));
                     if reply == None:
-                        self.updateInfoWorksheet(" Not sending a response " + response);                    
+                        logger.debug(" Not sending a response " + response);                    
                     else:
                         yield from self.websocket.send(json.dumps(reply))
                 except:
@@ -715,7 +758,7 @@ def StartClient(*args):
         p = client.getCellContent(client.PASSWORD_CELL)
         loop = asyncio.get_event_loop()
         import threading
-        t = threading.Thread(target = client.login, args=(loop, l, p, convertToBool(s)))
+        t = threading.Thread(target = client.login, args=(loop, l, p, Util.convertToBool(s)))
         t.start()
     except:
         logger.errors(traceback.format_exc())
