@@ -10,7 +10,7 @@ import ssl
 import threading
 import logging
 
-logging.basicConfig(filename="odspythonscript.log", level = logging.DEBUG)
+logging.basicConfig(filename="odspythonscript.log", level = logging.DEBUG, filemode = "w")
 
 logger = logging.getLogger(__name__)    
 logger.debug("Loaded script file")
@@ -74,15 +74,20 @@ def convertToBool(aString):
 
 class CCARClient:
     def __init__(self):
+
+        self.portfolioDetailCount = 0 
+        self.portfolioDetailStartRow = 5
+        self.portfolioDetailStartCol = "C"
+        self.portfolioDetailStartCol1 = "D"
         self.serverHandle = None
-        self.INFO_ROW_COUNT = 2
+        self.INFO_ROW_COUNT = 30
         self.SECURITY_CELL = "B15"
         self.SECURITY_CELL_LOG = "B16"
         self.LOGIN_CELL = "B5"
         self.PASSWORD_CELL = "B6"
         self.ERROR_CELL = "A23"
         self.KEEP_ALIVE_CELL = "B25"
-        self.INFO_WORK_SHEET = 2
+        self.INFO_WORK_SHEET = 0
     #get the doc from the scripting context which is made available to all scripts
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
@@ -126,7 +131,7 @@ class CCARClient:
 
     def clearInfoWorksheet(self):
         sheet = self.getWorksheet(self.INFO_WORK_SHEET);
-        count = 2 ## TBD: Needs to be a constant.
+        count = self.INFO_ROW_COUNT ## TBD: Needs to be a constant.
         while count < self.INFO_ROW_COUNT:
             cellId = "A" + str(count)
             trange = sheet.getCellRangeByName(cellId)
@@ -135,7 +140,6 @@ class CCARClient:
 
     def updateInfoWorksheet(self, aMessage) :
         sheet = self.getWorksheet(self.INFO_WORK_SHEET);
-        logger.debug("Using sheet " + str(sheet) + " " + self.INFO_CELL())
         tRange = sheet.getCellRangeByName(self.INFO_CELL())
         self.INFO_ROW_COUNT = self.INFO_ROW_COUNT + 1
         tRange.String = (str(aMessage))
@@ -158,9 +162,15 @@ class CCARClient:
     def getUserName(self) :
         return self.getCellContent(self.LOGIN_CELL)
 
+    def clearCompanySelectionListBox(self):
+        logger.debug("Clear the company selection list box")
+        
     def clearCells(self):
+        self.clearCompanySelectionListBox()
         self.clearInfoWorksheet();
         self.clearErrorWorksheet();
+        self.INFO_ROW_COUNT = 30
+        self.portfolioDetailCount = 0
 
     def getCompanySelectListBox(self):
     #get the doc from the scripting context which is made available to all scripts
@@ -275,6 +285,10 @@ class CCARClient:
     ## Send a keep alive request every n seconds. 
     ## This is not entirely accurate: the client needs to send 
     ## a message only after n seconds of idle period. TODO
+    @asyncio.coroutine
+    def send(self, aJsonMessage):
+        logger.debug(">>>" + str(aJsonMessage));
+        yield from self.websocket.send(json.dumps(aJsonMessage))
 
     @asyncio.coroutine
     def keepAlivePing(self):
@@ -353,12 +367,22 @@ class CCARClient:
 
     def handleSelectAllCompaniesResponse(self, response): 
         companiesList = response['company'];
-        companyIDList = []
-
+        portfolioQueries = []
         count = 0
         for aCompany in companiesList:
             self.getCompanySelectListBox().addItem(aCompany["companyID"], count)
             count = count + 1
+            portfolioQuery = {
+                    'commandType' : "QueryPortfolios"
+                    , 'nickName' : self.getUserName()
+                    , 'companyId' : aCompany["companyID"]
+                    , 'userId' : self.getUserName()
+                    , 'resultSet' : []
+
+            }
+            self.loop.create_task(self.send(portfolioQuery))
+
+        return None
 
     def sendQuerySupportedScripts(self, aJsonRequest) : 
         pass 
@@ -463,9 +487,24 @@ class CCARClient:
     def handlePortfolioSymbolSidesQuery(self, jsonResponse):
         pass 
     def sendQueryPortfolios(self, jsonRequest):
-        pass 
+        pass
+
+    def displayPortfolioDetails(self, aPortfolioRecord):
+        cellPosition = str(self.portfolioDetailCount + self.portfolioDetailStartRow)
+        self.updateCellContent(self.portfolioDetailStartCol + cellPosition, aPortfolioRecord["summary"])
+        self.updateCellContent(self.portfolioDetailStartCol1 + cellPosition, aPortfolioRecord["companyId"])
+        self.portfolioDetailCount  = self.portfolioDetailCount + 1                
+    def updatePortfolios(self, portfolioList):
+        logger.debug("Updating portfolios ")
+        for aDict in portfolioList:
+            pDetails = aDict["Right"]
+            self.displayPortfolioDetails(pDetails);
+
     def handleQueryPortfolios(self, jsonResponse): 
-        pass 
+        logger.debug("Handling query portfolios " + str(jsonResponse));
+        resultSet = jsonResponse["resultSet"]
+        self.updatePortfolios(resultSet)
+        return None
     def sendManagePortfolio(self, jsonRequest): 
         pass 
     def handleManagePortfolio(self, jsonResponse):
@@ -633,7 +672,7 @@ class CCARClient:
                     reply = self.processIncomingCommand(response)
                     logger.debug("Reply --> " + str(reply));
                     if reply == None:
-                        self.updateInfoWorksheet("Ignoring " + response);                    
+                        self.updateInfoWorksheet(" Not sending a response " + response);                    
                     else:
                         yield from self.websocket.send(json.dumps(reply))
                 except:
