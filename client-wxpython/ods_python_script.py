@@ -1,4 +1,5 @@
 import sys
+print("Using " + str(sys.version))
 import urllib
 import os
 os.environ['PYTHONASYNCIODEBUG'] = '1'
@@ -66,7 +67,8 @@ UNDEFINED = 1040
 COMPANY_SELECTION_LIST_CONTROL = "BrokerList"
 COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
 
-
+# Design notes: 
+# Use composition over inheritance.
 class Util:
     # Indexes are zero based.
     @staticmethod
@@ -83,19 +85,64 @@ class Util:
         return sheet   
     @staticmethod
     def convertToBool(aString):    
-        if aString.capitalize() == "True" : 
-            return True
-        else: 
-            return False
+        bool(aString)
     @staticmethod
     def updateCellContent(worksheet, cell, value):
         sheet = Util.getWorksheetByName(worksheet)
         tRange = sheet.getCellRangeByName(cell)
         tRange.String = value
 
+# typedef PortfolioSymbolT =  {
+#       var crudType : String;
+#       var commandType : String;
+#       var portfolioId : String;
+#       var symbol : String;
+#       var quantity : String;
+#       var side : String;
+#       var symbolType : String;
+#       var value : String;
+#       var stressValue : String;
+#       var creator : String;
+#       var updator : String;
+#       var nickName : String;
+# }
+
+class PortfolioSymbolParseError(Exception) : 
+        def __init__(self, value):
+            self.value = value
+        def __str__(self): 
+            return repr(self.value);
+class PortfolioSymbol:
+    # Deal with Right/Errors inside the constructor
+    def __init__(self, jsonRecord) :
+        logger.debug("Creating from " + str(jsonRecord))
+        self.commandType = ""
+        self.portfolioId = jsonRecord["portfolioId"]
+        self.symbol = jsonRecord["symbol"]
+        self.quantity = jsonRecord["quantity"]
+        self.side = jsonRecord["side"]
+        self.symbolType = jsonRecord["symbolType"]
+        self.value = jsonRecord["value"]
+        self.stressValue = jsonRecord["stressValue"]
+        self.creator = jsonRecord["creator"]
+        self.updator = jsonRecord["updator"]
+        self.nickName = jsonRecord["nickName"]
+    def key(self): 
+        return (self.symbol + self.side + self.symbolType + self.portfolioId);
+class PortfolioSymbolTable :
+    def __init__(self, ccarClient):
+        self.ccarClient = ccarClient
+        self.table = {}
+    def add(self, portfolioSymbol):
+        self.table[portfolioSymbol.key()] = portfolioSymbol
+        return portfolioSymbol
+    def getPortfolioSymbols(self):
+            return table.values()
+
 
 class PortfolioGroup:
-    def __init__(self, portfolioSummaries):
+    def __init__(self, ccarClient, portfolioSummaries):
+        self.ccarClient = ccarClient
         self.portfolioWorksheet = "portfolio_analysis_sheet"
         self.portfolioDetailCount = 0
         self.portfolioDetailStartRow = 5
@@ -104,24 +151,68 @@ class PortfolioGroup:
                                         , "portfolioId" : "B"
                                         , "summary" : "C" }
         self.portfolioSummaries = portfolioSummaries
+        # A dictionary of portfolio id to portfolio symbol table
+        self.portfolioGroupDictionary = {}
+        # Return the broker managing a given portfolio.
+        self.brokerDictionary = {};
 
     def updateContents(self):
         for summaryDictionary in self.portfolioSummaries:
             summary = summaryDictionary["Right"]
+
             cellPosition = str(self.portfolioDetailCount + self.portfolioDetailStartRow)
             companyCol = self.portfolioDetailColumns["companyId"]
             portfolioCol = self.portfolioDetailColumns["portfolioId"]
             summaryCol = self.portfolioDetailColumns["summary"]
-
+            self.brokerDictionary[portfolioCol] = companyCol
             Util.updateCellContent(self.portfolioWorksheet, 
                                 summaryCol + cellPosition, summary["summary"])
             Util.updateCellContent(self.portfolioWorksheet, 
                                 portfolioCol + cellPosition, summary["portfolioId"])
             Util.updateCellContent(self.portfolioWorksheet, 
                                 companyCol + cellPosition, summary["companyId"])
-            self.portfolioDetailCount  = self.portfolioDetailCount + 1                
+            self.portfolioDetailCount  = self.portfolioDetailCount + 1                            
+    def sendPortfolioRequests(self):
+        logger.debug("Sending portfolio requests")
+        # var payload : PortfolioSymbolQueryT = {
+        #     commandType : "QueryPortfolioSymbol"
+        #     , portfolioId : activePortfolio.portfolioId
+        #     , nickName : MBooks_im.getSingleton().getNickName()
+        #     , resultSet : []
+        # }
+        for portfolio in self.portfolioSummaries:
+            summary = portfolio["Right"]
+            payload = {
+                'commandType' : "QueryPortfolioSymbol"
+                , 'nickName' : self.ccarClient.getUserName()
+                , 'portfolioId' : summary["portfolioId"]
+                , 'resultSet' : []
+            }
+            self.ccarClient.sendAsTask(payload);
+    def updateAndSend(self):
+        self.updateContents()
+        self.sendPortfolioRequests()
+    def getPortfolioSymbolTable(self, portfolioId):
+        result = None
+        if portfolioId in self.portfolioGroupDictionary:
+            result = self.portfolioGroupDictionary[portfolioId]
+        else:
+            result = PortfolioSymbolTable(self.ccarClient)
+            self.portfolioGroupDictionary[portfolioId] = result
 
-
+        assert (result != None), "Portfolio symbol table for %s not found" % portfolioId
+        return self.portfolioGroupDictionary[portfolioId];
+    def handleQueryPortfolioSymbolResponse(self, jsonResponse):
+        logger.debug("QueryPortfolioResponse " + str(jsonResponse))
+        resultSet = jsonResponse["resultSet"]
+        for result in resultSet: 
+            x = result["Right"]
+            if x != None:           
+                portfolioSymbol = PortfolioSymbol(x);
+                portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
+                portfolioSymbolTable.add(portfolioSymbol)
+            else:
+                logger.warn("Ignoring " + str(x))
 
 class CCARClient:
     def __init__(self):
@@ -332,6 +423,7 @@ class CCARClient:
         self.interval = self.getCellContent(self.KEEP_ALIVE_CELL)
         return self.interval
 
+
     ## Send a keep alive request every n seconds. 
     ## This is not entirely accurate: the client needs to send 
     ## a message only after n seconds of idle period. TODO
@@ -433,6 +525,13 @@ class CCARClient:
             self.loop.create_task(self.send(portfolioQuery))
 
         return None
+    
+    """ 
+        Send a json request by wrapping it inside a task 
+    """
+    def sendAsTask(self, aJsonRequest):
+        logger.debug(">>>" + str(aJsonRequest))
+        self.loop.create_task(self.send(aJsonRequest));
 
     def sendQuerySupportedScripts(self, aJsonRequest) : 
         pass 
@@ -540,8 +639,10 @@ class CCARClient:
         pass
 
     def updatePortfolios(self, portfolioList):
-        p = PortfolioGroup(portfolioList);
-        p.updateContents();        
+        self.portfolioGroup = PortfolioGroup(self, portfolioList);
+        self.portfolioGroup.updateAndSend();
+
+
 
     def handleQueryPortfolios(self, jsonResponse): 
         logger.debug("Handling query portfolios " + str(jsonResponse));
@@ -559,7 +660,8 @@ class CCARClient:
     def sendQueryPortfolioSymbol(self, jsonRequest): 
         pass 
     def handleQueryPortfolioSymbol(self, jsonRequest) :
-        pass 
+        logger.debug("Handle query portfolio symbol " + str(jsonRequest))
+        self.portfolioGroup.handleQueryPortfolioSymbolResponse(jsonRequest);
     def sendManageEntitlements(self, jsonRequest):
         pass 
     def handleManageEntitlements(self, jsonResponse): 
