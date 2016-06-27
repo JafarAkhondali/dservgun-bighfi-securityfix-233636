@@ -91,7 +91,16 @@ class Util:
         sheet = Util.getWorksheetByName(worksheet)
         tRange = sheet.getCellRangeByName(cell)
         tRange.String = value
-
+    @staticmethod
+    def insertNewWorksheet(aName): 
+        if aName == None:
+            return None
+        desktop = XSCRIPTCONTEXT.getDesktop()
+        model = desktop.getCurrentComponent()
+        logger.debug("Model " + str(model.Sheets))
+        logger.debug("Creating new sheet " + aName)
+        newSheet = model.Sheets.insertNewByName(aName, 0)
+        return newSheet
 # typedef PortfolioSymbolT =  {
 #       var crudType : String;
 #       var commandType : String;
@@ -155,6 +164,7 @@ class PortfolioGroup:
         self.portfolioGroupDictionary = {}
         # Return the broker managing a given portfolio.
         self.brokerDictionary = {};
+        self.portfolioGroupWorksheets = {}
 
     def updateContents(self):
         for summaryDictionary in self.portfolioSummaries:
@@ -172,6 +182,10 @@ class PortfolioGroup:
             Util.updateCellContent(self.portfolioWorksheet, 
                                 companyCol + cellPosition, summary["companyId"])
             self.portfolioDetailCount  = self.portfolioDetailCount + 1                            
+            newSheet = Util.insertNewWorksheet(summary["portfolioId"])
+            self.portfolioGroupWorksheets[summary["portfolioId"]] = newSheet
+            logger.debug("Created new sheet " + str(newSheet));
+
     def sendPortfolioRequests(self):
         logger.debug("Sending portfolio requests")
         # var payload : PortfolioSymbolQueryT = {
