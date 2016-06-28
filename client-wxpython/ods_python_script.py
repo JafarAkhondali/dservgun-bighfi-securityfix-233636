@@ -88,6 +88,7 @@ class Util:
         bool(aString)
     @staticmethod
     def updateCellContent(worksheet, cell, value):
+        logger.debug("Updating worksheet by name " + worksheet)
         sheet = Util.getWorksheetByName(worksheet)
         tRange = sheet.getCellRangeByName(cell)
         tRange.String = value
@@ -99,7 +100,7 @@ class Util:
         model = desktop.getCurrentComponent()
         logger.debug("Model " + str(model.Sheets))
         logger.debug("Creating new sheet " + aName)
-        newSheet = model.Sheets.insertNewByName(aName, 0)
+        newSheet = model.Sheets.insertNewByName(aName, 1)
         return newSheet
 # typedef PortfolioSymbolT =  {
 #       var crudType : String;
@@ -223,10 +224,26 @@ class PortfolioGroup:
             x = result["Right"]
             if x != None:           
                 portfolioSymbol = PortfolioSymbol(x);
-                portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
-                portfolioSymbolTable.add(portfolioSymbol)
+                self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
+                self.portfolioSymbolTable.add(portfolioSymbol)
             else:
                 logger.warn("Ignoring " + str(x))
+        self.display()
+    def display(self):
+        logger.debug("Display rows in the sheet");
+        row = 1
+
+        for value in self.portfolioSymbolTable.table.values():
+            portfolioId = value.portfolioId
+            logger.debug("Updating portfolio " + portfolioId)
+            logger.debug("Processing " + str(value) + "--->" + portfolioId)
+            Util.updateCellContent(portfolioId, "A" + str(row), value.symbol)
+            Util.updateCellContent(portfolioId, "B" + str(row), value.quantity)
+            Util.updateCellContent(portfolioId, "C" + str(row), value.side)
+            Util.updateCellContent(portfolioId, "D" + str(row), value.symbolType)
+            Util.updateCellContent(portfolioId, "E" + str(row), value.value)
+            Util.updateCellContent(portfolioId, "F" + str(row), value.stressValue)
+            row = row + 1
 
 class CCARClient:
     def __init__(self):
@@ -294,10 +311,7 @@ class CCARClient:
             count = count + 1
 
     def updateInfoWorksheet(self, aMessage) :
-        sheet = self.getWorksheet(self.INFO_WORK_SHEET);
-        tRange = sheet.getCellRangeByName(self.INFO_CELL())
-        self.INFO_ROW_COUNT = self.INFO_ROW_COUNT + 1
-        tRange.String = (str(aMessage))
+        logger.info("Processing message " + aMessage);
 
     def clearErrorWorksheet(self):
         sheet = self.getWorksheet(0);
