@@ -131,8 +131,7 @@ getTimeAndSales y = \x -> getMarketData timeAndSales [("symbol", Just x)]
 
 
 getHistoricalData = \x -> do 
-	Object value <- getMarketData historicalMarketData [("symbol", Just x)]
-	
+	Object value <- getMarketData historicalMarketData [("symbol", Just x)]	
 	history <- return $ M.lookup "history" value
 
 	case history of 

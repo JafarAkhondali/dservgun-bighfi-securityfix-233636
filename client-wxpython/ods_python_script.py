@@ -10,11 +10,16 @@ import json
 import ssl
 import threading
 import logging
-
+import datetime
 logging.basicConfig(filename="odspythonscript.log", level = logging.DEBUG, filemode = "w")
 
 logger = logging.getLogger(__name__)    
 logger.debug("Loaded script file")
+
+
+
+
+
 ##### Note: Requires python 3.4 or above
 ##### It seems to be that all functions in a macro need to reside in a single file.
 ##### We will break them down into modules as the size of the macros grow.
@@ -22,6 +27,44 @@ logger.debug("Loaded script file")
 
 ##### Todo:
 ##### Package the server interaction as a library.
+
+
+# Rectangle aRect = new Rectangle( aUpperLeft.X, aUpperLeft.Y, aExtent.Width, aExtent.Height );
+
+#      CellRangeAddress[] aAddresses = new CellRangeAddress[ 1 ];
+#      aAddresses[ 0 ] = aRange;
+
+#      // first bool: ColumnHeaders
+#      // second bool: RowHeaders
+#      aChartCollection.addNewByName( sChartName, aRect, aAddresses, true, false );
+
+#      try
+#      {
+#          XTableChart aTableChart = UnoRuntime.queryInterface(
+#              XTableChart.class, aChartCollectionNA.getByName( sChartName ));
+
+#          // the table chart is an embedded object which contains the chart document
+#          aResult = UnoRuntime.queryInterface(
+#              XChartDocument.class,
+#              UnoRuntime.queryInterface(
+#                  XEmbeddedObjectSupplier.class,
+#                  aTableChart ).getEmbeddedObject());
+
+#          // create a diagram via the factory and set this as new diagram
+#          aResult.setDiagram(
+#              UnoRuntime.queryInterface(
+#                  XDiagram.class,
+#                  UnoRuntime.queryInterface(
+#                      XMultiServiceFactory.class,
+#                      aResult ).createInstance( sChartServiceName )));
+#      }
+#      catch( NoSuchElementException ex )
+#      {
+#          System.out.println( "Couldn't find chart with name " + sChartName + ": " + ex );
+#      }
+#      catch( Exception ex )
+#      {}
+#  }
 
 LOGIN_COMMAND = 1000
 CCAR_UPLOAD_COMMAND = 1001
@@ -92,6 +135,9 @@ class Util:
         sheet = Util.getWorksheetByName(worksheet)
         tRange = sheet.getCellRangeByName(cell)
         tRange.String = value
+    @staticmethod 
+    def workSheetExists(aName):
+        sheet = Util.getWorksheetByName(aName);
     @staticmethod
     def insertNewWorksheet(aName): 
         if aName == None:
@@ -184,8 +230,29 @@ class PortfolioGroup:
                                 companyCol + cellPosition, summary["companyId"])
             self.portfolioDetailCount  = self.portfolioDetailCount + 1                            
             newSheet = Util.insertNewWorksheet(summary["portfolioId"])
+            self.createRows(summary["portfolioId"])
             self.portfolioGroupWorksheets[summary["portfolioId"]] = newSheet
             logger.debug("Created new sheet " + str(newSheet));
+
+            # Util.updateCellContent(portfolioId, "A" + str(row), value.symbol)
+            # Util.updateCellContent(portfolioId, "B" + str(row), value.quantity)
+            # Util.updateCellContent(portfolioId, "C" + str(row), value.side)
+            # Util.updateCellContent(portfolioId, "D" + str(row), value.symbolType)
+            # Util.updateCellContent(portfolioId, "E" + str(row), value.value)
+            # Util.updateCellContent(portfolioId, "F" + str(row), value.stressValue)
+            # Util.updateCellContent(portfolioId, "G" + str(row), str(datetime.now()))
+            # row = row + 1
+
+
+    def createRows(self, aWorksheetName):
+        Util.updateCellContent(aWorksheetName, "A1", "Symbol")
+        Util.updateCellContent(aWorksheetName, "B1", "Quantity")
+        Util.updateCellContent(aWorksheetName, "C1", "Side")
+        Util.updateCellContent(aWorksheetName, "D1" ,  "SymbolType")
+        Util.updateCellContent(aWorksheetName, "E1", "Value")
+        Util.updateCellContent(aWorksheetName, "F1", "Stress value")
+        Util.updateCellContent(aWorksheetName, "G1", "Last update time")
+
 
     def sendPortfolioRequests(self):
         logger.debug("Sending portfolio requests")
@@ -217,6 +284,26 @@ class PortfolioGroup:
 
         assert (result != None), "Portfolio symbol table for %s not found" % portfolioId
         return self.portfolioGroupDictionary[portfolioId];
+
+    def sendAsTask(self, payload):
+        self.ccarClient.sendAsTask(payload);
+    def sendMarketDataQueryRequest(self, portfolioSymbol):
+        logger.debug("Sending market data query request");
+        payload = {
+        'commandType' : "QueryMarketData"
+        , 'nickName' : self.ccarClient.getUserName()
+        , 'symbol' : "select historical for " + portfolioSymbol.symbol + ";"
+        , 'portfolioId' : portfolioSymbol.portfolioId
+        , 'resultSet' : []
+        }
+        self.sendAsTask(payload);
+
+    def updateUsingManagePortfolioSymbol(self, jsonResponse):
+        portfolioSymbol = PortfolioSymbol(jsonResponse);
+        self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
+        self.portfolioSymbolTable.add(portfolioSymbol)
+        self.sendMarketDataQueryRequest(portfolioSymbol);
+
     def handleQueryPortfolioSymbolResponse(self, jsonResponse):
         logger.debug("QueryPortfolioResponse " + str(jsonResponse))
         resultSet = jsonResponse["resultSet"]
@@ -231,8 +318,7 @@ class PortfolioGroup:
         self.display()
     def display(self):
         logger.debug("Display rows in the sheet");
-        row = 1
-
+        row = 2
         for value in self.portfolioSymbolTable.table.values():
             portfolioId = value.portfolioId
             logger.debug("Updating portfolio " + portfolioId)
@@ -243,11 +329,32 @@ class PortfolioGroup:
             Util.updateCellContent(portfolioId, "D" + str(row), value.symbolType)
             Util.updateCellContent(portfolioId, "E" + str(row), value.value)
             Util.updateCellContent(portfolioId, "F" + str(row), value.stressValue)
+            Util.updateCellContent(portfolioId, "G" + str(row), str(datetime.datetime.now()))
             row = row + 1
+
+class MarketDataTimeSeries:
+
+    def __init__(self, symbol, high, low, openL, close, volume, date):
+        self.high = high
+        self.low = low
+        self.open = openL
+        self.close = close
+        self.date =  date
+        self.symbol = symbol
+        self.volume = volume
+    def printValue(self):
+        return (str(self.date) + " " + self.symbol)
+class MarketData:
+    def __init__(self, symbol):
+        self.timeSeries = {}
+        self.symbol = symbol
+    def add(self, high, low, openL, close, volume, date):
+        event = MarketDataTimeSeries(self.symbol, high, low, openL, close, volume, date)
+        self.timeSeries[date] = event
 
 class CCARClient:
     def __init__(self):
-
+        self.marketData = {}
         self.portfolioDetailCount = 0 
         self.portfolioDetailStartRow = 5
         self.portfolioDetailStartCol = "C"
@@ -260,7 +367,10 @@ class CCARClient:
         self.PASSWORD_CELL = "B6"
         self.ERROR_CELL = "A23"
         self.KEEP_ALIVE_CELL = "B25"
+        self.MARKET_DATA_REFRESH_INTERVAL_CELL = "B26"
         self.INFO_WORK_SHEET = 0
+        self.marketDataRefreshInterval = 1
+        self.marketDataSheet = "MarketDataSheet"
     #get the doc from the scripting context which is made available to all scripts
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
@@ -451,6 +561,9 @@ class CCARClient:
         self.interval = self.getCellContent(self.KEEP_ALIVE_CELL)
         return self.interval
 
+    def marketDataRefreshIntervalF(self):
+        self.marketDataRefreshInterval = self.getCellContent(self.MARKET_DATA_REFRESH_INTERVAL_CELL)
+        return self.marketDataRefreshInterval
 
     ## Send a keep alive request every n seconds. 
     ## This is not entirely accurate: the client needs to send 
@@ -460,6 +573,40 @@ class CCARClient:
         logger.debug(">>>" + str(aJsonMessage));
         yield from self.websocket.send(json.dumps(aJsonMessage))
 
+    @asyncio.coroutine
+    def updateMarketData(self):
+        logger.debug("Market data update");
+        worksheet = Util.insertNewWorksheet(self.marketDataSheet)
+        row = 1
+        logger.debug("Worksheet " + str(row))
+        while True:
+            logger.debug("Market data update " + str(len(self.marketData.keys())));
+            for marketData in self.marketData.values():
+                marketDataTimeSeries = marketData.timeSeries 
+                if marketData.symbol == "INVALID_PORTFOLIO":
+                   continue; 
+                Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Symbol")
+                Util.updateCellContent(self.marketDataSheet, "B" + str(row), marketData.symbol)
+                row = row + 1
+                Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Date")
+                Util.updateCellContent(self.marketDataSheet, "B" + str(row), "High")
+                Util.updateCellContent(self.marketDataSheet, "C" + str(row), "Low")
+                Util.updateCellContent(self.marketDataSheet, "D" + str(row), "Open")
+                Util.updateCellContent(self.marketDataSheet, "E" + str(row),  "Close")
+                Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Volume")
+                row = row + 1
+                for value in marketDataTimeSeries.values():
+                    logger.debug("Updating market data " + str(value.date) + " " + str(value.symbol))
+                    if value.symbol == "INVALID_PORTFOLIO":
+                        continue;
+                    Util.updateCellContent(self.marketDataSheet, "A" + str(row), value.date)
+                    Util.updateCellContent(self.marketDataSheet, "B" + str(row), value.high)
+                    Util.updateCellContent(self.marketDataSheet, "C" + str(row), value.low)
+                    Util.updateCellContent(self.marketDataSheet, "D" + str(row), value.open)
+                    Util.updateCellContent(self.marketDataSheet, "E" + str(row), value.close)
+                    Util.updateCellContent(self.marketDataSheet, "F" + str(row), value.volume)
+                    row = row + 1
+            yield from asyncio.sleep(int(self.marketDataRefreshIntervalF()), loop = self.loop)
     @asyncio.coroutine
     def keepAlivePing(self):
         try:
@@ -490,6 +637,7 @@ class CCARClient:
             self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
         (self.loop.create_task(self.keepAlivePing()))
+        (self.loop.create_task(self.updateMarketData()))
         logger.debug("Yield from , keep alive ping")
         logger.debug ("keep alive ping")
         logger.debug("Handling login response: " + str(data))
@@ -684,7 +832,10 @@ class CCARClient:
     def sendManagePortfolioSymbol(self, jsonRequest) :
         pass 
     def handleManagePortfolioSymbol(self, jsonResponse):
-        pass 
+        logger.debug("Process handle portfolio symbol " + str(jsonResponse))
+        self.portfolioGroup.updateUsingManagePortfolioSymbol(jsonResponse);
+        return None
+
     def sendQueryPortfolioSymbol(self, jsonRequest): 
         pass 
     def handleQueryPortfolioSymbol(self, jsonRequest) :
@@ -711,9 +862,29 @@ class CCARClient:
     def handleQptionAnalytics(self, jsonResponse): 
         pass 
     def sendQueryMarketData(self, jsonRequest):
-        pass 
+        logger.debug("Send query market data for each symbol across all the portfolios")
+        logger.debug("Will never come here.");
     def handleQueryMarketData(self, jsonRequest) :
-        pass 
+        logger.debug("Create a historical table here " + str(jsonRequest))
+        try:
+            r = jsonRequest
+            q = r["query"]
+            for result in q:
+                logger.debug("Processing result" + str(result));
+                symbol = result["symbol"]
+                resultSet = result["resultSet"]
+                self.marketData[symbol] = MarketData(symbol)
+                for times in resultSet:
+                    logger.debug("Processing time series " + str(times))
+                    (self.marketData[symbol]).add(times["high"]
+                                , times["low"]
+                                , times["open"]
+                                , times["close"]
+                                , times["volume"]
+                                , times["date"])
+        except:
+            error = traceback.format_exc()
+            logger.error(error)
     def sendHistoricalStressValue(self, jsonRequest):
         pass
     def handleHistoricalStressValue(self, jsonResponse): 
