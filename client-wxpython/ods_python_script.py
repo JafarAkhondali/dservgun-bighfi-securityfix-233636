@@ -578,34 +578,46 @@ class CCARClient:
         logger.debug("Market data update");
         worksheet = Util.insertNewWorksheet(self.marketDataSheet)
         row = 1
+
+        rowDictionary = {} # symbol + date is the key for the row number.
+        timeseriesDictionary = {}
         logger.debug("Worksheet " + str(row))
+        Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Symbol")
+        row = row + 1
+        Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Date")
+        Util.updateCellContent(self.marketDataSheet, "B" + str(row), "High")
+        Util.updateCellContent(self.marketDataSheet, "C" + str(row), "Low")
+        Util.updateCellContent(self.marketDataSheet, "D" + str(row), "Open")
+        Util.updateCellContent(self.marketDataSheet, "E" + str(row),  "Close")
+        Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Volume")
+
         while True:
             logger.debug("Market data update " + str(len(self.marketData.keys())));
+            row = 2 
             for marketData in self.marketData.values():
                 marketDataTimeSeries = marketData.timeSeries 
                 if marketData.symbol == "INVALID_PORTFOLIO":
-                   continue; 
-                Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Symbol")
-                Util.updateCellContent(self.marketDataSheet, "B" + str(row), marketData.symbol)
-                row = row + 1
-                Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Date")
-                Util.updateCellContent(self.marketDataSheet, "B" + str(row), "High")
-                Util.updateCellContent(self.marketDataSheet, "C" + str(row), "Low")
-                Util.updateCellContent(self.marketDataSheet, "D" + str(row), "Open")
-                Util.updateCellContent(self.marketDataSheet, "E" + str(row),  "Close")
-                Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Volume")
-                row = row + 1
+                   continue;    
                 for value in marketDataTimeSeries.values():
-                    logger.debug("Updating market data " + str(value.date) + " " + str(value.symbol))
-                    if value.symbol == "INVALID_PORTFOLIO":
-                        continue;
-                    Util.updateCellContent(self.marketDataSheet, "A" + str(row), value.date)
-                    Util.updateCellContent(self.marketDataSheet, "B" + str(row), value.high)
-                    Util.updateCellContent(self.marketDataSheet, "C" + str(row), value.low)
-                    Util.updateCellContent(self.marketDataSheet, "D" + str(row), value.open)
-                    Util.updateCellContent(self.marketDataSheet, "E" + str(row), value.close)
-                    Util.updateCellContent(self.marketDataSheet, "F" + str(row), value.volume)
-                    row = row + 1
+                    key = value.symbol + str(value.date)
+                    logger.debug("Key "  + key + " " + str(row))
+                    rowDictionary[key] = int(row);
+                    timeseriesDictionary[key] = value
+                    row = int(row) + 1;
+            
+            for marketData in self.marketData.values():
+
+                for row in rowDictionary.keys():
+                    rowVal = rowDictionary[row];
+                    timeSeriesEvent = timeseriesDictionary[row]
+                    Util.updateCellContent(self.marketDataSheet, "G" + str(rowVal), timeSeriesEvent.symbol)
+                    Util.updateCellContent(self.marketDataSheet, "A" + str(rowVal), timeSeriesEvent.date)
+                    Util.updateCellContent(self.marketDataSheet, "B" + str(rowVal), timeSeriesEvent.high)
+                    Util.updateCellContent(self.marketDataSheet, "C" + str(rowVal), timeSeriesEvent.low)
+                    Util.updateCellContent(self.marketDataSheet, "D" + str(rowVal), timeSeriesEvent.open)
+                    Util.updateCellContent(self.marketDataSheet, "E" + str(rowVal), timeSeriesEvent.close)
+                    Util.updateCellContent(self.marketDataSheet, "F" + str(rowVal), timeSeriesEvent.volume)
+
             yield from asyncio.sleep(int(self.marketDataRefreshIntervalF()), loop = self.loop)
     @asyncio.coroutine
     def keepAlivePing(self):
