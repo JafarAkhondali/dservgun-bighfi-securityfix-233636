@@ -986,6 +986,7 @@ processActivePortfolio nickName app (Object a) = do
     case r of 
         Success x -> do 
                 let p = runAP x
+                Logger.debugM "CCAR" ("Processing updating active portfolio " ++ show p)
                 atomically $ updateActivePortfolio nickName app p 
                 return(CCAR.Main.GroupCommunication.Reply, Right p)
         Error e -> 

@@ -11,7 +11,7 @@ import ssl
 import threading
 import logging
 import datetime
-logging.basicConfig(filename="odspythonscript.log", level = logging.DEBUG, filemode = "w")
+logging.basicConfig(filename="odspythonscript.log", level = logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
 
 logger = logging.getLogger(__name__)    
 logger.debug("Loaded script file")
@@ -131,7 +131,7 @@ class Util:
         bool(aString)
     @staticmethod
     def updateCellContent(worksheet, cell, value):
-        logger.debug("Updating worksheet by name " + worksheet)
+#        logger.debug("Updating worksheet by name " + worksheet + str(cell) + str(value))
         sheet = Util.getWorksheetByName(worksheet)
         tRange = sheet.getCellRangeByName(cell)
         tRange.String = value
@@ -171,7 +171,6 @@ class PortfolioSymbolParseError(Exception) :
 class PortfolioSymbol:
     # Deal with Right/Errors inside the constructor
     def __init__(self, jsonRecord) :
-        logger.debug("Creating from " + str(jsonRecord))
         self.commandType = ""
         self.portfolioId = jsonRecord["portfolioId"]
         self.symbol = jsonRecord["symbol"]
@@ -232,7 +231,6 @@ class PortfolioGroup:
             newSheet = Util.insertNewWorksheet(summary["portfolioId"])
             self.createRows(summary["portfolioId"])
             self.portfolioGroupWorksheets[summary["portfolioId"]] = newSheet
-            logger.debug("Created new sheet " + str(newSheet));
 
             # Util.updateCellContent(portfolioId, "A" + str(row), value.symbol)
             # Util.updateCellContent(portfolioId, "B" + str(row), value.quantity)
@@ -255,7 +253,6 @@ class PortfolioGroup:
 
 
     def sendPortfolioRequests(self):
-        logger.debug("Sending portfolio requests")
         # var payload : PortfolioSymbolQueryT = {
         #     commandType : "QueryPortfolioSymbol"
         #     , portfolioId : activePortfolio.portfolioId
@@ -288,7 +285,6 @@ class PortfolioGroup:
     def sendAsTask(self, payload):
         self.ccarClient.sendAsTask(payload);
     def sendMarketDataQueryRequest(self, portfolioSymbol):
-        logger.debug("Sending market data query request");
         payload = {
         'commandType' : "QueryMarketData"
         , 'nickName' : self.ccarClient.getUserName()
@@ -297,6 +293,7 @@ class PortfolioGroup:
         , 'resultSet' : []
         }
         self.sendAsTask(payload);
+
 
     def updateUsingManagePortfolioSymbol(self, jsonResponse):
         portfolioSymbol = PortfolioSymbol(jsonResponse);
@@ -316,8 +313,8 @@ class PortfolioGroup:
             else:
                 logger.warn("Ignoring " + str(x))
         self.display()
+
     def display(self):
-        logger.debug("Display rows in the sheet");
         row = 2
         for value in self.portfolioSymbolTable.table.values():
             portfolioId = value.portfolioId
@@ -368,8 +365,11 @@ class CCARClient:
         self.ERROR_CELL = "A23"
         self.KEEP_ALIVE_CELL = "B25"
         self.MARKET_DATA_REFRESH_INTERVAL_CELL = "B26"
+        self.ACTIVE_PORTFOLIO_INTERVAL_CELL = "B27"
+
         self.INFO_WORK_SHEET = 0
         self.marketDataRefreshInterval = 1
+        self.activePortfolioInterval = 1 # An active portfolio ping request to update any stress data.
         self.marketDataSheet = "MarketDataSheet"
     #get the doc from the scripting context which is made available to all scripts
         desktop = XSCRIPTCONTEXT.getDesktop()
@@ -556,7 +556,9 @@ class CCARClient:
     def handleKeepAlive(self, jsonRequest) :
         return None 
 
-    #################### Begin loop ##############################
+    def activePortfolioIntervalF(self):
+        self.activePortfolioInterval = self.getCellContent(self.ACTIVE_PORTFOLIO_INTERVAL_CELL)
+        return self.activePortfolioInterval
     def keepAliveInterval(self) :
         self.interval = self.getCellContent(self.KEEP_ALIVE_CELL)
         return self.interval
@@ -570,12 +572,28 @@ class CCARClient:
     ## a message only after n seconds of idle period. TODO
     @asyncio.coroutine
     def send(self, aJsonMessage):
-        logger.debug(">>>" + str(aJsonMessage));
-        yield from self.websocket.send(json.dumps(aJsonMessage))
+        try:
+            yield from self.websocket.send(json.dumps(aJsonMessage))
+        except:
+            yield from self.websocket.close()
+            logger.error(traceback.format_exc())
+    @asyncio.coroutine
+    def updateActivePortfolios(self):
+        while True:
+            for portfolioSummary in self.portfolioGroup.portfolioSummaries:
+                payload = {
+                    "commandType" : "ActivePortfolio"
+                    , "portfolio" : portfolioSummary["Right"]
+                    , "nickName" : self.getUserName()
+                }
+                logger.debug("Update active portfolio " + str(payload))
+                yield from self.send(payload);
+                logger.debug("Sleeping " + self.activePortfolioIntervalF())
+                yield from asyncio.sleep(int(self.activePortfolioIntervalF()), loop = self.loop)
+            yield from asyncio.sleep(1, loop = self.loop) # When the dictionary is empty.
 
     @asyncio.coroutine
     def updateMarketData(self):
-        logger.debug("Market data update");
         worksheet = Util.insertNewWorksheet(self.marketDataSheet)
         row = 1
 
@@ -592,7 +610,6 @@ class CCARClient:
         Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Volume")
 
         while True:
-            logger.debug("Market data update " + str(len(self.marketData.keys())));
             row = 2 
             for marketData in self.marketData.values():
                 marketDataTimeSeries = marketData.timeSeries 
@@ -600,7 +617,7 @@ class CCARClient:
                    continue;    
                 for value in marketDataTimeSeries.values():
                     key = value.symbol + str(value.date)
-                    logger.debug("Key "  + key + " " + str(row))
+                    # logger.debug("Key "  + key + " " + str(row))
                     rowDictionary[key] = int(row);
                     timeseriesDictionary[key] = value
                     row = int(row) + 1;
@@ -617,6 +634,7 @@ class CCARClient:
                     Util.updateCellContent(self.marketDataSheet, "D" + str(rowVal), timeSeriesEvent.open)
                     Util.updateCellContent(self.marketDataSheet, "E" + str(rowVal), timeSeriesEvent.close)
                     Util.updateCellContent(self.marketDataSheet, "F" + str(rowVal), timeSeriesEvent.volume)
+                    yield from asyncio.sleep(0.01, loop = self.loop)                    
 
             yield from asyncio.sleep(int(self.marketDataRefreshIntervalF()), loop = self.loop)
     @asyncio.coroutine
@@ -624,7 +642,6 @@ class CCARClient:
         try:
             logger.debug("Starting the keep alive timer..")
             while True: 
-                logger.debug("Inside loop")
                 reply = self.sendKeepAlive();
                 logger.debug("Reply " + str(reply))
                 serverConnection = self.websocket                                
@@ -829,20 +846,22 @@ class CCARClient:
     def updatePortfolios(self, portfolioList):
         self.portfolioGroup = PortfolioGroup(self, portfolioList);
         self.portfolioGroup.updateAndSend();
-
+        (self.loop.create_task(self.updateActivePortfolios()))
 
 
     def handleQueryPortfolios(self, jsonResponse): 
         logger.debug("Handling query portfolios " + str(jsonResponse));
         resultSet = jsonResponse["resultSet"]
         self.updatePortfolios(resultSet)
+
         return None
     def sendManagePortfolio(self, jsonRequest): 
         pass 
     def handleManagePortfolio(self, jsonResponse):
         pass
     def sendManagePortfolioSymbol(self, jsonRequest) :
-        pass 
+        pass
+    @asyncio.coroutine 
     def handleManagePortfolioSymbol(self, jsonResponse):
         logger.debug("Process handle portfolio symbol " + str(jsonResponse))
         self.portfolioGroup.updateUsingManagePortfolioSymbol(jsonResponse);
@@ -850,9 +869,12 @@ class CCARClient:
 
     def sendQueryPortfolioSymbol(self, jsonRequest): 
         pass 
+    @asyncio.coroutine
     def handleQueryPortfolioSymbol(self, jsonRequest) :
         logger.debug("Handle query portfolio symbol " + str(jsonRequest))
         self.portfolioGroup.handleQueryPortfolioSymbolResponse(jsonRequest);
+
+        
     def sendManageEntitlements(self, jsonRequest):
         pass 
     def handleManageEntitlements(self, jsonResponse): 
@@ -876,8 +898,9 @@ class CCARClient:
     def sendQueryMarketData(self, jsonRequest):
         logger.debug("Send query market data for each symbol across all the portfolios")
         logger.debug("Will never come here.");
+
+    @asyncio.coroutine
     def handleQueryMarketData(self, jsonRequest) :
-        logger.debug("Create a historical table here " + str(jsonRequest))
         try:
             r = jsonRequest
             q = r["query"]
@@ -986,9 +1009,11 @@ class CCARClient:
         elif commandType == MANAGE_PORTFOLIO:
             reply = self.handleManagePortfolio(payload);
         elif commandType == MANAGE_PORTFOLIO_SYMBOL:
-            reply = self.handleManagePortfolioSymbol(payload);
+            t = self.loop.create_task(self.handleManagePortfolioSymbol(payload))
+            reply = None
         elif commandType == QUERY_PORTFOLIO_SYMBOL:
-            reply = self.handleQueryPortfolioSymbol(payload);
+            t = self.loop.create_task(self.handleQueryPortfolioSymbol(payload));
+            reply = None
         elif commandType == MANAGE_ENTITLEMENTS:
             reply = self.handleManageEntitlements(payload);
         elif commandType == QUERY_ENTITLEMENTS:
@@ -1000,7 +1025,8 @@ class CCARClient:
         elif commandType == OPTION_ANALYTICS:
             reply = self.handleQptionAnalytics(payload);
         elif commandType == QUERY_MARKET_DATA:
-            reply = self.handleQueryMarketData(payload);
+            t = self.loop.create_task(self.handleQueryMarketData(payload))
+            reply = None
         elif commandType == HISTORICAL_STRESS_VALUE_COMMAND:
             reply = self.handleHistoricalStressValue(payload);
         else:
@@ -1023,12 +1049,11 @@ class CCARClient:
             while True:
                 try: 
                     response = yield from  self.websocket.recv()
-                    self.updateInfoWorksheet(response)
                     commandType = self.getCommandType(response);                
                     reply = self.processIncomingCommand(response)
                     logger.debug("Reply --> " + str(reply));
                     if reply == None:
-                        logger.debug(" Not sending a response " + response);                    
+                        logger.debug(" Not sending a response " + response);
                     else:
                         yield from self.websocket.send(json.dumps(reply))
                 except:
@@ -1036,7 +1061,7 @@ class CCARClient:
                     logger.error(error)
                     return "Loop exiting"
         except:
-            self.updateErrorWorksheet(traceback.format_exc())
+            logger.error(traceback.format_exc())
             yield from self.websocket.close()
         
 

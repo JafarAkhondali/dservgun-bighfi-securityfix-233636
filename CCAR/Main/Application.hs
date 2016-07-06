@@ -44,12 +44,11 @@ updateClientState nickName app@(App a c) currentTime = do
 
 updateActivePortfolio :: T.Text -> App -> PortfolioT -> STM ()
 updateActivePortfolio nickName app@(App a c) p = do 
-
     nMap <- readTVar c 
     if Map.member nickName nMap then do  
         nClientState <- return $ nMap ! nickName
-        writeTVar (nickNameMap app)
-                (Map.insert nickName (nClientState {activePortfolio = Just . makeActivePortfolio $ p}) nMap)
+        _ <- writeTVar (nickNameMap app)
+                (Map.insert nickName (nClientState {activePortfolio = Just $ makeActivePortfolio p}) nMap)
         return ()
     else
         return ()

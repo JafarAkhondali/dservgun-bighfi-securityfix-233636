@@ -34,9 +34,11 @@ class MarketDataServer a where
 
 getActivePortfolio :: T.Text -> App -> STM (Maybe ActivePortfolio)
 getActivePortfolio nickName app@(App a c) = do 
-    cMap <- readTVar . nickNameMap $ app 
-    let clientState = Map.lookup nickName cMap 
-    return $ activePortfolio =<< clientState
+    cMap <- readTVar $ nickNameMap app 
+    clientState <- return $ Map.lookup nickName cMap 
+    case clientState of
+            Nothing -> return Nothing
+            Just x1 -> return $ activePortfolio x1
 
 getActiveScenario :: App -> T.Text -> STM [Stress]
 getActiveScenario app nn = do 
