@@ -659,33 +659,31 @@ tradierRunner app conn nickName terminate =
     else do 
         Logger.debugM iModuleName "Waiting for data"
         tradierPollingInterval >>= \x -> threadDelay x
-
         mySymbols <- Portfolio.queryUniqueSymbols nickName
-                            
+        a2   <- atomically $ MarketDataAPI.getActivePortfolio nickName app  
         marketDataMap <- MarketDataAPI.queryMarketData
         upd <- Control.Monad.mapM (\x -> do
-                activeScenario   <- liftIO $ atomically $ MarketDataAPI.getActiveScenario app nickName
+                activeScenario   <- atomically $ MarketDataAPI.getActiveScenario app nickName
                 val <- return $ Map.lookup (portfolioSymbolSymbol x) marketDataMap 
                 (stressValue, p) <- case val of 
-                                        Just v -> do 
-                                            c <- updateStressValue v x activeScenario
-                                            return (c, x {portfolioSymbolValue = T.pack $ show $ 
-                                                                (historicalPriceClose v) * 
-                                                                (parse_float $ (T.unpack $ portfolioSymbolQuantity x))}) 
-                                        Nothing -> return (0.0, x)
-                a2   <- liftIO $ atomically $ MarketDataAPI.getActivePortfolio nickName app  
-                Logger.debugM iModuleName ("Get active portfolio " <> (show a2))      
-                pid <- case a2 of 
-                    Nothing -> return "INVALID PORTFOLIO" 
-                    Just y -> return . unP . (PortfolioT.portfolioId) . runAP $ y                  
-                return $ daoToDto PortfolioSymbol.P_Update pid 
-                            nickName nickName nickName p $ (T.pack . show) stressValue
+                                                Just v -> do 
+                                                    c <- updateStressValue v x activeScenario
+                                                    return (c, x {portfolioSymbolValue = T.pack $ show $ 
+                                                                        (historicalPriceClose v) * 
+                                                                        (parse_float $ (T.unpack $ portfolioSymbolQuantity x))}) 
+                                                Nothing -> return (0.0, x)
+                pUUID <- Portfolio.queryPortfolioUUID $ portfolioSymbolPortfolio x
+                case pUUID of 
+                        Right y -> return $ daoToDto PortfolioSymbol.P_Update y
+                                        nickName nickName nickName p $ (T.pack . show) stressValue
+                        Left z -> return $ daoToDto PortfolioSymbol.P_Update z
+                                        nickName nickName nickName p $ (T.pack . show) stressValue
                 ) mySymbols
 
         Control.Monad.mapM_  (\p -> do
                 liftIO $ Logger.debugM iModuleName ("test " `mappend` (show $ Util.serialize p))
                 delay <- tradierPollingInterval
-                liftIO $ threadDelay $ delay
+                liftIO $ threadDelay $ delay                
                 liftIO $ WSConn.sendTextData conn (Util.serialize p) 
                 return p 
                 ) upd 
@@ -694,6 +692,8 @@ tradierRunner app conn nickName terminate =
                                     return []
                                 ) $ do 
                             Control.Monad.mapM (\p -> do 
+                                delay <- tradierPollingInterval
+                                liftIO $ threadDelay $ delay
                                 h <- getHistoricalPrice $ portfolioSymbolSymbol p 
                                 activeScenario <- liftIO . atomically $ getActiveScenario app nickName
                                 computeHistoricalStress (NickName nickName) h p activeScenario) mySymbols
@@ -701,8 +701,12 @@ tradierRunner app conn nickName terminate =
         Logger.debugM iModuleName "Computing stress values"
         Control.Monad.mapM_ (\p -> do 
                 tradierPollingInterval >>= liftIO . threadDelay 
-                Control.Monad.mapM_ (\q -> liftIO $ WSConn.sendTextData conn (Util.serialize q))
+                Control.Monad.mapM_ (\q -> do 
+                        payload <- return . Util.serialize $ q
+                        Logger.debugM iModuleName $ "Sending payload " <> (T.unpack payload)
+                        liftIO $ WSConn.sendTextData conn payload)
                     p) stressValues
+        
         tradierRunner app conn nickName False
 
 

@@ -29,7 +29,7 @@ newtype ActivePortfolio = ActivePortfolio {unP :: PortfolioT}
 
 instance FromJSON ActivePortfolio where 
     parseJSON (Object a)  = ActivePortfolio <$> 
-                    a .: "portfolio"  
+                                a .: "portfolio"  
     parseJSON _          = Appl.empty
 
 instance ToJSON ActivePortfolio where

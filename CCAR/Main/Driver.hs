@@ -51,7 +51,7 @@ import qualified CCAR.Model.Survey as Survey
 import Data.ByteString as DBS 
 import Data.ByteString.Char8 as C8 
 import System.Environment
-import CCAR.Data.MarketDataAPI(MarketDataServer(..), updateActiveScenario)
+import CCAR.Data.MarketDataAPI(MarketDataServer(..), updateActiveScenario, getActivePortfolio)
 import CCAR.Main.Application(App(..), updateClientState)
 import CCAR.Main.Util as Util
 import GHC.Generics
@@ -934,8 +934,9 @@ cleanupStaleConnections :: App -> IO ()
 cleanupStaleConnections app = loop 
     where loop = do 
             threadDelay 5000000
-            Logger.debugM  "CCAR" "Waiting for stale connections-----"
             currentTime <- getCurrentTime
+            Logger.debugM  "CCAR" $ "Waiting for stale connections-----" <> (show currentTime)
+
             staleClients <- atomically $ getStaleClients app (30 :: NominalDiffTime) currentTime
             mapM_ (\x -> do 
                     Logger.infoM "CCAR" $ "Deleting client " ++ (show x)
@@ -988,6 +989,8 @@ processActivePortfolio nickName app (Object a) = do
                 let p = runAP x
                 Logger.debugM "CCAR" ("Processing updating active portfolio " ++ show p)
                 atomically $ updateActivePortfolio nickName app p 
+                aP <- atomically $ getActivePortfolio nickName app
+                Logger.debugM "CCAR" ("Getting the active portfolio " ++ (show aP) )
                 return(CCAR.Main.GroupCommunication.Reply, Right p)
         Error e -> 
                 return (CCAR.Main.GroupCommunication.Reply, Left $ appError e)

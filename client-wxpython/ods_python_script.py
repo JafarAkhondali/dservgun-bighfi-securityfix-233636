@@ -11,6 +11,7 @@ import ssl
 import threading
 import logging
 import datetime
+import copy
 logging.basicConfig(filename="odspythonscript.log", level = logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
 
 logger = logging.getLogger(__name__)    
@@ -131,7 +132,7 @@ class Util:
         bool(aString)
     @staticmethod
     def updateCellContent(worksheet, cell, value):
-#        logger.debug("Updating worksheet by name " + worksheet + str(cell) + str(value))
+        logger.debug("Updating worksheet by name " + worksheet + str(cell) + str(value))
         sheet = Util.getWorksheetByName(worksheet)
         tRange = sheet.getCellRangeByName(cell)
         tRange.String = value
@@ -201,7 +202,7 @@ class PortfolioGroup:
         self.portfolioWorksheet = "portfolio_analysis_sheet"
         self.portfolioDetailCount = 0
         self.portfolioDetailStartRow = 5
-
+        self.portfolioSymbolTable = None
         self.portfolioDetailColumns = {"companyId" : "A"
                                         , "portfolioId" : "B"
                                         , "summary" : "C" }
@@ -300,24 +301,26 @@ class PortfolioGroup:
         self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
         self.portfolioSymbolTable.add(portfolioSymbol)
         self.sendMarketDataQueryRequest(portfolioSymbol);
-
+        self.display()
     def handleQueryPortfolioSymbolResponse(self, jsonResponse):
-        logger.debug("QueryPortfolioResponse " + str(jsonResponse))
         resultSet = jsonResponse["resultSet"]
         for result in resultSet: 
             x = result["Right"]
-            if x != None:           
-                portfolioSymbol = PortfolioSymbol(x);
-                self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
-                self.portfolioSymbolTable.add(portfolioSymbol)
-            else:
-                logger.warn("Ignoring " + str(x))
+            portfolioSymbol = PortfolioSymbol(x);
+            self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
+            self.portfolioSymbolTable.add(portfolioSymbol)
+            yield from asyncio.sleep(0.01, loop = self.loop) 
         self.display()
 
     def display(self):
+        logger.debug("Displaying portfolio")
         row = 2
+        if self.portfolioSymbolTable == None:
+            return;
         for value in self.portfolioSymbolTable.table.values():
             portfolioId = value.portfolioId
+            if portfolioId == "INVALID PORTFOLIO":
+                continue;
             logger.debug("Updating portfolio " + portfolioId)
             logger.debug("Processing " + str(value) + "--->" + portfolioId)
             Util.updateCellContent(portfolioId, "A" + str(row), value.symbol)
@@ -329,6 +332,11 @@ class PortfolioGroup:
             Util.updateCellContent(portfolioId, "G" + str(row), str(datetime.datetime.now()))
             row = row + 1
 
+    @asyncio.coroutine
+    def refreshDisplay(self):
+        while True:
+            self.display()
+            yield from asyncio.sleep(.01, loop = self.ccarClient.loop)
 class MarketDataTimeSeries:
 
     def __init__(self, symbol, high, low, openL, close, volume, date):
@@ -352,10 +360,12 @@ class MarketData:
 class CCARClient:
     def __init__(self):
         self.marketData = {}
+        self.marketDataBak = {} # To swap dictionaries outside iteration.
         self.portfolioDetailCount = 0 
         self.portfolioDetailStartRow = 5
         self.portfolioDetailStartCol = "C"
         self.portfolioDetailStartCol1 = "D"
+        self.portfolioGroup = None
         self.serverHandle = None
         self.INFO_ROW_COUNT = 30
         self.SECURITY_CELL = "B15"
@@ -597,8 +607,6 @@ class CCARClient:
         worksheet = Util.insertNewWorksheet(self.marketDataSheet)
         row = 1
 
-        rowDictionary = {} # symbol + date is the key for the row number.
-        timeseriesDictionary = {}
         logger.debug("Worksheet " + str(row))
         Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Symbol")
         row = row + 1
@@ -611,30 +619,33 @@ class CCARClient:
 
         while True:
             row = 2 
-            for marketData in self.marketData.values():
+            rowDictionary = {} # symbol + date is the key for the row number.
+            timeseriesDictionary = {}
+            logger.debug("Making a deep copy of the market data dictionary")
+            marketDataCopy = copy.deepcopy(self.marketDataBak) # Swap with the last from the server.
+            logger.debug("Completed deep copy");
+            for marketData in marketDataCopy.values():
                 marketDataTimeSeries = marketData.timeSeries 
                 if marketData.symbol == "INVALID_PORTFOLIO":
                    continue;    
-                for value in marketDataTimeSeries.values():
-                    key = value.symbol + str(value.date)
+                for timeSeriesEvent in marketDataTimeSeries.values():
+                    key = marketData.symbol + str(timeSeriesEvent.date)
                     # logger.debug("Key "  + key + " " + str(row))
                     rowDictionary[key] = int(row);
-                    timeseriesDictionary[key] = value
-                    row = int(row) + 1;
-            
-            for marketData in self.marketData.values():
-
-                for row in rowDictionary.keys():
-                    rowVal = rowDictionary[row];
-                    timeSeriesEvent = timeseriesDictionary[row]
-                    Util.updateCellContent(self.marketDataSheet, "G" + str(rowVal), timeSeriesEvent.symbol)
-                    Util.updateCellContent(self.marketDataSheet, "A" + str(rowVal), timeSeriesEvent.date)
-                    Util.updateCellContent(self.marketDataSheet, "B" + str(rowVal), timeSeriesEvent.high)
-                    Util.updateCellContent(self.marketDataSheet, "C" + str(rowVal), timeSeriesEvent.low)
-                    Util.updateCellContent(self.marketDataSheet, "D" + str(rowVal), timeSeriesEvent.open)
-                    Util.updateCellContent(self.marketDataSheet, "E" + str(rowVal), timeSeriesEvent.close)
-                    Util.updateCellContent(self.marketDataSheet, "F" + str(rowVal), timeSeriesEvent.volume)
-                    yield from asyncio.sleep(0.01, loop = self.loop)                    
+                    timeseriesDictionary[key] = timeSeriesEvent
+                    yield from asyncio.sleep(0.01, loop = self.loop)
+                    row = int(row) + 1;    
+            for rowI in rowDictionary.keys():
+                rowVal = rowDictionary[rowI];
+                timeSeriesEvent = timeseriesDictionary[rowI]
+                Util.updateCellContent(self.marketDataSheet, "G" + str(rowVal), timeSeriesEvent.symbol)
+                Util.updateCellContent(self.marketDataSheet, "A" + str(rowVal), timeSeriesEvent.date)
+                Util.updateCellContent(self.marketDataSheet, "B" + str(rowVal), timeSeriesEvent.high)
+                Util.updateCellContent(self.marketDataSheet, "C" + str(rowVal), timeSeriesEvent.low)
+                Util.updateCellContent(self.marketDataSheet, "D" + str(rowVal), timeSeriesEvent.open)
+                Util.updateCellContent(self.marketDataSheet, "E" + str(rowVal), timeSeriesEvent.close)
+                Util.updateCellContent(self.marketDataSheet, "F" + str(rowVal), timeSeriesEvent.volume)
+                yield from asyncio.sleep(0.01, loop = self.loop)                    
 
             yield from asyncio.sleep(int(self.marketDataRefreshIntervalF()), loop = self.loop)
     @asyncio.coroutine
@@ -847,13 +858,13 @@ class CCARClient:
         self.portfolioGroup = PortfolioGroup(self, portfolioList);
         self.portfolioGroup.updateAndSend();
         (self.loop.create_task(self.updateActivePortfolios()))
+        (self.loop.create_task(self.portfolioGroup.refreshDisplay()))
 
 
     def handleQueryPortfolios(self, jsonResponse): 
         logger.debug("Handling query portfolios " + str(jsonResponse));
         resultSet = jsonResponse["resultSet"]
         self.updatePortfolios(resultSet)
-
         return None
     def sendManagePortfolio(self, jsonRequest): 
         pass 
@@ -871,7 +882,7 @@ class CCARClient:
         pass 
     @asyncio.coroutine
     def handleQueryPortfolioSymbol(self, jsonRequest) :
-        logger.debug("Handle query portfolio symbol " + str(jsonRequest))
+#        logger.debug("Handle query portfolio symbol " + str(jsonRequest))
         self.portfolioGroup.handleQueryPortfolioSymbolResponse(jsonRequest);
 
         
@@ -908,15 +919,17 @@ class CCARClient:
                 logger.debug("Processing result" + str(result));
                 symbol = result["symbol"]
                 resultSet = result["resultSet"]
-                self.marketData[symbol] = MarketData(symbol)
+                self.marketDataBak[symbol] = MarketData(symbol)
                 for times in resultSet:
                     logger.debug("Processing time series " + str(times))
-                    (self.marketData[symbol]).add(times["high"]
+                    (self.marketDataBak[symbol]).add(times["high"]
                                 , times["low"]
                                 , times["open"]
                                 , times["close"]
                                 , times["volume"]
                                 , times["date"])
+                    yield from asyncio.sleep(0.01, loop = self.loop)                    
+                yield from asyncio.sleep (0.01, loop = self.loop)
         except:
             error = traceback.format_exc()
             logger.error(error)
@@ -1053,7 +1066,8 @@ class CCARClient:
                     reply = self.processIncomingCommand(response)
                     logger.debug("Reply --> " + str(reply));
                     if reply == None:
-                        logger.debug(" Not sending a response " + response);
+                        #logger.debug(" Not sending a response " + response);
+                        pass
                     else:
                         yield from self.websocket.send(json.dumps(reply))
                 except:
