@@ -302,22 +302,24 @@ class PortfolioGroup:
         self.portfolioSymbolTable.add(portfolioSymbol)
         self.sendMarketDataQueryRequest(portfolioSymbol);
         self.display()
+
     def handleQueryPortfolioSymbolResponse(self, jsonResponse):
         resultSet = jsonResponse["resultSet"]
         for result in resultSet: 
             x = result["Right"]
             portfolioSymbol = PortfolioSymbol(x);
+            logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
             self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
             self.portfolioSymbolTable.add(portfolioSymbol)
-            yield from asyncio.sleep(0.01, loop = self.loop) 
-        self.display()
+            yield from asyncio.sleep(0.1, loop = self.loop) 
+        #self.display()
 
     def display(self):
-        logger.debug("Displaying portfolio")
         row = 2
         if self.portfolioSymbolTable == None:
             return;
-        for value in self.portfolioSymbolTable.table.values():
+        pTable = deepcopy.copy(self.portfolioSymbolTable.table)
+        for value in pTable.values():
             portfolioId = value.portfolioId
             if portfolioId == "INVALID PORTFOLIO":
                 continue;
@@ -330,13 +332,14 @@ class PortfolioGroup:
             Util.updateCellContent(portfolioId, "E" + str(row), value.value)
             Util.updateCellContent(portfolioId, "F" + str(row), value.stressValue)
             Util.updateCellContent(portfolioId, "G" + str(row), str(datetime.datetime.now()))
+            yield from asyncio.sleep(0.1, loop = self.loop)
             row = row + 1
 
     @asyncio.coroutine
     def refreshDisplay(self):
         while True:
             self.display()
-            yield from asyncio.sleep(.01, loop = self.ccarClient.loop)
+            yield from asyncio.sleep(1, loop = self.ccarClient.loop)
 class MarketDataTimeSeries:
 
     def __init__(self, symbol, high, low, openL, close, volume, date):
@@ -608,7 +611,6 @@ class CCARClient:
         row = 1
 
         logger.debug("Worksheet " + str(row))
-        Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Symbol")
         row = row + 1
         Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Date")
         Util.updateCellContent(self.marketDataSheet, "B" + str(row), "High")
@@ -616,11 +618,12 @@ class CCARClient:
         Util.updateCellContent(self.marketDataSheet, "D" + str(row), "Open")
         Util.updateCellContent(self.marketDataSheet, "E" + str(row),  "Close")
         Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Volume")
-
+        Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Symbol")
+        row = 2
         while True:
-            row = 2 
             rowDictionary = {} # symbol + date is the key for the row number.
             timeseriesDictionary = {}
+            keyDictionary = {}
             logger.debug("Making a deep copy of the market data dictionary")
             marketDataCopy = copy.deepcopy(self.marketDataBak) # Swap with the last from the server.
             logger.debug("Completed deep copy");
@@ -629,24 +632,32 @@ class CCARClient:
                 if marketData.symbol == "INVALID_PORTFOLIO":
                    continue;    
                 for timeSeriesEvent in marketDataTimeSeries.values():
-                    key = marketData.symbol + str(timeSeriesEvent.date)
-                    # logger.debug("Key "  + key + " " + str(row))
-                    rowDictionary[key] = int(row);
+                    key = timeSeriesEvent.symbol + str(timeSeriesEvent.date)
+                    logger.debug("Key "  + key + " " + str(row))
+                    rowDictionary[key] = row
+                    keyDictionary[row] = key
                     timeseriesDictionary[key] = timeSeriesEvent
-                    yield from asyncio.sleep(0.01, loop = self.loop)
                     row = int(row) + 1;    
-            for rowI in rowDictionary.keys():
-                rowVal = rowDictionary[rowI];
-                timeSeriesEvent = timeseriesDictionary[rowI]
-                Util.updateCellContent(self.marketDataSheet, "G" + str(rowVal), timeSeriesEvent.symbol)
-                Util.updateCellContent(self.marketDataSheet, "A" + str(rowVal), timeSeriesEvent.date)
-                Util.updateCellContent(self.marketDataSheet, "B" + str(rowVal), timeSeriesEvent.high)
-                Util.updateCellContent(self.marketDataSheet, "C" + str(rowVal), timeSeriesEvent.low)
-                Util.updateCellContent(self.marketDataSheet, "D" + str(rowVal), timeSeriesEvent.open)
-                Util.updateCellContent(self.marketDataSheet, "E" + str(rowVal), timeSeriesEvent.close)
-                Util.updateCellContent(self.marketDataSheet, "F" + str(rowVal), timeSeriesEvent.volume)
-                yield from asyncio.sleep(0.01, loop = self.loop)                    
 
+                    #yield from asyncio.sleep(0.01, loop = self.loop)
+            rowI = 2 # This is stable.
+            logger.debug("Iterating the row dictionary " + (str(row)))
+            while rowI < row :
+                logger.debug("Row index " + str(rowI))
+                if not keyDictionary.__contains__(rowI):
+                    rowI = rowI + 1
+                    continue;
+                key = keyDictionary[rowI]
+                timeSeriesEvent = timeseriesDictionary[key]
+                Util.updateCellContent(self.marketDataSheet, "G" + str(rowI), timeSeriesEvent.symbol)
+                Util.updateCellContent(self.marketDataSheet, "A" + str(rowI), timeSeriesEvent.date)
+                Util.updateCellContent(self.marketDataSheet, "B" + str(rowI), timeSeriesEvent.high)
+                Util.updateCellContent(self.marketDataSheet, "C" + str(rowI), timeSeriesEvent.low)
+                Util.updateCellContent(self.marketDataSheet, "D" + str(rowI), timeSeriesEvent.open)
+                Util.updateCellContent(self.marketDataSheet, "E" + str(rowI), timeSeriesEvent.close)
+                Util.updateCellContent(self.marketDataSheet, "F" + str(rowI), timeSeriesEvent.volume)
+                yield from asyncio.sleep(0.1, loop = self.loop)
+                rowI = rowI + 1
             yield from asyncio.sleep(int(self.marketDataRefreshIntervalF()), loop = self.loop)
     @asyncio.coroutine
     def keepAlivePing(self):
@@ -857,7 +868,7 @@ class CCARClient:
     def updatePortfolios(self, portfolioList):
         self.portfolioGroup = PortfolioGroup(self, portfolioList);
         self.portfolioGroup.updateAndSend();
-        (self.loop.create_task(self.updateActivePortfolios()))
+        #(self.loop.create_task(self.updateActivePortfolios()))
         (self.loop.create_task(self.portfolioGroup.refreshDisplay()))
 
 
@@ -882,7 +893,7 @@ class CCARClient:
         pass 
     @asyncio.coroutine
     def handleQueryPortfolioSymbol(self, jsonRequest) :
-#        logger.debug("Handle query portfolio symbol " + str(jsonRequest))
+        logger.debug("Handle query portfolio symbol " + str(jsonRequest))
         self.portfolioGroup.handleQueryPortfolioSymbolResponse(jsonRequest);
 
         
@@ -928,8 +939,8 @@ class CCARClient:
                                 , times["close"]
                                 , times["volume"]
                                 , times["date"])
-                    yield from asyncio.sleep(0.01, loop = self.loop)                    
-                yield from asyncio.sleep (0.01, loop = self.loop)
+                    #yield from asyncio.sleep(0.01, loop = self.loop)                    
+                #yield from asyncio.sleep (0.01, loop = self.loop)
         except:
             error = traceback.format_exc()
             logger.error(error)
