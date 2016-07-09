@@ -297,28 +297,39 @@ class PortfolioGroup:
 
 
     def updateUsingManagePortfolioSymbol(self, jsonResponse):
-        portfolioSymbol = PortfolioSymbol(jsonResponse);
-        self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
-        self.portfolioSymbolTable.add(portfolioSymbol)
-        self.sendMarketDataQueryRequest(portfolioSymbol);
-        self.display()
-
-    def handleQueryPortfolioSymbolResponse(self, jsonResponse):
-        resultSet = jsonResponse["resultSet"]
-        for result in resultSet: 
-            x = result["Right"]
-            portfolioSymbol = PortfolioSymbol(x);
-            logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
+        try:
+            portfolioSymbol = PortfolioSymbol(jsonResponse);
             self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
             self.portfolioSymbolTable.add(portfolioSymbol)
-            yield from asyncio.sleep(0.1, loop = self.loop) 
-        #self.display()
+            self.sendMarketDataQueryRequest(portfolioSymbol);
+            self.display()
+        except:
+            logger.error(traceback.format_exc())
 
+    @asyncio.coroutine
+    def handleQueryPortfolioSymbolResponse(self, jsonResponse):
+        logger.debug("Handle query portfolio symbol response " + str(jsonResponse))
+        resultSet = jsonResponse["resultSet"]
+        try :
+            for result in resultSet:
+                logger.debug("Result " + str(result)) 
+                x = result["Right"]
+                portfolioSymbol = PortfolioSymbol(x);
+                logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
+                self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
+                self.portfolioSymbolTable.add(portfolioSymbol)
+                yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) 
+        except:
+            logger.error(traceback.format_exc())
+    @asyncio.coroutine
     def display(self):
+        logger.debug("Refreshing display for portfolio symbol table");
         row = 2
-        if self.portfolioSymbolTable == None:
+        if(self.portfolioSymbolTable == None):
+            logger.debug("Returning. Symbol table not found")
             return;
-        pTable = deepcopy.copy(self.portfolioSymbolTable.table)
+
+        pTable = copy.deepcopy(self.portfolioSymbolTable.table)
         for value in pTable.values():
             portfolioId = value.portfolioId
             if portfolioId == "INVALID PORTFOLIO":
@@ -332,13 +343,14 @@ class PortfolioGroup:
             Util.updateCellContent(portfolioId, "E" + str(row), value.value)
             Util.updateCellContent(portfolioId, "F" + str(row), value.stressValue)
             Util.updateCellContent(portfolioId, "G" + str(row), str(datetime.datetime.now()))
-            yield from asyncio.sleep(0.1, loop = self.loop)
+            yield from asyncio.sleep(0.1, loop = self.ccarClient.loop)
             row = row + 1
 
     @asyncio.coroutine
     def refreshDisplay(self):
         while True:
-            self.display()
+            logger.debug("Refreshing  display")
+            yield from self.display()
             yield from asyncio.sleep(1, loop = self.ccarClient.loop)
 class MarketDataTimeSeries:
 
@@ -894,7 +906,7 @@ class CCARClient:
     @asyncio.coroutine
     def handleQueryPortfolioSymbol(self, jsonRequest) :
         logger.debug("Handle query portfolio symbol " + str(jsonRequest))
-        self.portfolioGroup.handleQueryPortfolioSymbolResponse(jsonRequest);
+        yield from self.portfolioGroup.handleQueryPortfolioSymbolResponse(jsonRequest);
 
         
     def sendManageEntitlements(self, jsonRequest):
