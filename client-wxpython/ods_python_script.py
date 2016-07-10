@@ -132,10 +132,15 @@ class Util:
         bool(aString)
     @staticmethod
     def updateCellContent(worksheet, cell, value):
-        logger.debug("Updating worksheet by name " + worksheet + str(cell) + str(value))
+        logger.debug("Updating worksheet by name " + worksheet + str(cell) + ": Value " + str(value))
         sheet = Util.getWorksheetByName(worksheet)
         tRange = sheet.getCellRangeByName(cell)
         tRange.String = value
+
+    @staticmethod
+    @asyncio.coroutine
+    def updateCellContentT(worksheet, cell,value):
+        Util.updateCellContent(worksheet, cell, value)
     @staticmethod 
     def workSheetExists(aName):
         sheet = Util.getWorksheetByName(aName);
@@ -189,6 +194,7 @@ class PortfolioSymbolTable :
     def __init__(self, ccarClient):
         self.ccarClient = ccarClient
         self.table = {}
+    @asyncio.coroutine
     def add(self, portfolioSymbol):
         self.table[portfolioSymbol.key()] = portfolioSymbol
         return portfolioSymbol
@@ -285,6 +291,7 @@ class PortfolioGroup:
 
     def sendAsTask(self, payload):
         self.ccarClient.sendAsTask(payload);
+    @asyncio.coroutine
     def sendMarketDataQueryRequest(self, portfolioSymbol):
         payload = {
         'commandType' : "QueryMarketData"
@@ -293,16 +300,18 @@ class PortfolioGroup:
         , 'portfolioId' : portfolioSymbol.portfolioId
         , 'resultSet' : []
         }
+        logger.debug("Sending market data request " + str(payload))
+        if payload == None:
+            return
         self.sendAsTask(payload);
 
-
+    @asyncio.coroutine
     def updateUsingManagePortfolioSymbol(self, jsonResponse):
         try:
+            logger.debug("Updating using manage portfolio symbol response " + str(jsonResponse))
             portfolioSymbol = PortfolioSymbol(jsonResponse);
             self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
-            self.portfolioSymbolTable.add(portfolioSymbol)
-            self.sendMarketDataQueryRequest(portfolioSymbol);
-            self.display()
+            self.ccarClient.loop.create_task(self.portfolioSymbolTable.add(portfolioSymbol))
         except:
             logger.error(traceback.format_exc())
 
@@ -317,18 +326,18 @@ class PortfolioGroup:
                 portfolioSymbol = PortfolioSymbol(x);
                 logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
                 self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
-                self.portfolioSymbolTable.add(portfolioSymbol)
-                yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) 
+                self.ccarClient.loop.create_task(self.portfolioSymbolTable.add(portfolioSymbol))
+                #self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(portfolioSymbol))
+                #yield from asyncio.sleep(0.1, loop = self.ccarClient.loop)
         except:
             logger.error(traceback.format_exc())
     @asyncio.coroutine
     def display(self):
-        logger.debug("Refreshing display for portfolio symbol table");
         row = 2
         if(self.portfolioSymbolTable == None):
             logger.debug("Returning. Symbol table not found")
             return;
-
+        logger.debug("Refreshing display for portfolio symbol table");
         pTable = copy.deepcopy(self.portfolioSymbolTable.table)
         for value in pTable.values():
             portfolioId = value.portfolioId
@@ -336,22 +345,22 @@ class PortfolioGroup:
                 continue;
             logger.debug("Updating portfolio " + portfolioId)
             logger.debug("Processing " + str(value) + "--->" + portfolioId)
-            Util.updateCellContent(portfolioId, "A" + str(row), value.symbol)
-            Util.updateCellContent(portfolioId, "B" + str(row), value.quantity)
-            Util.updateCellContent(portfolioId, "C" + str(row), value.side)
-            Util.updateCellContent(portfolioId, "D" + str(row), value.symbolType)
-            Util.updateCellContent(portfolioId, "E" + str(row), value.value)
-            Util.updateCellContent(portfolioId, "F" + str(row), value.stressValue)
-            Util.updateCellContent(portfolioId, "G" + str(row), str(datetime.datetime.now()))
+            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), value.symbol))
+            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), value.quantity))
+            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), value.side))
+            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), value.symbolType))
+            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), value.value))
+            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), value.stressValue))
+            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
             yield from asyncio.sleep(0.1, loop = self.ccarClient.loop)
             row = row + 1
 
     @asyncio.coroutine
     def refreshDisplay(self):
         while True:
-            logger.debug("Refreshing  display")
-            yield from self.display()
-            yield from asyncio.sleep(1, loop = self.ccarClient.loop)
+            self.ccarClient.loop.create_task(self.display())
+            yield from asyncio.sleep(3, loop = self.ccarClient.loop)
+            
 class MarketDataTimeSeries:
 
     def __init__(self, symbol, high, low, openL, close, volume, date):
@@ -898,8 +907,8 @@ class CCARClient:
     @asyncio.coroutine 
     def handleManagePortfolioSymbol(self, jsonResponse):
         logger.debug("Process handle portfolio symbol " + str(jsonResponse))
-        self.portfolioGroup.updateUsingManagePortfolioSymbol(jsonResponse);
-        return None
+        self.loop.create_task(self.portfolioGroup.updateUsingManagePortfolioSymbol(jsonResponse))
+        
 
     def sendQueryPortfolioSymbol(self, jsonRequest): 
         pass 
@@ -950,9 +959,7 @@ class CCARClient:
                                 , times["open"]
                                 , times["close"]
                                 , times["volume"]
-                                , times["date"])
-                    #yield from asyncio.sleep(0.01, loop = self.loop)                    
-                #yield from asyncio.sleep (0.01, loop = self.loop)
+                                , times["date"])                
         except:
             error = traceback.format_exc()
             logger.error(error)
