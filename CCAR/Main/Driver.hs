@@ -243,14 +243,14 @@ processCommandValue app nickName aValue@(Object a)   = do
     case cType of 
         Nothing -> return $ (GroupCommunication.Reply, ser $ 
                                 appError ("Unable to process command" :: T.Text))
-        Just aType -> 
+        Just aType -> do 
+            currentTime <- getCurrentTime
+            Logger.debugM "CCAR" ("Updating keep alive time " ++ (show currentTime))
+            atomically $ do
+                clientStates  <- getClientState nickName app 
+                mapM_ (\_ -> updateClientState nickName app currentTime) clientStates
             case aType of 
                 String "KeepAlive" -> do 
-                        currentTime <- getCurrentTime
-                        Logger.debugM "CCAR" ("Updating keep alive time " ++ (show currentTime))
-                        atomically $ do
-                            clientStates  <- getClientState nickName app 
-                            mapM_ (\_ -> updateClientState nickName app currentTime) clientStates
                         case (parse parseJSON aValue :: Result KeepAliveCommand) of
                             Success r -> return (GroupCommunication.Reply, ser r)
                             Error s -> 
@@ -340,6 +340,7 @@ processCommandValue app nickName aValue@(Object a)   = do
                                 return (gc, Util.serialize 
                                         (either :: Either ApplicationError CCAR.CCARUpload)) 
                 String "QueryMarketData" -> do 
+                        Logger.debugM iModuleName $ "Query market data " <> (show a)
                         y <- runMaybeT $ do 
                             s1  <- return $ LH.lookup "symbol" a
                             pid <- return $ LH.lookup "portfolioId" a 
@@ -349,6 +350,7 @@ processCommandValue app nickName aValue@(Object a)   = do
                         r <- case y of 
                                 Just x -> return $ Right x
                                 Nothing -> return $ Left $ ("Error in QueryMarketData" :: T.Text)
+                        Logger.debugM iModuleName $ "Response " <> (show r)
                         return (GroupCommunication.Reply 
                             , Util.serialize r)
                 String "ParsedCCARText" -> do 
@@ -448,6 +450,7 @@ processLoginMessages app conn aNickName aDictionary = do
 
 processIncomingMessage :: App -> WSConn.Connection -> T.Text ->  Maybe Value -> IO (DestinationType , T.Text)
 processIncomingMessage app conn aNickName aCommand = do 
+    Logger.debugM iModuleName $ show aCommand
     case aCommand of 
         Nothing -> do 
                 (x, y) <- runWriterT $ do 
@@ -861,6 +864,7 @@ writerThread app connection nickName terminate = do
                         liftIO $ WSConn.sendClose connection (T.pack $ show msg)
                         return ()
                 Right nickName -> do
+                        Logger.debugM iModuleName $ "Process incoming message " <> (show msg)
                         (dest, x) <- liftIO $ processIncomingMessage app connection nickName 
                                                     $ incomingDictionary msg                    
                         liftIO $ Logger.debugM iModuleName ("Destination " ++ (show dest))

@@ -293,6 +293,8 @@ class PortfolioGroup:
         self.ccarClient.sendAsTask(payload);
     @asyncio.coroutine
     def sendMarketDataQueryRequest(self, portfolioSymbol):
+        if portfolioSymbol.portfolioId == portfolioSymbol.symbol:
+            return;
         payload = {
         'commandType' : "QueryMarketData"
         , 'nickName' : self.ccarClient.getUserName()
@@ -303,7 +305,8 @@ class PortfolioGroup:
         logger.debug("Sending market data request " + str(payload))
         if payload == None:
             return
-        self.sendAsTask(payload);
+
+        yield from self.ccarClient.send(payload);
 
     @asyncio.coroutine
     def updateUsingManagePortfolioSymbol(self, jsonResponse):
@@ -327,8 +330,8 @@ class PortfolioGroup:
                 logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
                 self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
                 self.ccarClient.loop.create_task(self.portfolioSymbolTable.add(portfolioSymbol))
-                #self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(portfolioSymbol))
-                #yield from asyncio.sleep(0.1, loop = self.ccarClient.loop)
+                self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(portfolioSymbol))
+                yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
         except:
             logger.error(traceback.format_exc())
     @asyncio.coroutine
@@ -352,7 +355,7 @@ class PortfolioGroup:
             self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), value.value))
             self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), value.stressValue))
             self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
-            yield from asyncio.sleep(0.1, loop = self.ccarClient.loop)
+            yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
             row = row + 1
 
     @asyncio.coroutine
@@ -360,7 +363,29 @@ class PortfolioGroup:
         while True:
             self.ccarClient.loop.create_task(self.display())
             yield from asyncio.sleep(3, loop = self.ccarClient.loop)
-            
+    
+    @asyncio.coroutine
+    def sendMarketData(self):
+        if self.portfolioSymbolTable == None:
+            return;
+        pTable = copy.deepcopy(self.portfolioSymbolTable.table)
+        for value in pTable.values():
+            portfolioId = value.portfolioId
+            if portfolioId == "INVALID PORTFOLIO":
+                continue;
+            logger.debug("Updating portfolio " + portfolioId)
+            logger.debug("Processing " + str(value) + "--->" + portfolioId)
+            yield from self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(value))
+            yield from asyncio.sleep(.1, loop = self.ccarClient.loop)
+
+
+    @asyncio.coroutine
+    def refreshMarketDataRequests(self):
+        while True:
+            self.ccarClient.loop.create_task(self.sendMarketData());
+            yield from asyncio.sleep(.5, loop = self.ccarClient.loop)
+
+
 class MarketDataTimeSeries:
 
     def __init__(self, symbol, high, low, openL, close, volume, date):
@@ -384,6 +409,7 @@ class MarketData:
 class CCARClient:
     def __init__(self):
         self.marketData = {}
+        self.marketDataRow = 2
         self.marketDataBak = {} # To swap dictionaries outside iteration.
         self.portfolioDetailCount = 0 
         self.portfolioDetailStartRow = 5
@@ -609,6 +635,7 @@ class CCARClient:
         try:
             yield from self.websocket.send(json.dumps(aJsonMessage))
         except:
+            logger.error("Unable to send " + str(aJsonMessage))
             yield from self.websocket.close()
             logger.error(traceback.format_exc())
     @asyncio.coroutine
@@ -627,60 +654,6 @@ class CCARClient:
             yield from asyncio.sleep(1, loop = self.loop) # When the dictionary is empty.
 
     @asyncio.coroutine
-    def updateMarketData(self):
-        worksheet = Util.insertNewWorksheet(self.marketDataSheet)
-        row = 1
-
-        logger.debug("Worksheet " + str(row))
-        row = row + 1
-        Util.updateCellContent(self.marketDataSheet, "A" + str(row), "Date")
-        Util.updateCellContent(self.marketDataSheet, "B" + str(row), "High")
-        Util.updateCellContent(self.marketDataSheet, "C" + str(row), "Low")
-        Util.updateCellContent(self.marketDataSheet, "D" + str(row), "Open")
-        Util.updateCellContent(self.marketDataSheet, "E" + str(row),  "Close")
-        Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Volume")
-        Util.updateCellContent(self.marketDataSheet, "F" + str(row), "Symbol")
-        row = 2
-        while True:
-            rowDictionary = {} # symbol + date is the key for the row number.
-            timeseriesDictionary = {}
-            keyDictionary = {}
-            logger.debug("Making a deep copy of the market data dictionary")
-            marketDataCopy = copy.deepcopy(self.marketDataBak) # Swap with the last from the server.
-            logger.debug("Completed deep copy");
-            for marketData in marketDataCopy.values():
-                marketDataTimeSeries = marketData.timeSeries 
-                if marketData.symbol == "INVALID_PORTFOLIO":
-                   continue;    
-                for timeSeriesEvent in marketDataTimeSeries.values():
-                    key = timeSeriesEvent.symbol + str(timeSeriesEvent.date)
-                    logger.debug("Key "  + key + " " + str(row))
-                    rowDictionary[key] = row
-                    keyDictionary[row] = key
-                    timeseriesDictionary[key] = timeSeriesEvent
-                    row = int(row) + 1;    
-
-                    #yield from asyncio.sleep(0.01, loop = self.loop)
-            rowI = 2 # This is stable.
-            logger.debug("Iterating the row dictionary " + (str(row)))
-            while rowI < row :
-                logger.debug("Row index " + str(rowI))
-                if not keyDictionary.__contains__(rowI):
-                    rowI = rowI + 1
-                    continue;
-                key = keyDictionary[rowI]
-                timeSeriesEvent = timeseriesDictionary[key]
-                Util.updateCellContent(self.marketDataSheet, "G" + str(rowI), timeSeriesEvent.symbol)
-                Util.updateCellContent(self.marketDataSheet, "A" + str(rowI), timeSeriesEvent.date)
-                Util.updateCellContent(self.marketDataSheet, "B" + str(rowI), timeSeriesEvent.high)
-                Util.updateCellContent(self.marketDataSheet, "C" + str(rowI), timeSeriesEvent.low)
-                Util.updateCellContent(self.marketDataSheet, "D" + str(rowI), timeSeriesEvent.open)
-                Util.updateCellContent(self.marketDataSheet, "E" + str(rowI), timeSeriesEvent.close)
-                Util.updateCellContent(self.marketDataSheet, "F" + str(rowI), timeSeriesEvent.volume)
-                yield from asyncio.sleep(0.1, loop = self.loop)
-                rowI = rowI + 1
-            yield from asyncio.sleep(int(self.marketDataRefreshIntervalF()), loop = self.loop)
-    @asyncio.coroutine
     def keepAlivePing(self):
         try:
             logger.debug("Starting the keep alive timer..")
@@ -689,7 +662,7 @@ class CCARClient:
                 logger.debug("Reply " + str(reply))
                 serverConnection = self.websocket                                
                 logger.debug("Keep alive ping:" + str(reply) + " Sleeping " + self.keepAliveInterval())        
-                yield from serverConnection.send(json.dumps(reply))
+                self.sendAsTask(reply)
                 yield from asyncio.sleep(int(self.keepAliveInterval()), loop = self.loop)
                 
         except:
@@ -709,9 +682,6 @@ class CCARClient:
             self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
         (self.loop.create_task(self.keepAlivePing()))
-        (self.loop.create_task(self.updateMarketData()))
-        logger.debug("Yield from , keep alive ping")
-        logger.debug ("keep alive ping")
         logger.debug("Handling login response: " + str(data))
         result = self.sendUserLoggedIn(data);
         return result
@@ -890,7 +860,7 @@ class CCARClient:
         self.portfolioGroup = PortfolioGroup(self, portfolioList);
         self.portfolioGroup.updateAndSend();
         #(self.loop.create_task(self.updateActivePortfolios()))
-        (self.loop.create_task(self.portfolioGroup.refreshDisplay()))
+
 
 
     def handleQueryPortfolios(self, jsonResponse): 
@@ -942,6 +912,7 @@ class CCARClient:
         logger.debug("Send query market data for each symbol across all the portfolios")
         logger.debug("Will never come here.");
 
+
     @asyncio.coroutine
     def handleQueryMarketData(self, jsonRequest) :
         try:
@@ -950,18 +921,33 @@ class CCARClient:
             for result in q:
                 logger.debug("Processing result" + str(result));
                 symbol = result["symbol"]
+                portfolioId = result["portfolioId"]
                 resultSet = result["resultSet"]
                 self.marketDataBak[symbol] = MarketData(symbol)
                 for times in resultSet:
+                    if portfolioId == symbol:
+                        continue;
+                    row = self.marketDataRow
                     logger.debug("Processing time series " + str(times))
                     (self.marketDataBak[symbol]).add(times["high"]
                                 , times["low"]
                                 , times["open"]
                                 , times["close"]
                                 , times["volume"]
-                                , times["date"])                
+                                , times["date"])       
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "A" + str(row), symbol))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "B" + str(row), times["high"]))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "C" + str(row), times["low"]))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "D" + str(row), times["open"]))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "E" + str(row), times["close"]))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "F" + str(row), times["volume"]))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "G" + str(row), times["date"]))
+                    row = row + 1
+                    self.marketDataRow = row # XXX: Looks ugly.
+                    yield from asyncio.sleep(0.01, loop = self.loop)         
         except:
             error = traceback.format_exc()
+            self.websocket.close()
             logger.error(error)
     def sendHistoricalStressValue(self, jsonRequest):
         pass
@@ -1106,6 +1092,7 @@ class CCARClient:
                     return "Loop exiting"
         except:
             logger.error(traceback.format_exc())
+            logger.error("Closing connection. See exception above")
             yield from self.websocket.close()
         
 
