@@ -348,13 +348,13 @@ class PortfolioGroup:
                 continue;
             logger.debug("Updating portfolio " + portfolioId)
             logger.debug("Processing " + str(value) + "--->" + portfolioId)
-            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), value.symbol))
-            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), value.quantity))
-            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), value.side))
-            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), value.symbolType))
-            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), value.value))
-            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), value.stressValue))
-            self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), value.symbol))
+            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), value.quantity))
+            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), value.side))
+            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), value.symbolType))
+            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), value.value))
+            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), value.stressValue))
+            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
             yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
             row = row + 1
 
@@ -362,7 +362,7 @@ class PortfolioGroup:
     def refreshDisplay(self):
         while True:
             self.ccarClient.loop.create_task(self.display())
-            yield from asyncio.sleep(3, loop = self.ccarClient.loop)
+            yield from asyncio.sleep(1, loop = self.ccarClient.loop)
     
     @asyncio.coroutine
     def sendMarketData(self):
@@ -860,6 +860,7 @@ class CCARClient:
         self.portfolioGroup = PortfolioGroup(self, portfolioList);
         self.portfolioGroup.updateAndSend();
         #(self.loop.create_task(self.updateActivePortfolios()))
+        self.loop.create_task(self.portfolioGroup.refreshDisplay())
 
 
 
