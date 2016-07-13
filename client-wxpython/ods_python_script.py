@@ -194,12 +194,35 @@ class PortfolioSymbolTable :
     def __init__(self, ccarClient):
         self.ccarClient = ccarClient
         self.table = {}
+        self.rowMap = {}
+        self.currentRow = 2 # Exclude the header
     @asyncio.coroutine
     def add(self, portfolioSymbol):
         self.table[portfolioSymbol.key()] = portfolioSymbol
+        if self.currentRow in self.rowMap:
+            self.currentRow = self.currentRow + 1
+            self.rowMap[portfolioSymbol.key()] = self.currentRow
+        else:
+            self.rowMap[portfolioSymbol.key()] = self.currentRow
+            self.currentRow = self.currentRow + 1
+        yield from self.updatePortfolioDetails(portfolioSymbol);
         return portfolioSymbol
     def getPortfolioSymbols(self):
             return table.values()
+
+    def updatePortfolioDetails(self, value):
+        logger.debug("Updating spreadsheet with " + str(value) + " Row number " + 
+                            str(self.rowMap[value.key()]))
+        portfolioId = value.portfolioId
+        row = self.rowMap[value.key()]
+        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), value.symbol))
+        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), value.quantity))
+        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), value.side))
+        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), value.symbolType))
+        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), value.value))
+        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), value.stressValue))
+        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+        yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
 
 
 class PortfolioGroup:
@@ -238,15 +261,7 @@ class PortfolioGroup:
             newSheet = Util.insertNewWorksheet(summary["portfolioId"])
             self.createRows(summary["portfolioId"])
             self.portfolioGroupWorksheets[summary["portfolioId"]] = newSheet
-
-            # Util.updateCellContent(portfolioId, "A" + str(row), value.symbol)
-            # Util.updateCellContent(portfolioId, "B" + str(row), value.quantity)
-            # Util.updateCellContent(portfolioId, "C" + str(row), value.side)
-            # Util.updateCellContent(portfolioId, "D" + str(row), value.symbolType)
-            # Util.updateCellContent(portfolioId, "E" + str(row), value.value)
-            # Util.updateCellContent(portfolioId, "F" + str(row), value.stressValue)
-            # Util.updateCellContent(portfolioId, "G" + str(row), str(datetime.now()))
-            # row = row + 1
+            
 
 
     def createRows(self, aWorksheetName):
@@ -331,6 +346,7 @@ class PortfolioGroup:
                 self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
                 self.ccarClient.loop.create_task(self.portfolioSymbolTable.add(portfolioSymbol))
                 self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(portfolioSymbol))
+                # Find the current row for the portfolio symbol.
                 yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
         except:
             logger.error(traceback.format_exc())
@@ -398,18 +414,19 @@ class MarketDataTimeSeries:
         self.volume = volume
     def printValue(self):
         return (str(self.date) + " " + self.symbol)
+    def key(self):
+        return self.symbol + self.date 
 class MarketData:
     def __init__(self, symbol):
         self.timeSeries = {}
         self.symbol = symbol
-    def add(self, high, low, openL, close, volume, date):
-        event = MarketDataTimeSeries(self.symbol, high, low, openL, close, volume, date)
-        self.timeSeries[date] = event
-
+    def add(self, event):
+        self.timeSeries[event.date] = event
 class CCARClient:
     def __init__(self):
         self.marketData = {}
         self.marketDataRow = 2
+        self.marketDataRowMap = {} # 
         self.marketDataBak = {} # To swap dictionaries outside iteration.
         self.portfolioDetailCount = 0 
         self.portfolioDetailStartRow = 5
@@ -860,7 +877,6 @@ class CCARClient:
         self.portfolioGroup = PortfolioGroup(self, portfolioList);
         self.portfolioGroup.updateAndSend();
         #(self.loop.create_task(self.updateActivePortfolios()))
-        self.loop.create_task(self.portfolioGroup.refreshDisplay())
 
 
 
@@ -925,26 +941,34 @@ class CCARClient:
                 portfolioId = result["portfolioId"]
                 resultSet = result["resultSet"]
                 self.marketDataBak[symbol] = MarketData(symbol)
-                for times in resultSet:
+                for timeSeries in resultSet:
                     if portfolioId == symbol:
                         continue;
                     row = self.marketDataRow
-                    logger.debug("Processing time series " + str(times))
-                    (self.marketDataBak[symbol]).add(times["high"]
-                                , times["low"]
-                                , times["open"]
-                                , times["close"]
-                                , times["volume"]
-                                , times["date"])       
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "A" + str(row), symbol))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "B" + str(row), times["high"]))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "C" + str(row), times["low"]))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "D" + str(row), times["open"]))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "E" + str(row), times["close"]))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "F" + str(row), times["volume"]))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "G" + str(row), times["date"]))
-                    row = row + 1
-                    self.marketDataRow = row # XXX: Looks ugly.
+                    high = timeSeries["high"]   
+                    low  = timeSeries["low"]
+                    openL = timeSeries["open"]
+                    close = timeSeries["close"]
+                    volume = timeSeries["volume"]
+                    date = timeSeries["date"]
+                    event = MarketDataTimeSeries(symbol, high, low, openL, close, volume, date)
+                    if row in self.marketDataRowMap:
+                        self.marketDataRow = self.marketDataRow + 1
+                        self.marketDataRowMap[event.key()] = self.marketDataRow
+                    else:
+                        self.marketDataRowMap[event.key()] = self.marketDataRow 
+                        self.marketDataRow = self.marketDataRow + 1
+
+                    logger.debug("Processing time series " + str(timeSeries))
+                    (self.marketDataBak[symbol]).add(event)       
+                    computedRow = self.marketDataRowMap[event.key()]
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "A" + str(computedRow), symbol))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "B" + str(computedRow), event.high))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "C" + str(computedRow), event.low))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "D" + str(computedRow), event.open))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "E" + str(computedRow), event.close))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "F" + str(computedRow), event.volume))
+                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "G" + str(computedRow), event.date))
                     yield from asyncio.sleep(0.01, loop = self.loop)         
         except:
             error = traceback.format_exc()
