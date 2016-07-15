@@ -72,13 +72,14 @@ import          CCAR.Data.MarketDataAPI as MarketDataAPI
 import          CCAR.Model.PortfolioT as PortfolioT
 import          CCAR.Model.Portfolio as Portfolio
 import          CCAR.Model.PortfolioSymbol as PortfolioSymbol hiding (symbol)
-import          CCAR.Main.Util as Util
+import          CCAR.Main.Util as Util hiding (parse_float)
 import          Network.WebSockets.Connection as WSConn
 import          CCAR.Model.CcarDataTypes
 import          CCAR.Main.Application
 import          Control.Concurrent.STM.Lifted
 import          CCAR.Analytics.MarketDataLanguage
 import          CCAR.Data.ClientState
+import          CCAR.Main.OptionUtils
 
 iModuleName = "CCAR.Data.TradierApi"
 baseUrl =  "https://sandbox.tradier.com/v1"
@@ -230,11 +231,15 @@ instance FromJSON PortfolioStressValue where
     parseJSON _     = Appl.empty
 makePortfolioStressValue = PortfolioStressValue 
 
+data BidRatio = BidRatio Float Float deriving (Show, Eq, Generic)
+instance ToJSON BidRatio
+instance FromJSON BidRatio 
+
 data QueryOptionChain = QueryOptionChain {
     qNickName :: T.Text
     , qCommandType :: T.Text
     , qUnderlying :: T.Text
-    , optionChain :: [OptionChain] 
+    , optionChain :: [(OptionChain, BidRatio)] 
 } deriving (Show, Eq)
 
 
@@ -459,7 +464,7 @@ saveSymbol = do
 saveHistoricalData :: (MonadIO m) => Conduit (Either T.Text T.Text) m (Either T.Text T.Text)
 saveHistoricalData = do 
     client <- await 
-    liftIO $ threadDelay (10^6)
+    liftIO $ threadDelay (10 ^ 6)
     liftIO $ Logger.debugM iModuleName $ "Saving historical data " `mappend` (show client)
     liftIO $ Prelude.putStrLn $ "saving historical data " `mappend` (show client)
     case client of 
@@ -478,15 +483,23 @@ saveHistoricalData = do
             saveHistoricalData          
     
 
+parseOptionChainValue :: T.Text -> Float
+parseOptionChainValue = parse_float_with_maybe . T.unpack
+
+getBidRatio :: OptionChain -> BidRatio 
+getBidRatio x = BidRatio (parseOptionChainValue . optionChainLastBid $  x) (parseOptionChainValue . optionChainStrike $ x)
 
 queryOptionChain aNickName o = do 
     x <- case (parse parseJSON o :: Result QueryOptionChain) of 
         Success r@(QueryOptionChain ni cType underlying _) -> do 
             optionChainE <- dbOps $ selectList [OptionChainUnderlying ==. underlying] []
-            optionChain <- Control.Monad.forM optionChainE (\(Entity id x) -> return x)
+            optionChain <- Control.Monad.forM optionChainE (\(Entity id x) -> do 
+                    let br = getBidRatio x
+                    return (x, br))
             return $ Right $ 
                 QueryOptionChain ni cType underlying optionChain
         Error s ->  return $ Left $ appError $ "Query users for a company failed  " `mappend` s
+
     return (GC.Reply, x)
 
 saveOptionChains :: (MonadIO m) => Conduit (Either T.Text T.Text) m BS.ByteString

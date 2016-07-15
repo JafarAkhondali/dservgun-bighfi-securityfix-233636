@@ -107,7 +107,8 @@ MARKET_DATA_UPDATE = 1036
 OPTION_ANALYTICS = 1037
 QUERY_MARKET_DATA = 1038
 HISTORICAL_STRESS_VALUE_COMMAND = 1039
-UNDEFINED = 1040
+QUERY_OPTION_CHAIN = 1040
+UNDEFINED = 1041
 COMPANY_SELECTION_LIST_CONTROL = "BrokerList"
 COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
 
@@ -306,6 +307,18 @@ class PortfolioGroup:
 
     def sendAsTask(self, payload):
         self.ccarClient.sendAsTask(payload);
+
+    @asyncio.coroutine
+    def sendQueryOptionChain(self, portfolioSymbol):
+        if portfolioSymbol.portfolioId == portfolioSymbol.symbol:
+            return;
+        payload = {
+            "commandType" : "QueryOptionChain"
+            , "nickName" : self.ccarClient.getUserName()
+            , "underlying" : portfolioSymbol.symbol
+            , "optionChain" : []
+        }
+        yield from self.ccarClient.send(payload)
     @asyncio.coroutine
     def sendMarketDataQueryRequest(self, portfolioSymbol):
         if portfolioSymbol.portfolioId == portfolioSymbol.symbol:
@@ -346,6 +359,7 @@ class PortfolioGroup:
                 self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
                 self.ccarClient.loop.create_task(self.portfolioSymbolTable.add(portfolioSymbol))
                 self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(portfolioSymbol))
+                self.ccarClient.loop.create_task(self.sendQueryOptionChain(portfolioSymbol))
                 # Find the current row for the portfolio symbol.
                 yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
         except:
@@ -580,6 +594,7 @@ class CCARClient:
         , "OptionAnalytics"         : OPTION_ANALYTICS
         , "QueryMarketData"         : QUERY_MARKET_DATA 
         , "HistoricalStressValueCommand" : HISTORICAL_STRESS_VALUE_COMMAND
+        , "QueryOptionChain"        : QUERY_OPTION_CHAIN
         , "Undefined"               : UNDEFINED
         }
 
@@ -931,6 +946,15 @@ class CCARClient:
 
 
     @asyncio.coroutine
+    def handleQueryOptionChain(self, jsonRequest):
+        logger.debug("Handle Query option chain " + str(jsonRequest))
+        try :
+            right = jsonRequest
+            logger.debug("Result " + str(right))
+        except:
+            logger.error(traceback.format_exc())
+            self.websocket.close()
+    @asyncio.coroutine
     def handleQueryMarketData(self, jsonRequest) :
         try:
             r = jsonRequest
@@ -1083,6 +1107,9 @@ class CCARClient:
             reply = None
         elif commandType == HISTORICAL_STRESS_VALUE_COMMAND:
             reply = self.handleHistoricalStressValue(payload);
+        elif commandType == QUERY_OPTION_CHAIN:
+            t = self.loop.create_task(self.handleQueryOptionChain(payload))
+            reply = None
         else:
             reply = None
         return reply
