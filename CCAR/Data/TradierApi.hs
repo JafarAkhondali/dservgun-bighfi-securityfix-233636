@@ -38,6 +38,7 @@ import          Database.Persist.TH
 import          qualified CCAR.Main.GroupCommunication as GC
 import          Database.Persist.Postgresql as DB
 import          Data.Time
+import          Data.Time.Calendar.OrdinalDate (sundayStartWeek)
 import          Data.Map
 import          System.Locale(defaultTimeLocale)
 import          System.Environment(getEnv)
@@ -147,7 +148,7 @@ getHistoricalData = \x -> do
 getOptionChains = \x y -> do 
     liftIO $ Logger.debugM iModuleName ("Inside option chains " `mappend` (show x) `mappend` (show y))
     Object value <- getMarketData optionChains [("symbol", Just x), ("expiration", Just y )]
-    liftIO $ Logger.debugM iModuleName ("getOptionChains " `mappend` (show x))
+    liftIO $ Logger.debugM iModuleName ("getOptionChains " `mappend` (show value))
     options <- return $ M.lookup "options" value 
     liftIO $ Logger.debugM iModuleName (show options)
     case options of 
@@ -352,28 +353,14 @@ instance FromJSON MarketDataTradier where
 {-- | Returns the option expiration date for n months from now. 
  Complicated logic alert: 
   * Get the number of days left in the current month.
-  * Get all the options for the end of the month.
+  * Get all the options for the last friday of the month.
   * This can probably be better replaced by getting 
   the market calendar from the market.
 
 --}
-expirationDate n = do 
-    x <- liftIO $ getCurrentTime >>= \l 
-                -> return $ utctDay l
 
-    (yy, m, d) <- return $ toGregorian x
-    -- Compute the number of days
-    y <- Control.Monad.foldM (\a b -> 
-                return $ 
-                    a + (gregorianMonthLength yy (m + b)) - d) -- days to subtract
-                0 [0..n]
-    x2 <- return $ addDays (toInteger y) x -- calendar addition.
-    (yy2, m2, d2) <- return $ toGregorian x2 
-    monthLength <- return $ toInteger $ gregorianMonthLength yy m2
-    res <- return $ addDays (monthLength - (toInteger d2)) x2
-    return $ BS.pack $ show res
 
-defaultExpirationDate = expirationDate 0
+defaultExpirationDate = Util.lastFridayOfMonth 0
 
 
 
@@ -416,7 +403,6 @@ insertAndSave :: [String] -> IO (Either T.Text T.Text)
 insertAndSave x = (dbOps $ do
     symbol <- return $ T.pack $ x !! 0 
     symbolExists <- getBy $ UniqueEquitySymbol symbol 
-    expirationDate <- liftIO $ defaultExpirationDate
     case symbolExists of 
         Nothing ->  do
                 i <- DB.insert $ EquitySymbol symbol
@@ -505,6 +491,7 @@ queryOptionChain aNickName o = do
 saveOptionChains :: (MonadIO m) => Conduit (Either T.Text T.Text) m BS.ByteString
 saveOptionChains = do 
     symbol <- await
+    liftIO $ Logger.debugM iModuleName ("Using symbol " <> (show symbol))
     liftIO $ threadDelay (10^6) -- a second delay  
     case symbol of 
         Nothing -> return () 
@@ -513,7 +500,7 @@ saveOptionChains = do
             case x of 
                 (Right aSymbol) -> do 
                     liftIO $ Logger.debugM iModuleName ("Inserting into db " `mappend` (show x))
-                    d <- defaultExpirationDate
+                    d <- liftIO defaultExpirationDate
                     i <- liftIO $ insertOptionChainsIntoDb (BS.pack $ T.unpack aSymbol) d
                     yield $ BS.pack $ "Option chains for " `mappend` 
                                     (T.unpack aSymbol) `mappend` " retrieved: "
@@ -545,7 +532,6 @@ insertHistoricalIntoDb xS = do
             return $ Left xS
 
 
-
 insertOptionChainsIntoDb x y = do 
     Logger.debugM iModuleName ("Inserting " `mappend` show x `mappend` " " `mappend` show y)
     x1 <- getOptionChains x y
@@ -564,7 +550,7 @@ insertOptionChainsIntoDb x y = do
 
 setupSymbols aFileName = do 
     liftIO $ Logger.infoM iModuleName $ "Setting up symbols" `mappend` aFileName
-    runResourceT $ 
+    _ <- runResourceT $ 
             B.sourceFile aFileName $$ B.lines =$= parseSymbol =$= saveSymbol 
                     =$= saveHistoricalData
                     =$= saveOptionChains 

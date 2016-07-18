@@ -255,7 +255,6 @@ newtype PricerReaderApp a = PricerReaderApp {
 
 
 
---pricerReaderThread :: App -> WSConn.Connection -> NickName -> IO ()
 pricerReaderThread a c n m = do 
     (y, z) <- flip runStateT False $ do 
                 flip runReaderT (PricerConfiguration a c n m True) $ do 
