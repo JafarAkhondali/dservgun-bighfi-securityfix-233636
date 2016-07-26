@@ -106,25 +106,26 @@ insertTradierProvider =
         liftIO $ Logger.debugM iModuleName $ "Inserted provider " `mappend` (show y)
     ) `catch` (\x@(SomeException s) -> do
         Logger.errorM iModuleName $ "Error inserting tradier" `mappend`  (show x))
+getMarketData :: LB.ByteString -> [(BS.ByteString, Maybe BS.ByteString)] -> IO Value
+getMarketData url queryString =  handle (\e@(FailedConnectionException2 a b c d) -> 
+                return $ String "Connection exception") $ do 
+        authBearerToken <- getEnv("TRADIER_BEARER_TOKEN") >>= 
+            \x ->  return $ S.packChars $ "Bearer " `mappend` x
+        runResourceT $ do 
+            manager <- liftIO $ newManager tlsManagerSettings 
 
-getMarketData url queryString = do 
-    authBearerToken <- getEnv("TRADIER_BEARER_TOKEN") >>= 
-        \x ->  return $ S.packChars $ "Bearer " `mappend` x
-    runResourceT $ do 
-        manager <- liftIO $ newManager tlsManagerSettings 
-
-        req <- liftIO $ parseUrl makeUrl
-        req <- return $ req {requestHeaders = 
-                [("Accept", "application/json") 
-                , ("Authorization", 
-                    authBearerToken)]
-                }
-        req <- return $ setQueryString queryString req 
-        res <- http req manager 
-        value <- responseBody res $$+- sinkParser json 
-        return value 
-    where 
-        makeUrl = S.unpackChars $ LB.toStrict $ LB.intercalate "/" [baseUrl, url]
+            req <- liftIO $ parseUrl makeUrl
+            req <- return $ req {requestHeaders = 
+                    [("Accept", "application/json") 
+                    , ("Authorization", 
+                        authBearerToken)]
+                    }
+            req <- return $ setQueryString queryString req 
+            res <- http req manager 
+            value <- responseBody res $$+- sinkParser json 
+            return value 
+        where 
+            makeUrl = S.unpackChars $ LB.toStrict $ LB.intercalate "/" [baseUrl, url]
 
 
 getQuotes = \x  -> getMarketData quotesUrl [("symbols", Just x)] 
@@ -133,35 +134,41 @@ getTimeAndSales y = \x -> getMarketData timeAndSales [("symbol", Just x)]
 
 
 getHistoricalData = \x -> do 
-    Object value <- getMarketData historicalMarketData [("symbol", Just x)] 
-    history <- return $ M.lookup "history" value
 
-    case history of 
-        Just (Object aValue) -> do
-            day <- return $ M.lookup "day" aValue 
-            case day of 
-                Just aValue2 -> do 
-                    case aValue2 of 
-                        a@(Array x2) -> return $ Right $ fmap (\y -> fromJSON y :: Result MarketDataTradier) x2
-                        _           -> return $ Left $ "Error processing " `mappend` (show aValue2)
+    mData <- getMarketData historicalMarketData [("symbol", Just x)] 
+    case mData of 
+        Object value -> do 
+            history <- return $ M.lookup "history" value
+            case history of 
+                Just (Object aValue) -> do
+                    day <- return $ M.lookup "day" aValue 
+                    case day of 
+                        Just aValue2 -> do 
+                            case aValue2 of 
+                                a@(Array x2) -> return $ Right $ fmap (\y -> fromJSON y :: Result MarketDataTradier) x2
+                                _           -> return $ Left $ "Error processing " `mappend` (show aValue2)
+        _           -> return $ Left $ "Error processing " <> (show x)
 
 getOptionChains = \x y -> do 
     liftIO $ Logger.debugM iModuleName ("Inside option chains " `mappend` (show x) `mappend` (show y))
-    Object value <- getMarketData optionChains [("symbol", Just x), ("expiration", Just y )]
-    liftIO $ Logger.debugM iModuleName ("getOptionChains " `mappend` (show value))
-    options <- return $ M.lookup "options" value 
-    liftIO $ Logger.debugM iModuleName (show options)
-    case options of 
-        Just (Object object) -> do 
-            object <- return $ M.lookup "option" object
-            case object of 
-                Just aValue -> do
-                    case aValue of 
-                        a@(Array x) ->  do  
-                            return $ Right $ fmap (\y -> fromJSON y :: Result OptionChainMarketData) x 
-                        _ -> return $ Left $ "Error processing" `mappend` (show y)
-                _ -> return $ Left $ "Error processing " `mappend` (show y)
-        _ -> return $ Left "Nothing to process"
+    oData <- getMarketData optionChains [("symbol", Just x), ("expiration", Just y )]
+    case oData of 
+        Object value -> do 
+                liftIO $ Logger.debugM iModuleName ("getOptionChains " `mappend` (show value))
+                options <- return $ M.lookup "options" value 
+                liftIO $ Logger.debugM iModuleName (show options)
+                case options of 
+                    Just (Object object) -> do 
+                        object <- return $ M.lookup "option" object
+                        case object of 
+                            Just aValue -> do
+                                case aValue of 
+                                    a@(Array x) ->  do  
+                                        return $ Right $ fmap (\y -> fromJSON y :: Result OptionChainMarketData) x 
+                                    _ -> return $ Left $ "Error processing" `mappend` (show y)
+                            _ -> return $ Left $ "Error processing " `mappend` (show y)
+                    _ -> return $ Left "Nothing to process"
+        _       -> return $ Left "Nothing to process. Market Data error"
         
 
 
@@ -548,14 +555,21 @@ insertOptionChainsIntoDb x y = do
                 return $ Left x
 
 
-setupSymbols aFileName = do 
-    liftIO $ Logger.infoM iModuleName $ "Setting up symbols" `mappend` aFileName
+setupEquities aFileName = do 
+    liftIO $ Logger.infoM iModuleName $ "Setting up equities" `mappend` aFileName
     _ <- runResourceT $ 
             B.sourceFile aFileName $$ B.lines =$= parseSymbol =$= saveSymbol 
                     =$= saveHistoricalData
+                    =$ consume
+    liftIO $ Logger.infoM iModuleName $ "Setup for equities completed " `mappend` aFileName
+
+setupOptions aFileName = do 
+    liftIO $ Logger.infoM iModuleName $ "Setting up options" `mappend` aFileName
+    _ <- runResourceT $ 
+            B.sourceFile aFileName $$ B.lines =$= parseSymbol =$= saveSymbol 
                     =$= saveOptionChains 
                     =$ consume
-    liftIO $ Logger.infoM iModuleName $ "Setup completed " `mappend` aFileName
+    liftIO $ Logger.infoM iModuleName $ "Setup for options completed " `mappend` aFileName
 
 
 startup = do 
@@ -566,8 +580,10 @@ startup = do
     insertTradierProvider 
     x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), T.pack $ nasdaq_fileName]
     y <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), T.pack $ other_fileName]
-    setupSymbols x 
-    setupSymbols y 
+    setupEquities x 
+    setupOptions x 
+    setupEquities y
+    setupOptions y 
 
 
 
@@ -575,7 +591,7 @@ startup_d = do
     dataDirectory <- getEnv("DATA_DIRECTORY")
     _ <- insertTradierProvider 
     x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "nasdaq_10.txt"]
-    setupSymbols x 
+    setupEquities x 
 
 
 -- test query option chain 
