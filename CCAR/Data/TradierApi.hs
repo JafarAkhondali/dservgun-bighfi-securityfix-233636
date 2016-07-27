@@ -109,6 +109,7 @@ insertTradierProvider =
 getMarketData :: LB.ByteString -> [(BS.ByteString, Maybe BS.ByteString)] -> IO Value
 getMarketData url queryString =  handle (\e@(FailedConnectionException2 a b c d) -> 
                 return $ String "Connection exception") $ do 
+        liftIO $ Logger.debugM iModuleName $ "Query market data " <> (show queryString)
         authBearerToken <- getEnv("TRADIER_BEARER_TOKEN") >>= 
             \x ->  return $ S.packChars $ "Bearer " `mappend` x
         runResourceT $ do 
@@ -457,7 +458,7 @@ saveSymbol = do
 saveHistoricalData :: (MonadIO m) => Conduit (Either T.Text T.Text) m (Either T.Text T.Text)
 saveHistoricalData = do 
     client <- await 
-    liftIO $ threadDelay (10 ^ 6)
+    liftIO $ threadDelay (10 * (10 ^ 6))
     liftIO $ Logger.debugM iModuleName $ "Saving historical data " `mappend` (show client)
     liftIO $ Prelude.putStrLn $ "saving historical data " `mappend` (show client)
     case client of 
