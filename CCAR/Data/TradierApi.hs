@@ -148,7 +148,9 @@ getHistoricalData = \x -> do
                             case aValue2 of 
                                 a@(Array x2) -> return $ Right $ fmap (\y -> fromJSON y :: Result MarketDataTradier) x2
                                 _           -> return $ Left $ "Error processing " `mappend` (show aValue2)
+                _   -> return $ Left $ "Error processing " <> show x
         _           -> return $ Left $ "Error processing " <> (show x)
+
 
 getOptionChains = \x y -> do 
     liftIO $ Logger.debugM iModuleName ("Inside option chains " `mappend` (show x) `mappend` (show y))
