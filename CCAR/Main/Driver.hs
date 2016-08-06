@@ -933,15 +933,15 @@ getHomeR = do
         |]
 
 
-
+-- TODO: use parsec to return the stale client interval.
 cleanupStaleConnections :: App -> IO ()
 cleanupStaleConnections app = loop 
     where loop = do 
             threadDelay 5000000
             currentTime <- getCurrentTime
             Logger.debugM  "CCAR" $ "Waiting for stale connections-----" <> (show currentTime)
-
-            staleClients <- atomically $ getStaleClients app (30 :: NominalDiffTime) currentTime
+            -- Stale client is broken now.
+            staleClients <- atomically $ getStaleClients app (3600 :: NominalDiffTime) currentTime
             mapM_ (\x -> do 
                     Logger.infoM "CCAR" $ "Deleting client " ++ (show x)
                     atomically $ deleteConnection app (ClientState.nickName x)

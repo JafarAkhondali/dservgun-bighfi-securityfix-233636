@@ -126,6 +126,8 @@ class Util:
     def getWorksheetByName(worksheetName): 
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
+        if model == None: 
+            logger.fatal("This can never happen")
         sheet = model.Sheets.getByName(worksheetName) 
         return sheet   
     @staticmethod
