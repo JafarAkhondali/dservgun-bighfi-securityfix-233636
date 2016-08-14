@@ -112,6 +112,32 @@ UNDEFINED = 1041
 COMPANY_SELECTION_LIST_CONTROL = "BrokerList"
 COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
 
+
+## Display a dictionary on the spreadsheet.
+## Clients update elements to the map
+## Display an element if needed.
+## Clients request for the next available row index.
+class TableDisplay:
+    def __init__(self):
+        logger.debug ("Creating table display")
+        self.startRow = 2
+        # The next available row. Count the header as 
+        # the first row.
+        self.availableRowIndex = 2
+        self.dataMap = {}
+        self.indexMap = {}
+    def add(self, anEntry):
+        key = anEntry.key()
+        if key in self.indexMap:
+            pass
+        else:
+            self.indexMap[key] = self.availableRowIndex 
+            self.availableRowIndex = self.availableRowIndex + 1
+        self.dataMap[key] = anEntry
+
+    def getComputedRow(self, anEntry):
+        return self.indexMap[anEntry.key()]
+
 # Design notes: 
 # Use composition over inheritance.
 class Util:
@@ -135,11 +161,13 @@ class Util:
         bool(aString)
     @staticmethod
     def updateCellContent(worksheet, cell, value):
-        logger.debug("Updating worksheet by name " + worksheet + str(cell) + ": Value " + str(value))
-        sheet = Util.getWorksheetByName(worksheet)
-        tRange = sheet.getCellRangeByName(cell)
-        tRange.String = value
-
+        try:
+            logger.debug("Updating worksheet by name " + worksheet + str(cell) + ": Value " + str(value))
+            sheet = Util.getWorksheetByName(worksheet)
+            tRange = sheet.getCellRangeByName(cell)
+            tRange.String = value
+        except:
+            logger.error(traceback.format_exc())
     @staticmethod
     @asyncio.coroutine
     def updateCellContentT(worksheet, cell,value):
@@ -157,20 +185,22 @@ class Util:
         logger.debug("Creating new sheet " + aName)
         newSheet = model.Sheets.insertNewByName(aName, 1)
         return newSheet
-# typedef PortfolioSymbolT =  {
-#       var crudType : String;
-#       var commandType : String;
-#       var portfolioId : String;
-#       var symbol : String;
-#       var quantity : String;
-#       var side : String;
-#       var symbolType : String;
-#       var value : String;
-#       var stressValue : String;
-#       var creator : String;
-#       var updator : String;
-#       var nickName : String;
-# }
+
+class OptionChain: 
+    def __init__(self, jsonRecord) :
+        logger.debug("Creating option chain " + str(jsonRecord))
+        self.lastBid = jsonRecord["lastBid"]
+        self.strike = jsonRecord["strike"]
+        self.change = jsonRecord["change"]
+        self.optionType = jsonRecord["optionType"]
+        self.expiration = jsonRecord["expiration"]
+        self.symbol = jsonRecord["symbol"]
+        self.lastPrice = jsonRecord["lastPrice"]
+        self.openInterest = jsonRecord["openInterest"]
+        self.underlying = jsonRecord["underlying"]
+        self.lastAsk = jsonRecord["lastAsk"]
+    def key(self):
+            return (self.symbol + self.underlying + self.strike + self.expiration)
 
 class PortfolioSymbolParseError(Exception) : 
         def __init__(self, value):
@@ -365,6 +395,7 @@ class PortfolioGroup:
                 # Find the current row for the portfolio symbol.
                 yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
         except:
+            logger.error("Message " + str(result))
             logger.error(traceback.format_exc())
     @asyncio.coroutine
     def display(self):
@@ -441,6 +472,7 @@ class MarketData:
 class CCARClient:
     def __init__(self):
         self.marketData = {}
+        self.optionTable = TableDisplay()
         self.marketDataRow = 2
         self.marketDataRowMap = {} # 
         self.marketDataBak = {} # To swap dictionaries outside iteration.
@@ -464,6 +496,7 @@ class CCARClient:
         self.marketDataRefreshInterval = 1
         self.activePortfolioInterval = 1 # An active portfolio ping request to update any stress data.
         self.marketDataSheet = "MarketDataSheet"
+        self.optionDataSheet = "OptionMarketData"
     #get the doc from the scripting context which is made available to all scripts
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
@@ -670,7 +703,7 @@ class CCARClient:
             yield from self.websocket.send(json.dumps(aJsonMessage))
         except:
             logger.error("Unable to send " + str(aJsonMessage))
-            yield from self.websocket.close()
+            # yield from self.websocket.close()
             logger.error(traceback.format_exc())
     @asyncio.coroutine
     def updateActivePortfolios(self):
@@ -949,13 +982,34 @@ class CCARClient:
 
     @asyncio.coroutine
     def handleQueryOptionChain(self, jsonRequest):
-        logger.debug("Handle Query option chain " + str(jsonRequest))
         try :
-            right = jsonRequest
-            logger.debug("Result " + str(right))
+            chain = jsonRequest["optionChain"]
+            logger.debug("Handle Query option chain " + str(chain))
+            for r in chain:
+                logger.debug("Option " + str(r))
+                try: 
+                    optionInstance = OptionChain(r);
+                    self.optionTable.add(optionInstance)
+                    logger.debug("Processing option chain " + str(optionInstance))
+                    computedRow = self.optionTable.getComputedRow(optionInstance)
+
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "A" + str(computedRow), optionInstance.symbol))
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "B" + str(computedRow), optionInstance.underlying))
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "C" + str(computedRow), optionInstance.strike))
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "D" + str(computedRow), optionInstance.expiration))
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "E" + str(computedRow), optionInstance.lastBid))
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "F" + str(computedRow), optionInstance.lastAsk))
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "G" + str(computedRow), optionInstance.change))
+                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "H" + str(computedRow), optionInstance.openInterest))
+
+                    yield from asyncio.sleep(0.01, loop = self.loop)         
+                except:
+                    logger.error(traceback.format_exc())
+                    logger.error(chain)
+
         except:
             logger.error(traceback.format_exc())
-            self.websocket.close()
+            logger.error(jsonRequest)
     @asyncio.coroutine
     def handleQueryMarketData(self, jsonRequest) :
         try:
@@ -998,7 +1052,6 @@ class CCARClient:
                     yield from asyncio.sleep(0.01, loop = self.loop)         
         except:
             error = traceback.format_exc()
-            self.websocket.close()
             logger.error(error)
     def sendHistoricalStressValue(self, jsonRequest):
         pass

@@ -250,7 +250,7 @@ data QueryOptionChain = QueryOptionChain {
     qNickName :: T.Text
     , qCommandType :: T.Text
     , qUnderlying :: T.Text
-    , optionChain :: [(OptionChain, BidRatio)] 
+    , optionChain :: [OptionChain] 
 } deriving (Show, Eq)
 
 
@@ -488,12 +488,10 @@ getBidRatio x = BidRatio (parseOptionChainValue . optionChainLastBid $  x) (pars
 queryOptionChain aNickName o = do 
     x <- case (parse parseJSON o :: Result QueryOptionChain) of 
         Success r@(QueryOptionChain ni cType underlying _) -> do 
-            optionChainE <- dbOps $ selectList [OptionChainUnderlying ==. underlying] []
-            optionChain <- Control.Monad.forM optionChainE (\(Entity id x) -> do 
-                    let br = getBidRatio x
-                    return (x, br))
+            optionChain <- dbOps $ selectList [OptionChainUnderlying ==. underlying] []
+            optionChainE <- Control.Monad.forM optionChain (\(Entity id x) -> return x)
             return $ Right $ 
-                QueryOptionChain ni cType underlying optionChain
+                QueryOptionChain ni cType underlying optionChainE
         Error s ->  return $ Left $ appError $ "Query users for a company failed  " `mappend` s
 
     return (GC.Reply, x)

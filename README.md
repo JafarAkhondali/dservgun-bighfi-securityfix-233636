@@ -42,6 +42,10 @@ Some admin commmands
 ====================================
 sudo -u postgres psql -d <dbname>
 
+Restart postgres
+===================================
+/etc/init.d/postgresql restart
+
 Login as root
 kill -QUIT $(cat /usr/local/nginx/logs/nginx.pid)
 #Starting stunnel if installed:
