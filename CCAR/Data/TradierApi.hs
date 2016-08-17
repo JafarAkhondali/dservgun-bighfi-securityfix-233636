@@ -49,10 +49,12 @@ import          Control.Monad.Trans(lift)
 import          Control.Monad.Trans.Maybe
 import          Control.Monad.Trans.Resource
 import          Control.Applicative as Appl
+import          Control.Monad.Trans.Resource
+import          Control.Monad.Trans.Maybe(runMaybeT)
+import          Control.Monad.Trans(lift)
 import          Data.Monoid(mappend, (<>))
 import          CCAR.Main.DBUtils
 import          CCAR.Command.ApplicationError(appError)
-
 import          System.Environment(getEnv)
 import          GHC.Generics
 import          GHC.IO.Exception
@@ -61,9 +63,6 @@ import          Data.Scientific
 import          Data.Data
 import          Data.Monoid (mappend)
 import          Data.Typeable 
-import          Control.Monad.Trans.Resource
-import          Control.Monad.Trans.Maybe(runMaybeT)
-import          Control.Monad.Trans(lift)
 import          System.Log.Logger as Logger
 import          Data.Conduit.Binary as B (sinkFile, lines, sourceFile) 
 import          Data.Conduit.List as CL 
@@ -112,19 +111,24 @@ getMarketData url queryString =  handle (\e@(FailedConnectionException2 a b c d)
         liftIO $ Logger.debugM iModuleName $ "Query market data " <> (show queryString)
         authBearerToken <- getEnv("TRADIER_BEARER_TOKEN") >>= 
             \x ->  return $ S.packChars $ "Bearer " `mappend` x
-        runResourceT $ do 
-            manager <- liftIO $ newManager tlsManagerSettings 
+        (\x@(SomeException e) -> do
+                    liftIO $ Logger.debugM iModuleName $ 
+                            ("Error " <> (show x))
+                    return $ String $ "Error " <> (T.pack . show $ x)
+            ) 
+            `handle` (runResourceT $ do 
+                manager <- liftIO $ newManager tlsManagerSettings 
 
-            req <- liftIO $ parseUrl makeUrl
-            req <- return $ req {requestHeaders = 
-                    [("Accept", "application/json") 
-                    , ("Authorization", 
-                        authBearerToken)]
-                    }
-            req <- return $ setQueryString queryString req 
-            res <- http req manager 
-            value <- responseBody res $$+- sinkParser json 
-            return value 
+                req <- liftIO $ parseUrl makeUrl
+                req <- return $ req {requestHeaders = 
+                        [("Accept", "application/json") 
+                        , ("Authorization", 
+                            authBearerToken)]
+                        }
+                req <- return $ setQueryString queryString req 
+                res <- http req manager 
+                value <- responseBody res $$+- sinkParser json 
+                return value) 
         where 
             makeUrl = S.unpackChars $ LB.toStrict $ LB.intercalate "/" [baseUrl, url]
 
@@ -558,10 +562,14 @@ insertOptionChainsIntoDb x y = do
 
 setupEquities aFileName = do 
     liftIO $ Logger.infoM iModuleName $ "Setting up equities" `mappend` aFileName
-    _ <- runResourceT $ 
-            B.sourceFile aFileName $$ B.lines =$= parseSymbol =$= saveSymbol 
-                    =$= saveHistoricalData
-                    =$ consume
+    _ <- (\a@(SomeException e) -> do 
+                _ <- Logger.errorM iModuleName ("Error :: " <> (show a))
+                return $ [Left $ T.pack $ show a]
+                ) `handle` 
+                    (runResourceT $ 
+                        B.sourceFile aFileName $$ B.lines =$= parseSymbol =$= saveSymbol 
+                        =$= saveHistoricalData
+                        =$ consume)
     liftIO $ Logger.infoM iModuleName $ "Setup for equities completed " `mappend` aFileName
 
 setupOptions aFileName = do 
@@ -574,25 +582,22 @@ setupOptions aFileName = do
 
 
 startup = do 
-    dataDirectory <- getEnv("DATA_DIRECTORY")
-    nasdaq_fileName <- getEnv("NASDAQ_LISTED_SYMBOL_FILE")
-    other_fileName <- getEnv("OTHER_LISTED_SYMBOL_FILE")
-
     insertTradierProvider 
-    x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), T.pack $ nasdaq_fileName]
-    y <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), T.pack $ other_fileName]
+    x <- liftM2 mkDir (getEnv("DATA_DIRECTORY")) (getEnv("NASDAQ_LISTED_SYMBOL_FILE"))
+    y <- liftM2 mkDir (getEnv("DATA_DIRECTORY")) (getEnv("OTHER_LISTED_SYMBOL_FILE"))
     setupEquities x 
     setupOptions x 
     setupEquities y
     setupOptions y 
-
+    where 
+        mkDir dataDir fileName = T.unpack $ T.intercalate "/" 
+                [(T.pack dataDir), T.pack $ fileName]
 
 
 startup_d = do 
     dataDirectory <- getEnv("DATA_DIRECTORY")
     _ <- insertTradierProvider 
-    x <- return $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "nasdaq_10.txt"]
-    setupEquities x 
+    setupEquities $ T.unpack $ T.intercalate "/" [(T.pack dataDirectory), "nasdaq_10.txt"]
 
 
 -- test query option chain 

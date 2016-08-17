@@ -20,7 +20,6 @@ logger.debug("Loaded script file")
 
 
 
-
 ##### Note: Requires python 3.4 or above
 ##### It seems to be that all functions in a macro need to reside in a single file.
 ##### We will break them down into modules as the size of the macros grow.
@@ -1173,11 +1172,7 @@ class CCARClient:
     
     @asyncio.coroutine
     def ccarLoop(self, userName, password):
-        sslCtx = self.getSSLClientContext() # Use ssl client context to test.
-        if sslCtx == None:
-            self.websocket = yield from websockets.connect(self.clientConnection(), loop = self.loop)
-        else:
-            self.websocket = yield from websockets.connect(self.clientConnection(), ssl = sslCtx, loop = self.loop)
+        self.websocket = yield from websockets.connect(self.clientConnection(), ssl = True, loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
             payload = self.sendLoginRequest(userName, password);
@@ -1207,6 +1202,16 @@ class CCARClient:
         return "A23"
     def login (self, loop, userName, password, ssl):
         try:
+            try:
+                logger.debug("Try to disable certificate validation...")
+                _create_unverified_https_context = ssl._create_unverified_context
+            except AttributeError:
+                # Legacy Python that doesn't verify HTTPS certificates by default
+                pass
+            else:
+                # Handle target environment that doesn't support HTTPS verification
+                logger.debug("Handling the else");
+                ssl._create_default_https_context = _create_unverified_https_context
             self.loop = loop
             logger.debug("Connecting using %s -> %s", userName, password)
             if userName == None or userName == "" or password == None or password == "":
@@ -1224,6 +1229,7 @@ class CCARClient:
 
 def StartClient(*args):
     try:
+
         """Starts the CCAR client."""
         asyncio.get_event_loop().set_debug(enabled=True);
         logger.debug("Starting the client..%s", str(args))
@@ -1241,3 +1247,4 @@ def StartClient(*args):
 
 g_ExportedScripts = StartClient
 
+    
