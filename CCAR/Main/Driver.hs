@@ -214,7 +214,7 @@ pJSON  aText = do
 instance Yesod App
 
 mkYesod "App" [parseRoutes|
-/chat HomeR GET POST
+/chat HomeR GET
 |]
 
 
@@ -885,57 +885,13 @@ postHomeR = do
     incomingRequest <- (requireJsonBody :: Handler Value)
     liftIO $ Logger.debugM iModuleName ("Incoming request" <> (show incomingRequest))
     return ()
-getHomeR :: Handler Html
+getHomeR :: Handler String
 getHomeR = do
     request <- waiRequest
     liftIO $ Logger.infoM iModuleName 
-                $ "Request " ++ (show request)
+                $ "Request " <> (show request)
     webSockets ccarApp
-    defaultLayout $ do
-        [whamlet|
-            <div #output>
-            <form #form>
-                <input #input autofocus>
-        |]
-        toWidget [lucius|
-            \#output {
-                width: 600px;
-                height: 400px;
-                border: 1px solid black;
-                margin-bottom: 1em;
-                p {
-                    margin: 0 0 0.5em 0;
-                    padding: 0 0 0.5em 0;
-                    border-bottom: 1px dashed #99aa99;
-                }
-            }
-            \#input {
-                width: 600px;
-                display: block;
-            }
-        |]
-        toWidget [julius|
-            var url = document.URL,
-                output = document.getElementById("output"),
-                form = document.getElementById("form"),
-                input = document.getElementById("input"),
-                conn;
-
-            
-            conn = new WebSocket(url);
-
-            conn.onmessage = function(e) {
-                var p = document.createElement("p");
-                p.appendChild(document.createTextNode(e.data));
-                output.appendChild(p);
-            };
-
-            form.addEventListener("submit", function(e){
-                conn.send(input.value);
-                input.value = "";
-                e.preventDefault();
-            });
-        |]
+    return $ show request
 
 
 -- TODO: use parsec to return the stale client interval.
