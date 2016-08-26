@@ -214,7 +214,7 @@ pJSON  aText = do
 instance Yesod App
 
 mkYesod "App" [parseRoutes|
-/chat HomeR GET
+/chat HomeR GET POST
 |]
 
 
@@ -222,6 +222,7 @@ postGmailOauthR :: T.Text -> T.Text -> Handler T.Text
 postGmailOauthR = undefined
 getGmailOauthR :: T.Text -> T.Text -> Handler T.Text 
 getGmailOauthR a b = return $ a `mappend` b
+
 
 
 checkPassword :: CheckPassword -> IO (DestinationType, CheckPassword) 
@@ -879,7 +880,11 @@ writerThread app connection nickName terminate = do
                         WSConn.sendPing connection ("ping" :: T.Text)
                         writerThread app connection nickName terminate
 
-
+postHomeR :: Handler ()
+postHomeR = do 
+    incomingRequest <- (requireJsonBody :: Handler Value)
+    liftIO $ Logger.debugM iModuleName ("Incoming request" <> (show incomingRequest))
+    return ()
 getHomeR :: Handler Html
 getHomeR = do
     request <- waiRequest

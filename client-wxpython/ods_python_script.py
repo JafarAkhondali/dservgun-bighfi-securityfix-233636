@@ -1172,7 +1172,7 @@ class CCARClient:
     
     @asyncio.coroutine
     def ccarLoop(self, userName, password):
-        self.websocket = yield from websockets.connect(self.clientConnection(), ssl = True, loop = self.loop)
+        self.websocket = yield from websockets.connect(self.clientConnection(), loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
             payload = self.sendLoginRequest(userName, password);
@@ -1202,16 +1202,6 @@ class CCARClient:
         return "A23"
     def login (self, loop, userName, password, ssl):
         try:
-            try:
-                logger.debug("Try to disable certificate validation...")
-                _create_unverified_https_context = ssl._create_unverified_context
-            except AttributeError:
-                # Legacy Python that doesn't verify HTTPS certificates by default
-                pass
-            else:
-                # Handle target environment that doesn't support HTTPS verification
-                logger.debug("Handling the else");
-                ssl._create_default_https_context = _create_unverified_https_context
             self.loop = loop
             logger.debug("Connecting using %s -> %s", userName, password)
             if userName == None or userName == "" or password == None or password == "":
