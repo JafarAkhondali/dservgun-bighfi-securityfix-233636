@@ -12,7 +12,9 @@ import threading
 import logging
 import datetime
 import copy
-logging.basicConfig(filename="odspythonscript.log", level = logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
+
+logging.basicConfig(filename="odspythonscript.log", level = 
+        logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
 
 logger = logging.getLogger(__name__)    
 logger.debug("Loaded script file")
@@ -1235,6 +1237,5 @@ def StartClient(*args):
     except:
         logger.errors(traceback.format_exc())
 
-g_ExportedScripts = StartClient
 
-    
+g_exportedScripts = StartClient,

@@ -58,3 +58,7 @@ Self signing certificates
 
 To find out which version of ubuntu I am running
  lsb_release -a 
+
+Restart nginx
+======================================
+sudo service nginx restart

@@ -1,74 +1,108 @@
-module CCAR.Entitlements.GmailAuthentication(getDefaultRequest) where
-import Data.Text as T  hiding(foldl, foldr)
-import Control.Applicative as Appl
-import Data.Text.Encoding as E
-import Data.Time
-import Network.HTTP.Client as HttpClient
-import Network.HTTP.Conduit 
-import Data.Conduit 
-import Data.Conduit.Binary(sinkFile)
-import Network.HTTP.Types as W 
+{-# LANGUAGE OverloadedStrings #-}
+
+module CCAR.Entitlements.GmailAuthentication(authenticateGmail, EmailHint) where
+import Prelude	
+import Data.Conduit
+import Data.Conduit.Binary
+import Data.Aeson
+import Data.Aeson.Lens
+import Data.Aeson.Types
+import Control.Lens hiding((.=))
+import Data.Text as T 
+import Data.Text.Lazy as L
+import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Lazy.Encoding as LE
+import Control.Applicative
+import Control.Monad
+import Control.Exception
 import Control.Monad.IO.Class(liftIO)
+import Control.Monad.Trans(lift)
+import System.IO
+import System.Environment
 import Network.URI
-import Data.Monoid(mappend)
-import System.Environment(getEnv)
-import Control.Monad.Trans.Resource(runResourceT)
+import Data.Vector as V
+import GHC.Generics
+import System.Log.Logger as Logger
 
 
+iModuleName :: String 
+iModuleName = "CCAR.Entitlements.GmailAuthentication"
 
-data ResponseType = Token | ID_Token
+type EmailHint = T.Text
+data ApplicationType = Web | Desktop | Browser deriving (Show, Generic) 
+newtype Project = Project {unPrjId :: T.Text} deriving (Show, Generic) 
+newtype ClientSecret = ClientSecret {unClientSecrete :: T.Text} 
+instance Show ClientSecret where 
+	show _ = "************************"
 
-instance Show ResponseType where 
-	show Token = "Token"
-	show ID_Token = "id_token"
+instance ToJSON ClientSecret where 
+	toJSON _ = object ["secret" .= ("We cant display it in json" :: String)]
+data CertificateType = X509 | Unknown deriving (Show, Generic)
+type URL = T.Text
+newtype ClientIdentifier = ClientIdentifier {unCI :: T.Text} deriving (Show, Generic)
+newtype ProjectIdentifier = ProjectIdentifier {unPI :: T.Text} deriving (Show, Generic)
+data CertificateDetails = CertificateDetails {
+	certType :: CertificateType
+	, certURL :: URL
+} deriving (Generic, Show)
+data AuthorizationProviderDetails = AuthorizationProviderDetails {
+	authorizationURI :: URL
+	, tokenURI :: URL
+	, certificateDetails :: CertificateDetails
+} deriving (Generic, Show)
+data AuthenticationDetails = AuthenticationDetails {
+	applicationType :: ApplicationType
+	, clientId :: ClientIdentifier
+	, projectId :: ProjectIdentifier
+	, authDetails :: AuthorizationProviderDetails 
+	, clientSecret :: ClientSecret 
+	, redirectURLs :: [URL]
+	, javascriptOrigins :: [URL]
+} deriving (Generic, Show)
 
-data GmailOauth = GmailOauth {
-			url :: URI
-		, 	clientId :: T.Text
-		,	redirectURI :: URI
-		,   scope :: [URI]
-		,   responseType :: [ResponseType]
-	} deriving (Show)
+instance ToJSON AuthenticationDetails
+instance ToJSON AuthorizationProviderDetails 
+instance ToJSON CertificateDetails 
+instance ToJSON ApplicationType 
+instance ToJSON ClientIdentifier
+instance ToJSON ProjectIdentifier
+instance ToJSON CertificateType
 
-getScope :: [URI] -> T.Text 
-getScope a = foldr (mappend) " " (Prelude.map (T.pack . show) a)
-
-getResponseType :: [ResponseType] -> T.Text 
-getResponseType a = foldr mappend " "  (Prelude.map (T.pack . show ) a)
-
---createRequest :: GmailOauth -> IO Request 
-createRequest g@(GmailOauth u c r s responseTypes) = do 
-	req <- liftIO $ parseUrl (show u)
-	queryString <- return  [("client_id", Just $ E.encodeUtf8 c )
-						, ("redirect_uri", Just $ E.encodeUtf8 $ T.pack $ show r)
-						, ("scope" , Just $ E.encodeUtf8 $ getScope s)
-						, ("response_type", Just $ E.encodeUtf8 $ getResponseType responseTypes)
-					] 
-	nReq <- liftIO $ return $ setQueryString queryString req
-	return nReq 
-
-getDefaultRequest = do 
-	req <- liftIO $ parseUrl "https://accounts.google.com/o/oauth2/auth"
-	redirect <- liftIO $ parseUrl "http://chat.sarvabioremed.com/gmail_oauth2callback"
-	s1 <- liftIO $ parseUrl "https://www.googleapis.com/auth/userinfo.email"
-	s2 <- liftIO $  parseUrl "https://www.googleapis.com/auth/userinfo.profile"
-	clientId <- liftIO $ getEnv "GMAIL_CLIENT_ID"
-	reqU <- return . getUri $ req 
-	redU <- return . getUri $ redirect 
-	s1U <- return . getUri $ s1 
-	s2U <- return . getUri $ s2
-	g <- return $ GmailOauth reqU (T.pack clientId)
-				redU ([s1U, s2U]) [Token, ID_Token]
-	res <- createRequest g 
-	return $ T.pack $ show $ getUri $ res
+newtype Login = Login {unLoginhint :: T.Text} deriving (Show, Generic)
 
 
-testRequest = 
-	runResourceT $ do 
-		manager <- liftIO $ newManager 
-				$ tlsManagerSettings  {managerConnCount = 10}
-		req <- liftIO $ parseUrl "https://chat.sarvabioremed.com"
-		res <- http req manager 
-		responseBody res $$+- sinkFile "foo.txt"
+jsonToAuthenticationDetails :: AsValue s => s -> Maybe AuthenticationDetails
+jsonToAuthenticationDetails aString = do 
+	secret <- aString ^? key "web" . key "client_secret" . _String
+	clientId <- aString ^? key "web" . key "client_id" . _String
+	projectId <- aString ^? key "web" . key "project_id" . _String 
+	authUri <- aString ^? key "web" . key "auth_uri" . _String 
+	token_uri <- aString ^? key "web" . key "token_uri" . _String 
+	x509Provider <- aString ^? key "web" . key "auth_provider_x509_cert_url" . _String 
+	redirect_uris <- fmap V.toList (aString ^? key "web" . key "redirect_uris" . _Array)
+	javascript_origins <- fmap V.toList (aString ^? key "web" . key "javascript_origins" . _Array)
+	let authDetails = AuthorizationProviderDetails authUri token_uri
+							$ CertificateDetails X509 x509Provider
+	return $ AuthenticationDetails Web (ClientIdentifier clientId)
+									 	(ProjectIdentifier projectId) 
+									 	authDetails
+									 	(ClientSecret secret)
+									 	 []-- redirect_uris
+									 	[] --javascript_origins 
 
+{-- Read the credentials stored in a file and return the authentication details --}
+makeConnectionDetails :: FilePath -> IO (Maybe AuthenticationDetails)
+makeConnectionDetails aFile = do 
+	handle <- openFile aFile ReadMode
+	contents <- hGetContents handle
+	return $ jsonToAuthenticationDetails contents
+
+
+authenticateGmail :: EmailHint -> IO (Maybe AuthenticationDetails)
+authenticateGmail email = do 
+		getEnv ("GMAIL_OAUTH_LOCATION") >>= makeConnectionDetails 
+		`catch`
+		(\a@(SomeException e) -> do
+							Logger.errorM iModuleName $ show a
+							return Nothing )
 

@@ -24,6 +24,7 @@ import Control.Applicative as Appl
 
 
 type ClientIdentifier = T.Text
+type ClientIdentifierMap = TVar (Map.Map ClientIdentifier ClientState)
 newtype ActivePortfolio = ActivePortfolio {unP :: PortfolioT} 
         deriving(Show, Read, Eq, Data, Generic, Typeable)
 
@@ -83,6 +84,5 @@ createClientState nn aConn currentTime = do
 
 instance Show ClientState where 
     show cs = (show $ nickName cs) ++  " Connected"
-type ClientIdentifierMap = TVar (Map.Map ClientIdentifier ClientState)
 
 

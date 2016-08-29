@@ -212,18 +212,29 @@ pJSON  aText = do
 
 
 instance Yesod App
-
+type State = T.Text 
+type AuthCode = T.Text
+type Url = T.Text
 mkYesod "App" [parseRoutes|
 /chat HomeR GET
+/gmailOauthRequest/#EmailHint GmailOauthR GET POST
+/gmailOauthCallback/#State/#Url/#AuthCode GmailOauthCallbackR GET
 |]
 
 
-postGmailOauthR :: T.Text -> T.Text -> Handler T.Text
-postGmailOauthR = undefined
-getGmailOauthR :: T.Text -> T.Text -> Handler T.Text 
-getGmailOauthR a b = return $ a `mappend` b
+postGmailOauthR :: T.Text -> Handler T.Text
+postGmailOauthR a = undefined
+getGmailOauthR :: EmailHint -> Handler Value
+getGmailOauthR = \a -> do
+        x <- lift $ authenticateGmail a 
+        let y = toJSON x
+        return y
 
-
+--getGmailOauthCallbackR :: State -> Url -> AuthCode -> Handler (State, Url, AuthCode)
+getGmailOauthCallbackR s u a = do
+    liftIO $ Logger.debugM iModuleName $ show s <> " " <> show u <> " " <> show a
+    -- Here do a post using the client secret 
+    return a
 
 checkPassword :: CheckPassword -> IO (DestinationType, CheckPassword) 
 checkPassword b@(CheckPassword personNickName password _ attempts) = do
