@@ -12,7 +12,10 @@ import threading
 import logging
 import datetime
 import copy
-
+import webbrowser 
+import requests
+from urllib.request import urlretrieve
+from urllib.parse import urlencode
 logging.basicConfig(filename="odspythonscript.log", level = 
         logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
 
@@ -186,7 +189,11 @@ class Util:
         logger.debug("Creating new sheet " + aName)
         newSheet = model.Sheets.insertNewByName(aName, 1)
         return newSheet
-
+    @staticmethod
+    def getCellContent(aCell): 
+        sheet = Util.getWorksheetByName("user_login_sheet")
+        tRange = sheet.getCellRangeByName(aCell)
+        return tRange.String
 class OptionChain: 
     def __init__(self, jsonRecord) :
         logger.debug("Creating option chain " + str(jsonRecord))
@@ -1219,9 +1226,71 @@ class CCARClient:
             return "Finished processing login"
 ### End class
 
+# {
+#   "clientId": {
+#     "unCI": "977130536407-rat4p4k5t5dsiib5e0898pd7guec6mh2.apps.googleusercontent.com"
+#   },
+#   "javascriptOrigins": [
+#     "http://localhost:3000"
+#   ],
+#   "clientSecret": {
+#     "secret": "We cant display it in json"
+#   },
+#   "applicationType": "Web",
+#   "authDetails": {
+#     "tokenURI": "https://accounts.google.com/o/oauth2/token",
+#     "authorizationURI": "https://accounts.google.com/o/oauth2/auth",
+#     "certificateDetails": {
+#       "certType": "X509",
+#       "certURL": "https://www.googleapis.com/oauth2/v1/certs"
+#     }
+#   },
+#   "redirectURLs": [
+#     "http://localhost:3000/gmailOauthCallback"
+#   ],
+#   "projectId": {
+#     "unPI": "chromatic-alloy-126214"
+#   }
+# }
+
+class ClientOAuth :
+    def __init__(self, loginHint):
+        logger.debug("Creating an oauth client")
+        self.loginHint = loginHint
+        # This url needs to change to the actual site.
+        self.url = "http://localhost:3000/gmailOauthRequest"
+    def getRequest(self):
+        logger.debug("Creating a auth request")
+        r = requests.get(self.url + "/" + self.loginHint)
+        oauthJson = json.loads(r.text)
+        authUri = oauthJson["authDetails"]["authorizationURI"]
+        clientId = oauthJson["clientId"]["unCI"]
+        responseType = "code"
+        scope = "openid email"
+        redirect_uri = oauthJson["redirectURLs"][0]
+        login_hint = self.loginHint
+        payload = {
+                "client_id" : clientId, 
+                "response_type" : responseType,
+                "scope" : scope,
+                "redirect_uri" : redirect_uri,  
+                "login_hint" : login_hint}
+        logger.debug("Auth uri " + authUri)
+        logger.debug("payload " + urlencode(payload))
+        authRequest = authUri + "?" + urlencode(payload)
+        logger.debug ("Auth url " + authRequest)
+        return authRequest
+
+    def showBrowser(self):
+        logger.debug ("Display web browser with the server params");
+        webbrowser.open(self.getRequest())
+
 def StartClient(*args):
     try:
-
+        login_cell = "B5"
+        l = Util.getCellContent(login_cell)
+        oauth = ClientOAuth(l)
+        oauth.showBrowser()
         """Starts the CCAR client."""
         asyncio.get_event_loop().set_debug(enabled=True);
         logger.debug("Starting the client..%s", str(args))
@@ -1235,7 +1304,7 @@ def StartClient(*args):
         t = threading.Thread(target = client.login, args=(loop, l, p, Util.convertToBool(s)))
         t.start()
     except:
-        logger.errors(traceback.format_exc())
+        logger.error(traceback.format_exc())
 
 
 g_exportedScripts = StartClient,

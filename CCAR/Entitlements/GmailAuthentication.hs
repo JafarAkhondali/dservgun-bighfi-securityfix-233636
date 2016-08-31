@@ -13,6 +13,7 @@ import Data.Text.Lazy as L
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy.Encoding as LE
 import Control.Applicative
+import Data.Monoid
 import Control.Monad
 import Control.Exception
 import Control.Monad.IO.Class(liftIO)
@@ -78,18 +79,30 @@ jsonToAuthenticationDetails aString = do
 	projectId <- aString ^? key "web" . key "project_id" . _String 
 	authUri <- aString ^? key "web" . key "auth_uri" . _String 
 	token_uri <- aString ^? key "web" . key "token_uri" . _String 
-	x509Provider <- aString ^? key "web" . key "auth_provider_x509_cert_url" . _String 
-	redirect_uris <- fmap V.toList (aString ^? key "web" . key "redirect_uris" . _Array)
-	javascript_origins <- fmap V.toList (aString ^? key "web" . key "javascript_origins" . _Array)
+	x509Provider <- aString ^? key "web" . key "auth_provider_x509_cert_url" . _String
+ 	r <- aString ^? key "web" . key "redirect_uris" . _Array >>= \x1 ->
+ 			Control.Monad.mapM (return . textOnly)
+ 				$ V.toList x1			
+	javascript_origins <- aString ^? key "web" . key "javascript_origins" . _Array >>= \x1 -> 
+ 			Control.Monad.mapM (return . textOnly) $ V.toList x1
+
 	let authDetails = AuthorizationProviderDetails authUri token_uri
 							$ CertificateDetails X509 x509Provider
 	return $ AuthenticationDetails Web (ClientIdentifier clientId)
 									 	(ProjectIdentifier projectId) 
 									 	authDetails
 									 	(ClientSecret secret)
-									 	 []-- redirect_uris
-									 	[] --javascript_origins 
-
+									 	r
+									 	javascript_origins
+	where 
+		isSome (Just y) = True
+		isSome _ 		= False
+		-- Extract texts from json values. 
+		-- Hack: there must me a method in aeson to do this.			
+		textOnly :: Value -> T.Text
+		textOnly x = case x of 
+							String y -> y
+							_ 		 -> "Not a string"
 {-- Read the credentials stored in a file and return the authentication details --}
 makeConnectionDetails :: FilePath -> IO (Maybe AuthenticationDetails)
 makeConnectionDetails aFile = do 
