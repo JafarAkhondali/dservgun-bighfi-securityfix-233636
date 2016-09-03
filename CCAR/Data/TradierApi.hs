@@ -254,9 +254,13 @@ data QueryOptionChain = QueryOptionChain {
     qNickName :: T.Text
     , qCommandType :: T.Text
     , qUnderlying :: T.Text
-    , optionChain :: [OptionChain] 
-} deriving (Show, Eq)
+    , optionChain :: ![OptionChain] 
+} deriving (Eq)
 
+instance Show QueryOptionChain where 
+    show (QueryOptionChain a b c d) = 
+        show a <> ":" <> show b <> ":" <> show c <> ":" <> 
+                    show (Prelude.take 10 d) <> "..." <> (show $ Prelude.length $ d)
 
 parseQueryOptionChain v = QueryOptionChain <$> 
                 v .: "nickName" <*>
@@ -479,7 +483,7 @@ saveHistoricalData = do
                     return $ Right x 
                 Left y -> do 
                     yield $ Left $ T.pack $ "Nothing to save " `mappend` (show y)
-                    return $ Left $ "Nothing to save "
+                    return $ Left $ T.pack $ "Nothing to save "
             saveHistoricalData          
     
 
@@ -489,16 +493,17 @@ parseOptionChainValue = parse_float_with_maybe . T.unpack
 getBidRatio :: OptionChain -> BidRatio 
 getBidRatio x = BidRatio (parseOptionChainValue . optionChainLastBid $  x) (parseOptionChainValue . optionChainStrike $ x)
 
-queryOptionChain aNickName o = do 
-    x <- case (parse parseJSON o :: Result QueryOptionChain) of 
-        Success r@(QueryOptionChain ni cType underlying _) -> do 
-            optionChain <- dbOps $ selectList [OptionChainUnderlying ==. underlying] []
-            optionChainE <- Control.Monad.forM optionChain (\(Entity id x) -> return x)
-            return $ Right $ 
-                QueryOptionChain ni cType underlying optionChainE
-        Error s ->  return $ Left $ appError $ "Query users for a company failed  " `mappend` s
-
-    return (GC.Reply, x)
+queryOptionChain aNickName o = (\e@(SomeException a) -> return $ (GC.Reply, Left . appError $ show e)) `handle` 
+    do 
+        x <- case (parse parseJSON o :: Result QueryOptionChain) of 
+                Success r@(QueryOptionChain ni cType underlying _) -> do 
+                    -- Limit the size
+                    optionChain <- dbOps $ selectList [OptionChainUnderlying ==. underlying] []
+                    optionChainE <- Control.Monad.forM optionChain (\(Entity id x) -> return x)
+                    return $ Right $ 
+                        QueryOptionChain ni cType underlying (Prelude.take 50 optionChainE)
+                Error s ->  return $ Left $ appError $ "Query option chain for a company failed  " <> s
+        return (GC.Reply, x)
 
 saveOptionChains :: (MonadIO m) => Conduit (Either T.Text T.Text) m BS.ByteString
 saveOptionChains = do 

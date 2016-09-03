@@ -215,10 +215,11 @@ instance Yesod App
 type State = T.Text 
 type AuthCode = T.Text
 type Url = T.Text
+
 mkYesod "App" [parseRoutes|
 /chat HomeR GET
 /gmailOauthRequest/#EmailHint GmailOauthR GET POST
-/gmailOauthCallback/#State/#Url/#AuthCode GmailOauthCallbackR GET
+/gmailOauthCallback GmailOauthCallbackR GET
 |]
 
 
@@ -231,10 +232,11 @@ getGmailOauthR = \a -> do
         return y
 
 --getGmailOauthCallbackR :: State -> Url -> AuthCode -> Handler (State, Url, AuthCode)
-getGmailOauthCallbackR s u a = do
-    liftIO $ Logger.debugM iModuleName $ show s <> " " <> show u <> " " <> show a
+getGmailOauthCallbackR = do
+    request <- waiRequest
+    liftIO $ Logger.debugM iModuleName $ "Auth callback " <> (show request)
     -- Here do a post using the client secret 
-    return a
+    return ("Auth callback" :: String)
 
 checkPassword :: CheckPassword -> IO (DestinationType, CheckPassword) 
 checkPassword b@(CheckPassword personNickName password _ attempts) = do
@@ -332,6 +334,8 @@ processCommandValue app nickName aValue@(Object a)   = do
                                                     Company.QueryCompanyUsers))
                 String "QueryOptionChain" -> TradierApi.query nickName aValue
                             >>= \(gc, either) -> 
+                                do 
+                                Logger.debugM iModuleName $ show either
                                 return (gc, Util.serialize 
                                         (either :: Either ApplicationError 
                                                         TradierApi.QueryOptionChain))
@@ -362,7 +366,6 @@ processCommandValue app nickName aValue@(Object a)   = do
                         r <- case y of 
                                 Just x -> return $ Right x
                                 Nothing -> return $ Left $ ("Error in QueryMarketData" :: T.Text)
-                        Logger.debugM iModuleName $ "Response " <> (show r)
                         return (GroupCommunication.Reply 
                             , Util.serialize r)
                 String "ParsedCCARText" -> do 
@@ -909,7 +912,7 @@ getHomeR = do
 cleanupStaleConnections :: App -> IO ()
 cleanupStaleConnections app = loop 
     where loop = do 
-            threadDelay 5000000
+            threadDelay 50000000
             currentTime <- getCurrentTime
             Logger.debugM  "CCAR" $ "Waiting for stale connections-----" <> (show currentTime)
             -- Stale client is broken now.

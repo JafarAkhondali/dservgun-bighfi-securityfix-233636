@@ -5,6 +5,8 @@ import os
 os.environ['PYTHONASYNCIODEBUG'] = '1'
 import asyncio
 import websockets
+from websockets.client import WebSocketClientProtocol
+from websockets.protocol import WebSocketCommonProtocol
 import traceback
 import json
 import ssl
@@ -21,8 +23,6 @@ logging.basicConfig(filename="odspythonscript.log", level =
 
 logger = logging.getLogger(__name__)    
 logger.debug("Loaded script file")
-
-
 
 
 ##### Note: Requires python 3.4 or above
@@ -157,7 +157,8 @@ class Util:
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
         if model == None: 
-            logger.fatal("This can never happen")
+            logger.fatal("This can never happen " + worksheetName)
+
         sheet = model.Sheets.getByName(worksheetName) 
         return sheet   
     @staticmethod
@@ -351,6 +352,8 @@ class PortfolioGroup:
     @asyncio.coroutine
     def sendQueryOptionChain(self, portfolioSymbol):
         if portfolioSymbol.portfolioId == portfolioSymbol.symbol:
+            return;
+        if portfolioSymbol == None:
             return;
         payload = {
             "commandType" : "QueryOptionChain"
@@ -1010,7 +1013,7 @@ class CCARClient:
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "G" + str(computedRow), optionInstance.change))
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "H" + str(computedRow), optionInstance.openInterest))
 
-                    yield from asyncio.sleep(0.01, loop = self.loop)         
+                    yield from asyncio.sleep(0.1, loop = self.loop)         
                 except:
                     logger.error(traceback.format_exc())
                     logger.error(chain)
@@ -1178,10 +1181,13 @@ class CCARClient:
         return reply
 
 
-    
+    #klass=WebSocketClientProtocol, timeout=10, max_size=2 ** 20, 
+    #max_queue=2 ** 5, loop=None, origin=None, subprotocols=None, extra_headers=None, **kwds
     @asyncio.coroutine
     def ccarLoop(self, userName, password):
-        self.websocket = yield from websockets.connect(self.clientConnection(), loop = self.loop)
+        l = self.loop
+        self.websocket = yield from websockets.client.connect(self.clientConnection()
+                , loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
             payload = self.sendLoginRequest(userName, password);
@@ -1191,7 +1197,7 @@ class CCARClient:
                     response = yield from  self.websocket.recv()
                     commandType = self.getCommandType(response);                
                     reply = self.processIncomingCommand(response)
-                    logger.debug("Reply --> " + str(reply));
+                    #logger.debug("Reply --> " + str(reply));
                     if reply == None:
                         #logger.debug(" Not sending a response " + response);
                         pass
