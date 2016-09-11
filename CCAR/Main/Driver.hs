@@ -908,11 +908,16 @@ getHomeR = do
     return $ show request
 
 
+staleClientInterval :: IO Int 
+staleClientInterval = getEnv("STALE_CLIENT_INTERVAL") >>= \x -> return $ (parse_time_interval x)
+
+
 -- TODO: use parsec to return the stale client interval.
 cleanupStaleConnections :: App -> IO ()
 cleanupStaleConnections app = loop 
     where loop = do 
-            threadDelay 50000000
+            staleClientInterval <- staleClientInterval
+            threadDelay staleClientInterval -- Active connection for 30 seconds.
             currentTime <- getCurrentTime
             Logger.debugM  "CCAR" $ "Waiting for stale connections-----" <> (show currentTime)
             -- Stale client is broken now.
