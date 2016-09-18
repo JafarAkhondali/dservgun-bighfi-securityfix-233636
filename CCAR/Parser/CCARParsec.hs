@@ -9,6 +9,8 @@ import CCAR.Model.CcarDataTypes
 import CCAR.Model.Maturity
 import Control.Monad
 import Control.Monad.IO.Class(liftIO)
+import Data.Monoid((<>))
+import Data.Functor.Identity
 syntaxError i = CCARError $ Text.append "Invalid symbol " i 
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_-"
@@ -23,7 +25,7 @@ readExprTree input = case parse parseStatements (Text.unpack $ msg $ syntaxError
 readExpr :: Text -> Value
 readExpr input = case parse (parseStatements) (Text.unpack $ msg $ syntaxError input) (Text.unpack input) of 
     Left parseError ->  toJSON $ syntaxError (pack $ show $ errorPos parseError)
-    Right (val, pos) -> toJSON val
+    Right (val, pos) -> toJSON $ (val, show pos)
 
 
 
@@ -271,7 +273,7 @@ parseExpr = do
         <|> try parseRatesVegaStress
         <|> try parseIndexStress
         <|> try parseSectorStress
-        <|> parserError
+        <|> try parserError
 
 parseStatements :: Parser([Stress], SourcePos)
 parseStatements = do            

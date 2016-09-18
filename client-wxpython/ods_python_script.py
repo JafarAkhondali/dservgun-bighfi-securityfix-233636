@@ -1295,8 +1295,8 @@ def StartClient(*args):
     try:
         login_cell = "B5"
         l = Util.getCellContent(login_cell)
-        # oauth = ClientOAuth(l)
-        # oauth.showBrowser()
+        oauth = ClientOAuth(l)
+        oauth.showBrowser()
         """Starts the CCAR client."""
         asyncio.get_event_loop().set_debug(enabled=True);
         logger.debug("Starting the client..%s", str(args))
