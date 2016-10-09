@@ -1186,7 +1186,12 @@ class CCARClient:
     @asyncio.coroutine
     def ccarLoop(self, userName, password):
         l = self.loop
+        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = False
+        context.load_verify_locations("/home/stack/ca_bundle.pem")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
+                , ssl = context
                 , loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
@@ -1295,8 +1300,8 @@ def StartClient(*args):
     try:
         login_cell = "B5"
         l = Util.getCellContent(login_cell)
-        oauth = ClientOAuth(l)
-        oauth.showBrowser()
+        # oauth = ClientOAuth(l)
+        # oauth.showBrowser()
         """Starts the CCAR client."""
         asyncio.get_event_loop().set_debug(enabled=True);
         logger.debug("Starting the client..%s", str(args))
