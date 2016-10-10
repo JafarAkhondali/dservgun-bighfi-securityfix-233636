@@ -1189,7 +1189,7 @@ class CCARClient:
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.verify_mode = ssl.CERT_REQUIRED
         context.check_hostname = False
-        context.load_verify_locations("/home/stack/ca_bundle.pem")
+        context.load_verify_locations("./ca_bundle.pem")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
                 , ssl = context
                 , loop = self.loop)
