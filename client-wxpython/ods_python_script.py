@@ -2,7 +2,6 @@ import sys
 print("Using " + str(sys.version))
 import urllib
 import os
-os.environ['PYTHONASYNCIODEBUG'] = '1'
 import asyncio
 import websockets
 from websockets.client import WebSocketClientProtocol
