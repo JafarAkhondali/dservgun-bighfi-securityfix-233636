@@ -7,4 +7,5 @@ ${COPY} ${DIRECTORY}/${SOURCE} ${TARGET}
 echo `date`
 
 echo "Copying the bundle for "
+${COPY} ${DIRECTORY}/ca_bundle.pem.bak ${TARGET}
 ${COPY} ${DIRECTORY}/ca_bundle.pem ${TARGET}

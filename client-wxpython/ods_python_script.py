@@ -1188,9 +1188,11 @@ class CCARClient:
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.verify_mode = ssl.CERT_REQUIRED
         context.check_hostname = False
-        context.load_verify_locations("./ca_bundle.pem")
+        context.load_verify_locations("/usr/lib/libreoffice/share/Scripts/python/ca_bundle.pem")
+        
+        logger.debug("Before making connection")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
-                , ssl = context
+             #   , ssl = context XXX: Remember to using localhost. Write a function for this.
                 , loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
