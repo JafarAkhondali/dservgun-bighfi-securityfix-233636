@@ -1192,7 +1192,7 @@ class CCARClient:
         
         logger.debug("Before making connection")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
-             #   , ssl = context XXX: Remember to using localhost. Write a function for this.
+               # , ssl = context # XXX: Remember to using localhost. Write a function for this.
                 , loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
