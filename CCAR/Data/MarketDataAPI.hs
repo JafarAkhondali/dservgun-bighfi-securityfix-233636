@@ -72,6 +72,6 @@ queryMarketData = dbOps $ do
 queryOptionMarketData :: [CCAR.Main.DBUtils.PortfolioSymbol] -> IO [Entity CCAR.Main.DBUtils.OptionChain]
 queryOptionMarketData symbolList = dbOps $ do 
     r <- Control.Monad.foldM (\acc sym -> do 
-            val <- selectList [OptionChainUnderlying ==. (portfolioSymbolSymbol sym)][]
+            val <- selectList [OptionChainUnderlying ==. (portfolioSymbolSymbol sym)][LimitTo 200]
             return (val `mappend` acc) ) [] symbolList
     return r
