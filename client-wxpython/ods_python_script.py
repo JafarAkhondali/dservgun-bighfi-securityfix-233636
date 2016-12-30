@@ -1,5 +1,4 @@
 import sys
-print("Using " + str(sys.version))
 import urllib
 import os
 import asyncio
@@ -15,13 +14,13 @@ import datetime
 import copy
 import webbrowser 
 import requests
-from urllib.request import urlretrieve
+import urllib 
 from urllib.parse import urlencode
-logging.basicConfig(filename="odspythonscript.log", level = 
+logging.basicConfig(filename="./odspythonscript.log", level = 
         logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
 
 logger = logging.getLogger(__name__)    
-logger.debug("Loaded script file")
+logger.debug("Loaded script file "  + os.getcwd())
 
 
 ##### Note: Requires python 3.4 or above
@@ -70,6 +69,24 @@ logger.debug("Loaded script file")
 #      {}
 #  }
 
+
+
+def loadCABundle(siteca, filename):
+    try:
+        f = urllib.request.urlopen(siteca);
+        fw = open(filename, "w")
+        fw.write(f.read().decode('utf-8'))
+        fw.close()
+    except:
+        error = traceback.format_exc() 
+        logger.error(error);
+        return "Could not load bundle" 
+    finally:
+        logger.debug("Load ca bundle")
+        return "finished loading ca bundle"
+
+
+loadCABundle("http://beta.ccardemo.tech/pyclient.ca-bundle", "pyclient.ca-bundle")
 LOGIN_COMMAND = 1000
 CCAR_UPLOAD_COMMAND = 1001
 MANAGE_COMPANY = 1002
@@ -1188,11 +1205,13 @@ class CCARClient:
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.verify_mode = ssl.CERT_REQUIRED
         context.check_hostname = False
-        context.load_verify_locations("/usr/lib/libreoffice/share/Scripts/python/ca_bundle.pem")
+        bundle = open("./pyclient.ca-bundle")
+        logger.debug(bundle.read())
+        context.load_verify_locations("./pyclient.ca-bundle")
         
         logger.debug("Before making connection")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
-               # , ssl = context # XXX: Remember to using localhost. Write a function for this.
+                , ssl = context # XXX: Remember to using localhost. Write a function for this.
                 , loop = self.loop)
         logger.debug("CCAR loop %s, ***************", userName)
         try:
@@ -1221,6 +1240,9 @@ class CCARClient:
 
     def LOGGER_CELL():
         return "A23"
+
+
+
     def login (self, loop, userName, password, ssl):
         try:
             self.loop = loop
