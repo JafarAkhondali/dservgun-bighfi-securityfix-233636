@@ -86,7 +86,7 @@ def loadCABundle(siteca, filename):
         return "finished loading ca bundle"
 
 
-loadCABundle("http://beta.ccardemo.tech/pyclient.ca-bundle", "pyclient.ca-bundle")
+loadCABundle("http://beta.ccardemo.tech/pyclient.ca-bundle", "/tmp/pyclient.ca-bundle")
 LOGIN_COMMAND = 1000
 CCAR_UPLOAD_COMMAND = 1001
 MANAGE_COMPANY = 1002
@@ -1205,9 +1205,9 @@ class CCARClient:
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.verify_mode = ssl.CERT_REQUIRED
         context.check_hostname = False
-        bundle = open("./pyclient.ca-bundle")
+        bundle = open("/tmp/pyclient.ca-bundle")
         logger.debug(bundle.read())
-        context.load_verify_locations("./pyclient.ca-bundle")
+        context.load_verify_locations("/tmp/pyclient.ca-bundle")
         
         logger.debug("Before making connection")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
