@@ -88,7 +88,9 @@ def loadCABundle(siteca, filename):
         return "finished loading ca bundle"
 
 tempFile = tempfile.NamedTemporaryFile(delete=False)
-loadCABundle("http://beta.ccardemo.tech/pyclient.ca-bundle", tempFile.name)
+## https://www.labnol.org/internet/direct-links-for-google-drive/28356/
+bundleConvenienceLink = "https://drive.google.com/uc?id=0B6WIubsk0HIGN2RPVloxZ2o1STQ&export=download"
+loadCABundle(bundleConvenienceLink, tempFile.name)
 LOGIN_COMMAND = 1000
 CCAR_UPLOAD_COMMAND = 1001
 MANAGE_COMPANY = 1002
@@ -176,7 +178,7 @@ class Util:
         model = desktop.getCurrentComponent()
         if model == None: 
             logger.fatal("This can never happen " + worksheetName)
-            
+
 
         sheet = model.Sheets.getByName(worksheetName) 
         return sheet   
