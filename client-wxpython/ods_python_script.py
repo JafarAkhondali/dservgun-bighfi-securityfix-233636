@@ -15,6 +15,8 @@ import copy
 import webbrowser 
 import requests
 import urllib 
+import tempfile
+
 from urllib.parse import urlencode
 logging.basicConfig(filename="./odspythonscript.log", level = 
         logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
@@ -85,8 +87,8 @@ def loadCABundle(siteca, filename):
         logger.debug("Load ca bundle")
         return "finished loading ca bundle"
 
-
-loadCABundle("http://beta.ccardemo.tech/pyclient.ca-bundle", "/tmp/pyclient.ca-bundle")
+tempFile = tempfile.NamedTemporaryFile(delete=False)
+loadCABundle("http://beta.ccardemo.tech/pyclient.ca-bundle", tempFile.name)
 LOGIN_COMMAND = 1000
 CCAR_UPLOAD_COMMAND = 1001
 MANAGE_COMPANY = 1002
@@ -174,6 +176,7 @@ class Util:
         model = desktop.getCurrentComponent()
         if model == None: 
             logger.fatal("This can never happen " + worksheetName)
+            
 
         sheet = model.Sheets.getByName(worksheetName) 
         return sheet   
@@ -1205,9 +1208,9 @@ class CCARClient:
         context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         context.verify_mode = ssl.CERT_REQUIRED
         context.check_hostname = False
-        bundle = open("/tmp/pyclient.ca-bundle")
+        bundle = open(tempFile.name)
         logger.debug(bundle.read())
-        context.load_verify_locations("/tmp/pyclient.ca-bundle")
+        context.load_verify_locations(tempFile.name)
         
         logger.debug("Before making connection")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
