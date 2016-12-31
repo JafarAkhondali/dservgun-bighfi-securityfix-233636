@@ -75,6 +75,7 @@ logger.debug("Loaded script file "  + os.getcwd())
 
 def loadCABundle(siteca, filename):
     try:
+        logger.debug("Loading from " + siteca);
         f = urllib.request.urlopen(siteca);
         fw = open(filename, "w")
         fw.write(f.read().decode('utf-8'))
