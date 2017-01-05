@@ -10,6 +10,7 @@ import 							System.IO
 import 							Data.Text as T
 import 							GHC.Generics
 import 							Data.Data
+import							Data.Foldable as Folds (foldr)
 import 							Data.Monoid (mappend, (<>))
 import 							Data.Typeable 
 import 							Data.Aeson
@@ -80,7 +81,7 @@ portfolioBeta portfolioId startDate endDate = do
 					return $ (benchmark, gradient * weight, qty)) result 
 	return $ Right (weightedBeta, result)
 	where 
-		totalQty ps = List.foldl' (\acc (_, cur) -> acc + cur) 0.0 ps 
+		totalQty ps = Folds.foldr (+) 0.0 $ List.map snd ps 
 
 
 

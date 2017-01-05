@@ -11,6 +11,7 @@ import Data.Monoid((<>))
 import Data.List as List
 import Data.Map as Map 
 import Data.Set as Set
+import Data.Foldable as Folds
 import Data.Aeson
 import GHC.Generics
 import Data.Data
@@ -116,9 +117,11 @@ computePrice aDate pSymbol aMap =
 
 
 evalP :: [PortfolioSymbol] -> UTCTime -> Map(T.Text, UTCTime) HistoricalPrice -> ([PortfolioSymbol], UTCTime, Double)
-evalP pS aDate aMap = (pS, aDate, val)
-					where 
-						val = List.foldl' (\acc ele -> acc + (computePrice aDate ele aMap)) 0 pS
+evalP pS aDate aMap = 
+	(pS, aDate, val)
+	where 
+		val = Folds.foldr (+) 0.0 $ 
+					List.map (\ele -> computePrice aDate ele aMap) pS
 
 evalPortfolio :: [PortfolioSymbol] -> Set UTCTime -> Map (T.Text, UTCTime) HistoricalPrice -> [([PortfolioSymbol], UTCTime, Double)]
 evalPortfolio portfolios dates ref  = Prelude.map (\x -> evalP portfolios x ref) (Set.elems dates)
@@ -132,6 +135,7 @@ getSymbols aPortfolio = do
 	backEnd <- ask
 	portfolioSymbolQuery <- selectList [PortfolioSymbolPortfolio ==. aPortfolio] []
 	mapM (\a@(Entity _ y) -> return y) portfolioSymbolQuery
+
 
 computeHistoricalPrice :: T.Text -> IO ([Key MarketDataProvider], [([PortfolioSymbol], UTCTime, Double)])
 computeHistoricalPrice aPortfolio = dbOps $ do
@@ -154,7 +158,7 @@ computeHistoricalPrice aPortfolio = dbOps $ do
 
 data PrevState = PrevState {h :: HistoricalPrice}
 
-{-- The uuid for the portfolio. --}
+{-- uuid for the portfolio. --}
 portfolioValue :: T.Text -> IO [HistoricalPrice]
 portfolioValue aPortfolio = do 
 	(providerSet, x) <- computeHistoricalPrice aPortfolio
