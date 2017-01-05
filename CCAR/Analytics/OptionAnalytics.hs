@@ -13,6 +13,8 @@ import                          Data.Data
 import                          Data.Monoid (mappend, (<>))
 import                          Data.Typeable 
 import                          Data.Aeson
+import                          Data.List
+import                          Data.List.Split as Split
 import                          CCAR.Main.Util as Util
 import                          CCAR.Parser.CSVParser as CSVParser
 import                          System.Log.Logger as Logger
@@ -268,6 +270,7 @@ pricerReaderThread a c n m = do
 
 loop :: [OptionChain] -> ReaderT PricerConfiguration (StateT Bool IO) ()
 loop = \opts ->  do 
+        let chunks = Split.chunksOf 10 opts -- Make 10 configurable.
         PricerConfiguration app conn nickName marketData mpi <- ask
         conns <- atomically $ getClientState nickName app
         case conns of 
@@ -275,12 +278,13 @@ loop = \opts ->  do
                     lift . put $ True 
                     return () 
             h:_ -> do 
-                    Control.Monad.mapM( \x -> do                
-                        Control.Monad.mapM( \c -> do 
-                            pricer <- liftIO $ getPricer  marketData c 
-                            liftIO $ Logger.debugM iModuleName $ "Sending " <> (show pricer)
-                            atomically $ writeTBQueue (pricerReadQueue x) pricer) opts              
-                            )conns
+                    Control.Monad.mapM(\y -> 
+                        Control.Monad.mapM( \x -> do                
+                            Control.Monad.mapM ( \c -> do 
+                                pricer <- liftIO $ getPricer  marketData c 
+                                liftIO $ Logger.debugM iModuleName $ "Sending " <> (show pricer)
+                                atomically $ writeTBQueue (pricerReadQueue x) pricer) y
+                            ) conns) chunks
                     return ()
                     loop opts   
 
