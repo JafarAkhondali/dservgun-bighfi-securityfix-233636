@@ -270,7 +270,7 @@ pricerReaderThread a c n m = do
 
 loop :: [OptionChain] -> ReaderT PricerConfiguration (StateT Bool IO) ()
 loop = \opts ->  do 
-        let chunks = Split.chunksOf 10 opts -- Make 10 configurable.
+        let chunks = Split.chunksOf 100 opts -- Make 10 configurable.
         PricerConfiguration app conn nickName marketData mpi <- ask
         conns <- atomically $ getClientState nickName app
         case conns of 
