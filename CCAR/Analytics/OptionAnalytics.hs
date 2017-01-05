@@ -247,6 +247,7 @@ data PricerConfiguration = PricerConfiguration{
         , nickName :: T.Text
         , marketData :: Map T.Text HistoricalPrice
         , useMPI :: Bool
+        , chunkSize :: Int
     }
 type PriceReader = ReaderT PricerConfiguration (StateT Bool IO)
 type PricerConfig = Int
@@ -259,8 +260,8 @@ newtype PricerReaderApp a = PricerReaderApp {
 
 pricerReaderThread a c n m = do 
     (y, z) <- flip runStateT False $ do 
-                flip runReaderT (PricerConfiguration a c n m True) $ do 
-                    PricerConfiguration app conn nickName marketData mpi<- ask
+                flip runReaderT (PricerConfiguration a c n m True 300) $ do 
+                    PricerConfiguration app conn nickName marketData mpi _<- ask
                     opts <- liftIO $ getOptionMarketData nickName
                     x <- lift $ State.get
                     loop opts 
@@ -270,8 +271,9 @@ pricerReaderThread a c n m = do
 
 loop :: [OptionChain] -> ReaderT PricerConfiguration (StateT Bool IO) ()
 loop = \opts ->  do 
-        let chunks = Split.chunksOf 100 opts -- Make 10 configurable.
-        PricerConfiguration app conn nickName marketData mpi <- ask
+        PricerConfiguration app conn nickName marketData mpi chunkSize <- ask
+        let chunks = Split.chunksOf chunkSize opts -- Make 10 configurable.
+
         conns <- atomically $ getClientState nickName app
         case conns of 
             [] -> do 
@@ -295,12 +297,12 @@ defaultPricerConfiguration a c n m = PricerConfiguration a c n m True
 
 pricerWriterThread a c n m = do
     sH <- optionPricer defaultOptionServer
-    flip runReaderT (PricerConfiguration a c n m False) $ do 
+    flip runReaderT (PricerConfiguration a c n m False 100) $ do 
             x <- atomically $ do
                     clientStates <- getClientState n a 
                     case clientStates of 
                         clientState:_ -> readTBQueue (pricerReadQueue clientState)
-            PricerConfiguration a c n m mpi <- ask
+            PricerConfiguration a c n m mpi chunkSize <- ask
             pricer2 <- liftIO $ writeOptionPricer x sH
             liftIO $ analyticsPollingInterval >>= threadDelay
             liftIO $ WSConn.sendTextData c (Util.serialize pricer2)

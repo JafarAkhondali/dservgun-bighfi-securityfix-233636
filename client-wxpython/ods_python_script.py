@@ -72,6 +72,21 @@ logger.debug("Loaded script file "  + os.getcwd())
 #  }
 
 
+def loadCABundleOffline(certFile, filename):
+    try:
+        logger.debug("Loading from " + certFile);
+        f = open(certFile, "r")
+        fw = open(filename, "w")
+        fw.write(f.read())
+        fw.close()
+    except:
+        error = traceback.format_exc() 
+        logger.error(error);
+        return "Could not load bundle" 
+    finally:
+        logger.debug("Load ca bundle")
+        return "finished loading ca bundle"
+
 
 def loadCABundle(siteca, filename):
     try:
@@ -90,8 +105,16 @@ def loadCABundle(siteca, filename):
 
 tempFile = tempfile.NamedTemporaryFile(delete=False)
 ## https://www.labnol.org/internet/direct-links-for-google-drive/28356/
+### When connected
+
+
 bundleConvenienceLink = "https://drive.google.com/uc?id=0B6WIubsk0HIGN2RPVloxZ2o1STQ&export=download"
 loadCABundle(bundleConvenienceLink, tempFile.name)
+
+### when offline
+#bundleConvenienceFile = "/home/stack/asm-ccar/bighfi/client-hx/pyclient.ca-bundle"
+#loadCABundleOffline(bundleConvenienceFile, tempFile.name)
+
 LOGIN_COMMAND = 1000
 CCAR_UPLOAD_COMMAND = 1001
 MANAGE_COMPANY = 1002
