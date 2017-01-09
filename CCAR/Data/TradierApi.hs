@@ -686,6 +686,7 @@ tradierRunner app conn nickName terminate =
         Logger.debugM iModuleName "Waiting for data"
         tradierPollingInterval >>= \x -> threadDelay x
         mySymbols <- Portfolio.queryUniqueSymbols nickName
+        Logger.debugM iModuleName $ "mkSymbols" <> (show mySymbols)
         a2   <- atomically $ MarketDataAPI.getActivePortfolio nickName app  
         marketDataMap <- MarketDataAPI.queryMarketData
         upd <- Control.Monad.mapM (\x -> do

@@ -198,14 +198,15 @@ class Util:
 
     @staticmethod
     def getWorksheetByName(worksheetName): 
-        desktop = XSCRIPTCONTEXT.getDesktop()
-        model = desktop.getCurrentComponent()
-        if model == None: 
-            logger.fatal("This can never happen " + worksheetName)
-
-
-        sheet = model.Sheets.getByName(worksheetName) 
-        return sheet   
+        try:
+            desktop = XSCRIPTCONTEXT.getDesktop()
+            model = desktop.getCurrentComponent()
+            if model == None: 
+                logger.fatal("This can never happen " + worksheetName)
+            sheet = model.Sheets.getByName(worksheetName) 
+            return sheet   
+        except:
+            logger.error(traceback.format_exc())
     @staticmethod
     def convertToBool(aString):    
         bool(aString)

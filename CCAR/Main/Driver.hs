@@ -647,9 +647,7 @@ startUserThreads app connection nickNameV = do
                         , (b, "Reader thread", T.unpack nickNameV)
                         , (c, "Job thread", T.unpack nickNameV)
                         , (d, "Market data thread" , T.unpack nickNameV)]
-        A.waitAny [a,  b
-            ,  c
-            , d]
+        A.waitAny [a, b, c, d]
         return "Threads had exception" 
 -- Do not let multiple connections to the same nick name.
 -- How do we allow multiple connections for handling larger data, such as
