@@ -108,12 +108,12 @@ tempFile = tempfile.NamedTemporaryFile(delete=False)
 ### When connected
 
 
-bundleConvenienceLink = "https://drive.google.com/uc?id=0B6WIubsk0HIGN2RPVloxZ2o1STQ&export=download"
-loadCABundle(bundleConvenienceLink, tempFile.name)
+#bundleConvenienceLink = "https://drive.google.com/uc?id=0B6WIubsk0HIGN2RPVloxZ2o1STQ&export=download"
+#loadCABundle(bundleConvenienceLink, tempFile.name)
 
 ### when offline
-#bundleConvenienceFile = "/home/stack/asm-ccar/bighfi/client-hx/pyclient.ca-bundle"
-#loadCABundleOffline(bundleConvenienceFile, tempFile.name)
+bundleConvenienceFile = "/home/stack/asm-ccar/bighfi/client-hx/pyclient.ca-bundle"
+loadCABundleOffline(bundleConvenienceFile, tempFile.name)
 
 LOGIN_COMMAND = 1000
 CCAR_UPLOAD_COMMAND = 1001
@@ -184,7 +184,11 @@ class TableDisplay:
         self.dataMap[key] = anEntry
 
     def getComputedRow(self, anEntry):
-        return self.indexMap[anEntry.key()]
+        key = anEntry.key();
+        if key in self.indexMap:
+            return self.indexMap[key]
+        else:
+            return self.availableRowIndex
 
 # Design notes: 
 # Use composition over inheritance.
@@ -213,10 +217,13 @@ class Util:
     @staticmethod
     def updateCellContent(worksheet, cell, value):
         try:
-            logger.debug("Updating worksheet by name " + worksheet + str(cell) + ": Value " + str(value))
-            sheet = Util.getWorksheetByName(worksheet)
-            tRange = sheet.getCellRangeByName(cell)
-            tRange.String = value
+            if cell == None:
+                logger.debug("No cell found for " + str(value))
+            else:
+                logger.debug("Updating worksheet by name " + worksheet + "CELL " + str(cell) + ": Value " + str(value))
+                sheet = Util.getWorksheetByName(worksheet)
+                tRange = sheet.getCellRangeByName(cell)
+                tRange.String = value
         except:
             logger.error(traceback.format_exc())
     @staticmethod
@@ -277,41 +284,22 @@ class PortfolioSymbol:
         self.updator = jsonRecord["updator"]
         self.nickName = jsonRecord["nickName"]
     def key(self): 
-        return (self.symbol + self.side + self.symbolType + self.portfolioId);
+        key = self.symbol + self.side + self.symbolType + self.portfolioId;
+        logger.debug("Symbol key " + key);
+        return key;
 class PortfolioSymbolTable :
     def __init__(self, ccarClient):
         self.ccarClient = ccarClient
-        self.table = {}
+        self.table = TableDisplay()
         self.rowMap = {}
-        self.currentRow = 2 # Exclude the header
     @asyncio.coroutine
     def add(self, portfolioSymbol):
-        self.table[portfolioSymbol.key()] = portfolioSymbol
-        if self.currentRow in self.rowMap:
-            self.currentRow = self.currentRow + 1
-            self.rowMap[portfolioSymbol.key()] = self.currentRow
-        else:
-            self.rowMap[portfolioSymbol.key()] = self.currentRow
-            self.currentRow = self.currentRow + 1
-        yield from self.updatePortfolioDetails(portfolioSymbol);
-        return portfolioSymbol
+        self.table.add(portfolioSymbol)
     def getPortfolioSymbols(self):
-            return table.values()
+        return table.values()
 
-    def updatePortfolioDetails(self, value):
-        logger.debug("Updating spreadsheet with " + str(value) + " Row number " + 
-                            str(self.rowMap[value.key()]))
-        portfolioId = value.portfolioId
-        row = self.rowMap[value.key()]
-        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), value.symbol))
-        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), value.quantity))
-        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), value.side))
-        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), value.symbolType))
-        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), value.value))
-        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), value.stressValue))
-        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
-        yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
-
+    def getComputedRow(self, portfolioSymbol):
+        return self.table.getComputedRow(portfolioSymbol)
 
 class PortfolioGroup:
     def __init__(self, ccarClient, portfolioSummaries):
@@ -430,8 +418,24 @@ class PortfolioGroup:
         try:
             logger.debug("Updating using manage portfolio symbol response " + str(jsonResponse))
             portfolioSymbol = PortfolioSymbol(jsonResponse);
+            portfolioId = portfolioSymbol.portfolioId
             self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
-            self.ccarClient.loop.create_task(self.portfolioSymbolTable.add(portfolioSymbol))
+            self.portfolioSymbolTable.add(portfolioSymbol)
+            row = self.portfolioSymbolTable.getComputedRow(portfolioSymbol)
+            logger.debug ("Computed row for portfolio symbol " + str(row))
+
+            if row == None:
+                pass
+            else:
+                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
+                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
+                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
+                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
+                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+                yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
+
         except:
             logger.error(traceback.format_exc())
 
@@ -445,44 +449,29 @@ class PortfolioGroup:
                 x = result["Right"]
                 portfolioSymbol = PortfolioSymbol(x);
                 logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
-                self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
+                portfolioId = portfolioSymbol.portfolioId
+                self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioId)
                 self.ccarClient.loop.create_task(self.portfolioSymbolTable.add(portfolioSymbol))
                 self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(portfolioSymbol))
                 self.ccarClient.loop.create_task(self.sendQueryOptionChain(portfolioSymbol))
                 # Find the current row for the portfolio symbol.
-                yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
+                row = self.portfolioSymbolTable.getComputedRow(portfolioSymbol)
+                logger.debug ("Computed row for portfolio symbol " + str(row))
+                if row == None:
+                    pass
+                else:
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+                    yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
         except:
             logger.error("Message " + str(result))
             logger.error(traceback.format_exc())
-    @asyncio.coroutine
-    def display(self):
-        row = 2
-        if(self.portfolioSymbolTable == None):
-            logger.debug("Returning. Symbol table not found")
-            return;
-        logger.debug("Refreshing display for portfolio symbol table");
-        pTable = copy.deepcopy(self.portfolioSymbolTable.table)
-        for value in pTable.values():
-            portfolioId = value.portfolioId
-            if portfolioId == "INVALID PORTFOLIO":
-                continue;
-            logger.debug("Updating portfolio " + portfolioId)
-            logger.debug("Processing " + str(value) + "--->" + portfolioId)
-            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), value.symbol))
-            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), value.quantity))
-            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), value.side))
-            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), value.symbolType))
-            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), value.value))
-            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), value.stressValue))
-            yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
-            yield from asyncio.sleep(0.01, loop = self.ccarClient.loop)
-            row = row + 1
 
-    @asyncio.coroutine
-    def refreshDisplay(self):
-        while True:
-            self.ccarClient.loop.create_task(self.display())
-            yield from asyncio.sleep(1, loop = self.ccarClient.loop)
     
     @asyncio.coroutine
     def sendMarketData(self):
@@ -533,6 +522,7 @@ class CCARClient:
         self.marketDataRow = 2
         self.marketDataRowMap = {} # 
         self.marketDataBak = {} # To swap dictionaries outside iteration.
+
         self.portfolioDetailCount = 0 
         self.portfolioDetailStartRow = 5
         self.portfolioDetailStartCol = "C"
