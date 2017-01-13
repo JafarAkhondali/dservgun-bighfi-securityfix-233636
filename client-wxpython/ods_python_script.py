@@ -18,6 +18,7 @@ import urllib
 import tempfile
 
 from urllib.parse import urlencode
+
 logging.basicConfig(filename="./odspythonscript.log", level = 
         logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
 
@@ -161,6 +162,9 @@ COMPANY_SELECTION_LIST_CONTROL = "BrokerList"
 COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
 
 
+
+
+
 ## Display a dictionary on the spreadsheet.
 ## Clients update elements to the map
 ## Display an element if needed.
@@ -287,6 +291,65 @@ class PortfolioSymbol:
         key = self.symbol + self.side + self.symbolType + self.portfolioId;
         logger.debug("Symbol key " + key);
         return key;
+
+    @staticmethod
+    def createPortfolioSymbol(portfolioId, rowNumber):
+                symbol      = Util.getCellContent(portfolioId, "A" + str(row))
+                quantity    = Util.getCellContent(portfolioId, "B" + str(row)) 
+                side        = Util.getCellContent(portfolioId, "C" + str(row))
+                symbolType  = Util.getCellContent(portfolioId, "D" + str(row))
+                value       = Util.getCellContent(portfolioId, "E" + str(row))
+                stressValue = Util.getCellContent(portfolioId, "F" + str(row))
+                dateTime    = str(datetime.datetime.now())
+                jsonrecord = {
+                    symbol : symbol 
+                    , quantity : quantity
+                    , side : side 
+                    , symbolType : symbolType 
+                    , value : value 
+                    , stressValue : stressValue 
+                    , dateTime : dateTime
+                }
+                return PortfolioSymbol(jsonrecord)
+
+
+    # private function insertPortfolioSymbolI(aSymbol : String, aSymbolType : String, aSide: String, quantity : String){
+    #     trace("Inserting portfolio symbol through upload ");
+    #     var portfolioSymbolT : PortfolioSymbolT = {
+    #         crudType : "Create"
+    #         , commandType : "ManagePortfolioSymbol"
+    #         , portfolioId : getPortfolioId()
+    #         , symbol : aSymbol
+    #         , quantity : quantity
+    #         , side : aSide
+    #         , symbolType : aSymbolType
+    #         , value : "0.0"
+    #         , stressValue : "0.0"
+    #         , creator : MBooks_im.getSingleton().getNickName()
+    #         , updator : MBooks_im.getSingleton().getNickName()
+    #         , nickName : MBooks_im.getSingleton().getNickName()
+    #     }
+    #     model.insertStream.resolve(portfolioSymbolT);
+    # }
+    ## Create a manage portfolio json request
+    def createManagePortfolioSymbol(self, crudType): 
+        result = {
+            crudType : crudType
+            , commandType : "ManagePortfolioSymbol"
+            , portfolioId : self.portfolioId
+            , symbol : self.symbol 
+            , quantity : self.quantity 
+            , side : self.side 
+            , symbolType: self.symbolType
+            , value : self.value
+            , stressValue : self.stressValue 
+            , creator : self.creator 
+            , updator : self.updator 
+            , nickName : self.nickName            
+        }
+        return result;
+
+
 class PortfolioSymbolTable :
     def __init__(self, ccarClient):
         self.ccarClient = ccarClient
@@ -350,13 +413,14 @@ class PortfolioGroup:
         Util.updateCellContent(aWorksheetName, "G1", "Last update time")
 
 
+    def getPortfolioIds(self):
+        result = [] 
+        for portfolio in self.portfolioSummaries: 
+            summary = portfolio["Right"]
+            result.append(summary["portfolioId"])
+        return result
+
     def sendPortfolioRequests(self):
-        # var payload : PortfolioSymbolQueryT = {
-        #     commandType : "QueryPortfolioSymbol"
-        #     , portfolioId : activePortfolio.portfolioId
-        #     , nickName : MBooks_im.getSingleton().getNickName()
-        #     , resultSet : []
-        # }
         for portfolio in self.portfolioSummaries:
             summary = portfolio["Right"]
             payload = {
@@ -438,6 +502,8 @@ class PortfolioGroup:
 
         except:
             logger.error(traceback.format_exc())
+
+
 
     @asyncio.coroutine
     def handleQueryPortfolioSymbolResponse(self, jsonResponse):
@@ -768,9 +834,28 @@ class CCARClient:
             yield from asyncio.sleep(1, loop = self.loop) # When the dictionary is empty.
 
     @asyncio.coroutine
+    def checkForChanges(self):
+        Util.updateCellContent("user_login_sheet", "A32", "Updating portfolio")
+
+        try:
+            keepChecking = True 
+            autoSaveInterval = int("1")
+            while True: 
+                logger.debug("Checking for changes")
+                portfolioIds = self.portfolioGroup.getPortfolioIds()
+                for p in portfolioIds :
+                    Util.updateCellContent("user_login_sheet", "A32", "Updating portfolio")
+                    x = PortfolioChanges(self, p);
+                    x.computeChangesForPortfolio();
+                yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
+        except:
+            logger.error(traceback.format_exc())
+            return None
+    @asyncio.coroutine
     def keepAlivePing(self):
         try:
             logger.debug("Starting the keep alive timer..")
+
             while True: 
                 reply = self.sendKeepAlive();
                 logger.debug("Reply " + str(reply))
@@ -796,6 +881,7 @@ class CCARClient:
             self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
         (self.loop.create_task(self.keepAlivePing()))
+        (self.loop.create_task(self.checkForChanges()))
         logger.debug("Handling login response: " + str(data))
         result = self.sendUserLoggedIn(data);
         return result
@@ -1280,33 +1366,26 @@ class CCARClient:
             return "Finished processing login"
 ### End class
 
-# {
-#   "clientId": {
-#     "unCI": "977130536407-rat4p4k5t5dsiib5e0898pd7guec6mh2.apps.googleusercontent.com"
-#   },
-#   "javascriptOrigins": [
-#     "http://localhost:3000"
-#   ],
-#   "clientSecret": {
-#     "secret": "We cant display it in json"
-#   },
-#   "applicationType": "Web",
-#   "authDetails": {
-#     "tokenURI": "https://accounts.google.com/o/oauth2/token",
-#     "authorizationURI": "https://accounts.google.com/o/oauth2/auth",
-#     "certificateDetails": {
-#       "certType": "X509",
-#       "certURL": "https://www.googleapis.com/oauth2/v1/certs"
-#     }
-#   },
-#   "redirectURLs": [
-#     "http://localhost:3000/gmailOauthCallback"
-#   ],
-#   "projectId": {
-#     "unPI": "chromatic-alloy-126214"
-#   }
-# }
 
+
+# We find out all the portfolio changes
+class PortfolioChanges:
+    def __init__(self, ccarClient, portfolioId):
+        logger.debug("Collect a list of all changes for this portfolio")
+        self.updates = {} 
+        self.adds = {} 
+        self.deletes = {}
+        self.portfolioId = portfolioId
+        self.ccarClient = ccarClient
+
+    def computeChangesForPortfolio(self, portfolioId):
+        logger.debug("Compute changes for a")
+        maxRows = 10;
+        portfolioSymbols = self.ccarClient.portfolioSymbolTable.values();
+        for x in range(1, maxRows):
+            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, x)
+            logger.debug("Creating portfolio " + p.portfolioSymbol);
+### End Class
 class ClientOAuth :
     def __init__(self, loginHint):
         logger.debug("Creating an oauth client")
