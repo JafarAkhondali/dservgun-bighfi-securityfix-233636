@@ -1445,6 +1445,7 @@ class PortfolioChanges:
             p = PortfolioSymbol.createPortfolioSymbol(portfolioId, "", "", "", x)
             if p != None:
                 localSymbols.append(p)
+
         localSet = set(localSymbols)
         logger.debug("Local set " + str(localSet))
         updateSet = serverSet.intersection(localSet)
@@ -1455,16 +1456,10 @@ class PortfolioChanges:
         for a in serverSet:
             logger.debug("Evaluating for delete: " + str(a));
             if localSet.issuperset(set([a])):
-                pass
+                added.append(a)
             else:
                 deleted.append(a)
 
-        for a in serverSet:
-            logger.debug("Evaluating for update " + str(a));
-            if serverSet.issuperset(set([a])):
-                pass
-            else:
-                added.append(a)
 
         addedSet = set(added)
         deletedSet = set(deleted)
