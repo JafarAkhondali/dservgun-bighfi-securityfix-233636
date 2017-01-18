@@ -193,7 +193,8 @@ class TableDisplay:
             return self.indexMap[key]
         else:
             return self.availableRowIndex
-
+    def values(self):
+        return self.dataMap.values();
 # Design notes: 
 # Use composition over inheritance.
 class Util:
@@ -237,21 +238,34 @@ class Util:
     @staticmethod 
     def workSheetExists(aName):
         sheet = Util.getWorksheetByName(aName);
+        return (sheet != None)
+    
+    #Either create a new sheet or return an existing one.
     @staticmethod
-    def insertNewWorksheet(aName): 
+    def upsertNewWorksheet(aName): 
         if aName == None:
             return None
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
         logger.debug("Model " + str(model.Sheets))
         logger.debug("Creating new sheet " + aName)
-        newSheet = model.Sheets.insertNewByName(aName, 1)
-        return newSheet
+        if Util.workSheetExists(aName):
+            return Util.getWorksheetByName(aName)
+        else:
+            newSheet = model.Sheets.insertNewByName(aName, 1)
+            return newSheet
+
+    @staticmethod 
+    def getCellContentForSheet(sheetName, aCell):
+        sheet = Util.getWorksheetByName(sheetName);
+        tRange = sheet.getCellRangeByName(aCell);
+        return tRange.String
+    
     @staticmethod
     def getCellContent(aCell): 
-        sheet = Util.getWorksheetByName("user_login_sheet")
-        tRange = sheet.getCellRangeByName(aCell)
-        return tRange.String
+        return Util.getCellContentForSheet("user_login_sheet", aCell);
+
+
 class OptionChain: 
     def __init__(self, jsonRecord) :
         logger.debug("Creating option chain " + str(jsonRecord))
@@ -265,8 +279,20 @@ class OptionChain:
         self.openInterest = jsonRecord["openInterest"]
         self.underlying = jsonRecord["underlying"]
         self.lastAsk = jsonRecord["lastAsk"]
+
     def key(self):
             return (self.symbol + self.underlying + self.strike + self.expiration)
+    def __hash__(self) :
+            return (hash(self.key()))
+    def __eq__(self, other):
+        if type(self) is type(other):
+            result = self.symbol == other.symbol 
+            result = result and (self.underlying == other.underlying)
+            result = result and (self.strike == other.strike) 
+            result = result and (self.expiration == other.expiration);
+            return result;
+        else:
+            return False;
 
 class PortfolioSymbolParseError(Exception) : 
         def __init__(self, value):
@@ -287,29 +313,49 @@ class PortfolioSymbol:
         self.creator = jsonRecord["creator"]
         self.updator = jsonRecord["updator"]
         self.nickName = jsonRecord["nickName"]
+    def __eq__(self, other) :
+        if type(self) is type(other):
+            result = self.portfolioId == other.portfolioId 
+            result = result and  (self.symbol == other.symbol)
+            result = result and  (self.side == other.side) 
+            result = result and  (self.symbolType == other.symbolType)
+            return result 
+        else:
+            return False;
+    def __hash__(self): 
+        strCat = self.portfolioId + self.symbol + self.side + self.symbolType;
+        return (hash(strCat))
     def key(self): 
         key = self.symbol + self.side + self.symbolType + self.portfolioId;
         logger.debug("Symbol key " + key);
         return key;
 
     @staticmethod
-    def createPortfolioSymbol(portfolioId, rowNumber):
-                symbol      = Util.getCellContent(portfolioId, "A" + str(row))
-                quantity    = Util.getCellContent(portfolioId, "B" + str(row)) 
-                side        = Util.getCellContent(portfolioId, "C" + str(row))
-                symbolType  = Util.getCellContent(portfolioId, "D" + str(row))
-                value       = Util.getCellContent(portfolioId, "E" + str(row))
-                stressValue = Util.getCellContent(portfolioId, "F" + str(row))
+    def createPortfolioSymbol(portfolioId, creator, updator, nickName, row):
+                symbol      = Util.getCellContentForSheet(portfolioId, "A" + str(row))
+                quantity    = Util.getCellContentForSheet(portfolioId, "B" + str(row)) 
+                side        = Util.getCellContentForSheet(portfolioId, "C" + str(row))
+                symbolType  = Util.getCellContentForSheet(portfolioId, "D" + str(row))
+                value       = Util.getCellContentForSheet(portfolioId, "E" + str(row))
+                stressValue = Util.getCellContentForSheet(portfolioId, "F" + str(row))
                 dateTime    = str(datetime.datetime.now())
+                logger.debug("Creating portfolio id " + portfolioId + " for row " + str(row));
+                if symbol == None or symbol == "": 
+                    return None;
                 jsonrecord = {
-                    symbol : symbol 
-                    , quantity : quantity
-                    , side : side 
-                    , symbolType : symbolType 
-                    , value : value 
-                    , stressValue : stressValue 
-                    , dateTime : dateTime
+                    "portfolioId" : portfolioId
+                    , "symbol" : symbol 
+                    , "quantity" : quantity
+                    , "side" : side 
+                    , "symbolType" : symbolType 
+                    , "value" : value 
+                    , "stressValue" : stressValue 
+                    , "dateTime" : dateTime
+                    , "creator" : creator 
+                    , "updator" : updator 
+                    , "nickName" : nickName
                 }
+                logger.debug("Portfolio json " + str(jsonrecord))
                 return PortfolioSymbol(jsonrecord)
 
 
@@ -359,7 +405,7 @@ class PortfolioSymbolTable :
     def add(self, portfolioSymbol):
         self.table.add(portfolioSymbol)
     def getPortfolioSymbols(self):
-        return table.values()
+        return self.table.values()
 
     def getComputedRow(self, portfolioSymbol):
         return self.table.getComputedRow(portfolioSymbol)
@@ -381,7 +427,10 @@ class PortfolioGroup:
         self.brokerDictionary = {};
         self.portfolioGroupWorksheets = {}
 
+    def str(self):
+        return str(portfolioSummaries);
     def updateContents(self):
+        logger.debug("Updating contents for portfolio group " + str(self))
         for summaryDictionary in self.portfolioSummaries:
             summary = summaryDictionary["Right"]
 
@@ -397,7 +446,7 @@ class PortfolioGroup:
             Util.updateCellContent(self.portfolioWorksheet, 
                                 companyCol + cellPosition, summary["companyId"])
             self.portfolioDetailCount  = self.portfolioDetailCount + 1                            
-            newSheet = Util.insertNewWorksheet(summary["portfolioId"])
+            newSheet = Util.upsertNewWorksheet(summary["portfolioId"])
             self.createRows(summary["portfolioId"])
             self.portfolioGroupWorksheets[summary["portfolioId"]] = newSheet
             
@@ -835,19 +884,25 @@ class CCARClient:
 
     @asyncio.coroutine
     def checkForChanges(self):
-        Util.updateCellContent("user_login_sheet", "A32", "Updating portfolio")
-
         try:
             keepChecking = True 
-            autoSaveInterval = int("1")
+            autoSaveInterval = int(self.activePortfolioIntervalF())
             while True: 
-                logger.debug("Checking for changes")
-                portfolioIds = self.portfolioGroup.getPortfolioIds()
-                for p in portfolioIds :
-                    Util.updateCellContent("user_login_sheet", "A32", "Updating portfolio")
-                    x = PortfolioChanges(self, p);
-                    x.computeChangesForPortfolio();
+                logger.debug("Checking for changes " + str(self.portfolioGroup))
+
+                if self.portfolioGroup != None: 
+                    logger.debug("Iterating through portfolios");              
+                    portfolioIds = self.portfolioGroup.getPortfolioIds()
+                    for p in portfolioIds :
+                        logger.debug("Updating " + str(p))
+                        x = PortfolioChanges(self, p);
+                        x.computeChangesForPortfolio(p);
+                    yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
+                else:
+                    logger.debug("Waiting for changes...");
+                    yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
                 yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
+
         except:
             logger.error(traceback.format_exc())
             return None
@@ -1057,7 +1112,9 @@ class CCARClient:
         pass
 
     def updatePortfolios(self, portfolioList):
+        logger.debug("Updating portfolios");
         self.portfolioGroup = PortfolioGroup(self, portfolioList);
+        logger.debug("Portfolio group " + str(self.portfolioGroup));
         self.portfolioGroup.updateAndSend();
         #(self.loop.create_task(self.updateActivePortfolios()))
 
@@ -1379,12 +1436,43 @@ class PortfolioChanges:
         self.ccarClient = ccarClient
 
     def computeChangesForPortfolio(self, portfolioId):
-        logger.debug("Compute changes for a")
+        logger.debug("Compute changes for a " + portfolioId);
         maxRows = 10;
-        portfolioSymbols = self.ccarClient.portfolioSymbolTable.values();
+        portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
+        serverSet = set(portfolioSymbolsServer)
+        localSymbols = []
         for x in range(1, maxRows):
-            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, x)
-            logger.debug("Creating portfolio " + p.portfolioSymbol);
+            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, "", "", "", x)
+            if p != None:
+                localSymbols.append(p)
+        localSet = set(localSymbols)
+        logger.debug("Local set " + str(localSet))
+        updateSet = serverSet.intersection(localSet)
+        deleted = []
+        added = []
+        # There must be operations already defining this.
+        # TBD: This seems odd, that there is no existence check.
+        for a in serverSet:
+            logger.debug("Evaluating for delete: " + str(a));
+            if localSet.issuperset(set([a])):
+                pass
+            else:
+                deleted.append(a)
+
+        for a in serverSet:
+            logger.debug("Evaluating for update " + str(a));
+            if serverSet.issuperset(set([a])):
+                pass
+            else:
+                added.append(a)
+
+        addedSet = set(added)
+        deletedSet = set(deleted)
+        logger.debug("Updated " + str(updateSet))
+        logger.debug("Deleted " + str(deletedSet))
+        logger.debug("Added " + str(addedSet))
+        
+
 ### End Class
 class ClientOAuth :
     def __init__(self, loginHint):
