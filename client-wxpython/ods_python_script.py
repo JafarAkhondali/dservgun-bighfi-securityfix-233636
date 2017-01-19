@@ -314,6 +314,9 @@ class PortfolioSymbol:
         self.creator = jsonRecord["creator"]
         self.updator = jsonRecord["updator"]
         self.nickName = jsonRecord["nickName"]
+        self.dateTime = str(datetime.datetime.now())
+        # self.dateTime = jsonRecord["dateTime"]
+
     def __eq__(self, other) :
         if type(self) is type(other):
             result = self.portfolioId == other.portfolioId 
@@ -331,24 +334,24 @@ class PortfolioSymbol:
         logger.debug("Symbol key " + key);
         return key;
 
-    def updateCrudType(aCrudType):
+    def updateCrudType(self, aCrudType):
         self.crudType = aCrudType;
     
     def asJson(self): 
         jsonRecord = {
-                "commandType"   :       self.commandType 
-            ,   "crudType"      :       self.crudType 
-            ,   "portfolioId"   :       self.portfolioId 
-            ,   "symbol"        :       self.symbol
-            ,   "quantity"      :       self.quantity 
-            ,   "side"          :       self.side 
-            ,   "symbolType"    :       self.symbolType 
-            ,   "value"         :       self.value
-            ,   "stressValue"   :       self.stressValue 
-            ,   "dateTime"      :       self.dateTime
-            ,   "creator"       :       self.creator
-            ,   "updator"       :       self.updator
-            ,   "nickName"      :       self.nickName
+                u"commandType"   :       self.commandType 
+            ,   u"crudType"      :       self.crudType 
+            ,   u"portfolioId"   :       self.portfolioId 
+            ,   u"symbol"        :       self.symbol
+            ,   u"quantity"      :       self.quantity 
+            ,   u"side"          :       self.side 
+            ,   u"symbolType"    :       self.symbolType 
+            ,   u"value"         :       self.value
+            ,   u"stressValue"   :       self.stressValue 
+            ,   u"dateTime"      :       self.dateTime
+            ,   u"creator"       :       self.creator
+            ,   u"updator"       :       self.updator
+            ,   u"nickName"      :       self.nickName
         }
         return jsonRecord
     @staticmethod
@@ -492,8 +495,6 @@ class PortfolioGroup:
             result.append(summary["portfolioId"])
         return result
 
-    def sendPortfolioManageRequests(self, portfolioSymbol):
-        payload = portfolioSymbol
     def sendPortfolioRequests(self):
         for portfolio in self.portfolioSummaries:
             summary = portfolio["Right"]
@@ -1141,8 +1142,8 @@ class CCARClient:
         pass 
     def handleManagePortfolio(self, jsonResponse):
         pass
-    def sendManagePortfolioSymbol(self, jsonRequest) :
-        pass
+    def sendManagePortfolioSymbol(self, jsonRequest):
+        self.sendAsTask(jsonRequest);
     @asyncio.coroutine 
     def handleManagePortfolioSymbol(self, jsonResponse):
         logger.debug("Process handle portfolio symbol " + str(jsonResponse))
@@ -1455,35 +1456,26 @@ class PortfolioChanges:
         localSymbols = []
 
         nickName = self.ccarClient.getNickName()
-        for x in range(1, maxRows):
+        for x in range(2, maxRows):
             p = PortfolioSymbol.createPortfolioSymbol(portfolioId, "", "", nickName, "", x)
+            pCopy = p 
             if p != None:
                 localSymbols.append(p)
 
-        localSet = set(localSymbols)
-        logger.debug("Local set " + str(localSet))
-        updateSet = serverSet.intersection(localSet)
-        deleted = []
-        added = []
-        # There must be operations already defining this.
-        # TBD: This seems odd, that there is no existence check.
-        for a in serverSet:
-            logger.debug("Evaluating for delete: " + str(a));
-            if localSet.issuperset(set([a])):
-                a.updateCrudType("Create");
-                added.append(a)
+            logger.debug("Evaluating for crud type: " + str(p));
+            for p in serverSet: 
+                break;
+            if not (p == None or pCopy == None):
+                if p.quantity != pCopy.quantity:
+                    pCopy.updateCrudType("P_Update")
+                else:
+                    pCopy.updateCrudType("Create")
             else:
-                a.updateCrudType("Delete");
-                deleted.append(a)
+                    if pCopy != None:
+                        pCopy.updateCrudType("Delete")
+            if pCopy != None:
+                self.ccarClient.sendManagePortfolioSymbol(pCopy.asJson())
 
-
-        addedSet = set(added)
-        deletedSet = set(deleted)
-
-        logger.debug("Updated " + str(updateSet))
-        logger.debug("Deleted " + str(deletedSet))
-        logger.debug("Added " + str(addedSet))
-        
 
 ### End Class
 class ClientOAuth :
