@@ -327,6 +327,7 @@ updatePortfolioSymbolI portfolioSymbol a@(PortfolioSymbolT crType commandType
 								updator
 								requestor) = dbOps $ do 
 			currentTime <- liftIO $ getCurrentTime
+			liftIO $ Logger.debugM iModuleName $ "Updating portfolio " <> (show a)
 			case portfolioSymbol of 
 				Right (psID, _) -> do 
 								x <- update psID [PortfolioSymbolQuantity =. quantity
@@ -350,6 +351,7 @@ updatePortfolioSymbol a@(PortfolioSymbolT crType commandType
 								requestor) = dbOps $ do 
 		portfolioSymbol <- liftIO $ readPortfolioSymbol a 
 		currentTime <- liftIO $ getCurrentTime
+		liftIO $ Logger.debugM iModuleName $ "Updating portfolio symbol " <> (show a)
 		case portfolioSymbol of 
 			Right (psID, _) -> do 
 							x <- update psID [PortfolioSymbolQuantity =. (read $ T.unpack quantity)

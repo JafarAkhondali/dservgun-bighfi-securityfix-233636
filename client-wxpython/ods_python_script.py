@@ -605,8 +605,11 @@ class PortfolioGroup:
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                    
+                    if portfolioSymbol.value != "0.0":
+                        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                    if portfolioSymbol.stressValue != "0.0":
+                        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
                     yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
         except:
@@ -1452,27 +1455,23 @@ class PortfolioChanges:
         logger.debug("Compute changes for a " + portfolioId);
         maxRows = 10;
         portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
-        serverSet = set(portfolioSymbolsServer)
+        serverDict = {}
+        for s in portfolioSymbolsServer: 
+            serverDict[s] = s
         localSymbols = []
 
         nickName = self.ccarClient.getNickName()
         for x in range(2, maxRows):
-            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, "", "", nickName, "", x)
-            pCopy = p 
-            if p != None:
-                localSymbols.append(p)
-
-            logger.debug("Evaluating for crud type: " + str(p));
-            for p in serverSet: 
-                break;
-            if not (p == None or pCopy == None):
-                if p.quantity != pCopy.quantity:
-                    pCopy.updateCrudType("P_Update")
+            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, nickName, nickName, nickName, "", x)
+            if p in serverDict: 
+                if not (p == None or pCopy == None):
+                    pCopy.updateCrudType("Create") # Need to understand this.
                 else:
-                    pCopy.updateCrudType("Create")
-            else:
                     if pCopy != None:
                         pCopy.updateCrudType("Delete")
+            else: 
+                ## do something here.
+
             if pCopy != None:
                 self.ccarClient.sendManagePortfolioSymbol(pCopy.asJson())
 
