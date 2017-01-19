@@ -302,7 +302,8 @@ class PortfolioSymbolParseError(Exception) :
 class PortfolioSymbol:
     # Deal with Right/Errors inside the constructor
     def __init__(self, jsonRecord) :
-        self.commandType = ""
+        self.commandType = jsonRecord["commandType"]
+        self.crudType = jsonRecord["crudType"]
         self.portfolioId = jsonRecord["portfolioId"]
         self.symbol = jsonRecord["symbol"]
         self.quantity = jsonRecord["quantity"]
@@ -330,8 +331,28 @@ class PortfolioSymbol:
         logger.debug("Symbol key " + key);
         return key;
 
+    def updateCrudType(aCrudType):
+        self.crudType = aCrudType;
+    
+    def asJson(self): 
+        jsonRecord = {
+                "commandType"   :       self.commandType 
+            ,   "crudType"      :       self.crudType 
+            ,   "portfolioId"   :       self.portfolioId 
+            ,   "symbol"        :       self.symbol
+            ,   "quantity"      :       self.quantity 
+            ,   "side"          :       self.side 
+            ,   "symbolType"    :       self.symbolType 
+            ,   "value"         :       self.value
+            ,   "stressValue"   :       self.stressValue 
+            ,   "dateTime"      :       self.dateTime
+            ,   "creator"       :       self.creator
+            ,   "updator"       :       self.updator
+            ,   "nickName"      :       self.nickName
+        }
+        return jsonRecord
     @staticmethod
-    def createPortfolioSymbol(portfolioId, creator, updator, nickName, row):
+    def createPortfolioSymbol(portfolioId, creator, updator, nickName, crudType, row):
                 symbol      = Util.getCellContentForSheet(portfolioId, "A" + str(row))
                 quantity    = Util.getCellContentForSheet(portfolioId, "B" + str(row)) 
                 side        = Util.getCellContentForSheet(portfolioId, "C" + str(row))
@@ -343,7 +364,9 @@ class PortfolioSymbol:
                 if symbol == None or symbol == "": 
                     return None;
                 jsonrecord = {
-                    "portfolioId" : portfolioId
+                      "commandType" : "ManagePortfolioSymbol"
+                    , "crudType" : crudType
+                    , "portfolioId" : portfolioId
                     , "symbol" : symbol 
                     , "quantity" : quantity
                     , "side" : side 
@@ -469,6 +492,8 @@ class PortfolioGroup:
             result.append(summary["portfolioId"])
         return result
 
+    def sendPortfolioManageRequests(self, portfolioSymbol):
+        payload = portfolioSymbol
     def sendPortfolioRequests(self):
         for portfolio in self.portfolioSummaries:
             summary = portfolio["Right"]
@@ -670,27 +695,12 @@ class CCARClient:
         sheet = model.Sheets.getByIndex(0)
 
 
-    def INFO_CELL(self) : 
-        return ("A" + str(self.INFO_ROW_COUNT))
-
 
     def getCellContent(self, aCell): 
         sheet = self.getWorksheet(0);
         tRange = sheet.getCellRangeByName(aCell)
         return tRange.String
 
-    def certificateFileName(self):
-        return self.getCellContent("E3")
-
-    def getSSLClientContext(self):
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        sslCertificateFileName = self.certificateFileName()
-        if sslCertificateFileName == "" or sslCertificateFileName == None:
-            return None
-        logger.debug("Using certificate " + self.certificateFileName())
-        ssl_context.load_verify_locations(self.certificateFileName())
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-        return ssl_context
 
 
     def getWorksheet(self, anIndex) :
@@ -726,6 +736,8 @@ class CCARClient:
         tRange = sheet.getCellRangeByName(aCell)
         tRange.String = aValue
 
+    def getNickName(self): 
+        return self.getUserName();        
     def getUserName(self) :
         return self.getCellContent(self.LOGIN_CELL)
 
@@ -1441,8 +1453,10 @@ class PortfolioChanges:
         portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
         serverSet = set(portfolioSymbolsServer)
         localSymbols = []
+
+        nickName = self.ccarClient.getNickName()
         for x in range(1, maxRows):
-            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, "", "", "", x)
+            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, "", "", nickName, "", x)
             if p != None:
                 localSymbols.append(p)
 
@@ -1456,13 +1470,16 @@ class PortfolioChanges:
         for a in serverSet:
             logger.debug("Evaluating for delete: " + str(a));
             if localSet.issuperset(set([a])):
+                a.updateCrudType("Create");
                 added.append(a)
             else:
+                a.updateCrudType("Delete");
                 deleted.append(a)
 
 
         addedSet = set(added)
         deletedSet = set(deleted)
+
         logger.debug("Updated " + str(updateSet))
         logger.debug("Deleted " + str(deletedSet))
         logger.debug("Added " + str(addedSet))
