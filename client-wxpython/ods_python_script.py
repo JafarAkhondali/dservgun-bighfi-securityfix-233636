@@ -604,12 +604,9 @@ class PortfolioGroup:
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
-                    
-                    if portfolioSymbol.value != "0.0":
-                        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
-                    if portfolioSymbol.stressValue != "0.0":
-                        yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))                    
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
                     yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
         except:
@@ -1459,21 +1456,26 @@ class PortfolioChanges:
         for s in portfolioSymbolsServer: 
             serverDict[s] = s
         localSymbols = []
-
+        localDict = {}
         nickName = self.ccarClient.getNickName()
         for x in range(2, maxRows):
             p = PortfolioSymbol.createPortfolioSymbol(portfolioId, nickName, nickName, nickName, "", x)
-            if p in serverDict: 
-                if not (p == None or pCopy == None):
-                    pCopy.updateCrudType("Create") # Need to understand this.
-                else:
-                    if pCopy != None:
-                        pCopy.updateCrudType("Delete")
-            else: 
-                ## do something here.
+            localSymbols.append(p)
+        for s in localSymbols :
+            localDict[s] = s 
+        for l in localDict:
+            # Create handles both insert and update. This is obviously not efficient.
+            # We will manage updates correctly.
+            if l != None:
+                l.updateCrudType("Create")
+                self.ccarClient.sendManagePortfolioSymbol(l.asJson())
+        for s in serverDict:
+            if (not (s in localDict)):
+                # Server has it, local doesnt
+                if s != None:
+                    s.updateCrudType("Delete")
+                    self.ccarClient.sendManagePortfolioSymbol(s.asJson())
 
-            if pCopy != None:
-                self.ccarClient.sendManagePortfolioSymbol(pCopy.asJson())
 
 
 ### End Class

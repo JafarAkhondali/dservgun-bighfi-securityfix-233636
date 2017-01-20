@@ -12,7 +12,7 @@ module CCAR.Model.PortfolioSymbol (
 	) where 
 import CCAR.Main.DBUtils
 import GHC.Generics
-import Data.Aeson as J
+import Data.Aeson 																as J
 import Yesod.Core
 
 import Data.Monoid
@@ -30,23 +30,22 @@ import Control.Monad
 import Control.Monad.Trans.Maybe
 import Control.Monad.Logger														(runStderrLoggingT)
 import Network.WebSockets.Connection 											as WSConn
-import Data.Text as T
-import Data.Text.Lazy as L 
+import Data.Text 																as T
+import Data.Text.Lazy 															as L 
 
-import Data.Aeson.Encode as En
-import Data.Text.Lazy.Encoding as E
-import Data.Aeson as J
-import Data.HashMap.Lazy as LH (HashMap, lookup)
-import Control.Applicative as Appl
-import Data.Aeson.Encode as En
-import Data.Aeson.Types as AeTypes(Result(..), parse)
+import Data.Text.Lazy.Encoding 													as E
+import Data.HashMap.Lazy 														as LH (HashMap, lookup)
+import Control.Applicative 														as Appl
+import Data.Aeson.Encode 														as En
+import Data.Aeson.Types 														as AeTypes(Result(..), parse)
 
 import Database.Persist 
-import Database.Persist.Postgresql as DB
+import Database.Persist.Postgresql 												as DB
 import Database.Persist.TH
 
 import GHC.Generics
 import GHC.IO.Exception
+import Data.List 																as List hiding(insert, delete)
 
 import Data.Data
 import Data.Monoid (mappend)
@@ -55,11 +54,11 @@ import System.IO
 import Data.Time
 import Data.UUID.V1
 import Data.UUID as UUID
-import qualified CCAR.Main.EnumeratedTypes as EnTypes 
-import qualified CCAR.Main.GroupCommunication as GC
+import qualified CCAR.Main.EnumeratedTypes										as EnTypes 
+import qualified CCAR.Main.GroupCommunication 									as GC
 import CCAR.Main.Util as Util
 import CCAR.Command.ApplicationError
-import Database.Persist.Postgresql as Postgresql 
+import Database.Persist.Postgresql 												as Postgresql 
 -- For haskell shell
 import HSH
 import System.IO(openFile, writeFile, IOMode(..))
@@ -152,6 +151,13 @@ instance FromJSON PortfolioSymbolQueryT where
 	parseJSON _ 	= Appl.empty
 
 
+
+getLatestPrice :: T.Text -> IO [HistoricalPrice]
+getLatestPrice v = do 
+	y <- dbOps $ selectList [HistoricalPriceSymbol ==. (v)] [Desc HistoricalPriceDate, LimitTo 1]
+	return $ List.map (\a@(Entity x z) -> z) y
+
+
 -- | Return portfolio symbols for a given portfolio UUID.
 getPortfolioSymbols :: PortfolioUUID -> IO (Either T.Text [(T.Text, Double)])
 getPortfolioSymbols pUUID = dbOps $ do
@@ -198,7 +204,8 @@ daoToDtoDefaults :: T.Text -> PortfolioSymbol -> IO (Either T.Text PortfolioSymb
 daoToDtoDefaults nickName pS = do 
 		portfolioUUID <- Portfolio.queryPortfolioUUID $ portfolioSymbolPortfolio pS
 		case portfolioUUID of 
-			Right pUUID -> return $ daoToDto P_Update pUUID nickName nickName nickName pS "0.0"
+			Right pUUID -> do 
+					return $ daoToDto P_Update pUUID nickName nickName nickName pS "0.0"
 			Left y -> return $ Left y
 
 
@@ -222,6 +229,17 @@ manageSearch aNickName aValue@(Object a) =
 							"Error processing manage search for portfolio symbol: "  ++ s)
 
 
+computePortfolio :: PortfolioSymbol -> IO PortfolioSymbol 
+computePortfolio  = \x -> do 
+		lastPriceList<- getLatestPrice $ portfolioSymbolSymbol x 
+		case lastPriceList of 
+			lastPrice:_ -> do 
+					let lastClose = historicalPriceClose lastPrice 
+					let pValue = Util.parse_float $ T.unpack $ portfolioSymbolQuantity x 
+					let r = pValue * lastClose 
+					return $ x {portfolioSymbolValue = T.pack $ show r}
+			[]	-> return $ x {portfolioSymbolValue = "0.0"}
+
 -- create, read , update and delete operations
 manage :: NickName -> Value -> IO (GC.DestinationType, T.Text)
 manage aNickName aValue@(Object a) = 
@@ -238,19 +256,20 @@ manage aNickName aValue@(Object a) =
 							portfolioEntity <- dbOps $ get k 
 							case portfolioEntity of 
 								Just pEVa -> do 
-									res1 <- return $ daoToDto (pstCrudType r) 
-										portfolioUUID
-										creator
-										updator 
-										(unN aNickName)
-										pEVa "0.0"
-									case res1 of 
-										Right pT -> return (GC.Reply, serialize res1)
-										Left f -> do 
-											liftIO $ Logger.errorM iModuleName $ 
-												"Error processing manage portfolio " `mappend` (show aValue)
-											return (GC.Reply, serialize $ appError $ 
-												"Error processing manage portfolio " ++ (T.unpack f))
+										x <- computePortfolio pEVa							
+										res1 <- return $ daoToDto (pstCrudType r) 
+											portfolioUUID
+											creator
+											updator 
+											(unN aNickName)
+											x "0.0"
+										case res1 of 
+											Right pT -> return (GC.Reply, serialize res1)
+											Left f -> do 
+												liftIO $ Logger.errorM iModuleName $ 
+													"Error processing manage portfolio " `mappend` (show aValue)
+												return (GC.Reply, serialize $ appError $ 
+													"Error processing manage portfolio " ++ (T.unpack f))
 				Left p2 -> do
 							liftIO $ Logger.errorM iModuleName $ 
 								"Error processing manage portfolio " `mappend` (show aValue)
@@ -302,7 +321,7 @@ insertPortfolioSymbol a@(PortfolioSymbolT crType commandType
 								req <- getBy $ UniqueNickName requestor 
 								case (cr, up, req) of 
 									(Just (Entity crID crValue), Just (Entity upID upValue), Just (Entity reqID reqValue)) -> do 
-											n <- insert $ PortfolioSymbol pID symbol 
+											n <- Postgresql.insert $ PortfolioSymbol pID symbol 
 														(quantity) 
 														side symbolType 
 														"0.0"
@@ -367,7 +386,7 @@ deletePortfolioSymbol a = dbOps $ do
 	case portfolioSymbol of 
 		Right (psID, _) -> do 
 			liftIO $ Logger.debugM iModuleName $ "Deleting portfolio symbol " `mappend` (show a) 
-			delete psID 
+			Postgresql.delete psID 
 			return portfolioSymbol 
 		Left x -> do 
 			liftIO $ Logger.errorM iModuleName $ "Error deleting portfolio symbol " `mappend` (show a)
