@@ -208,7 +208,10 @@ class Util:
     @staticmethod
     def getWorksheetByName(worksheetName): 
         try:
+            logger.info("Worksheet name " + worksheetName);
             desktop = XSCRIPTCONTEXT.getDesktop()
+            if desktop == None:
+                return None;
             model = desktop.getCurrentComponent()
             if model == None: 
                 logger.fatal("This can never happen " + worksheetName)
@@ -224,7 +227,7 @@ class Util:
         try:
             if cell == None:
                 logger.debug("No cell found for " + str(value))
-            else:
+            else:                
                 logger.debug("Updating worksheet by name " + worksheet + "CELL " + str(cell) + ": Value " + str(value))
                 sheet = Util.getWorksheetByName(worksheet)
                 tRange = sheet.getCellRangeByName(cell)
@@ -557,12 +560,14 @@ class PortfolioGroup:
         try:
             logger.debug("Updating using manage portfolio symbol response " + str(jsonResponse))
             portfolioSymbol = PortfolioSymbol(jsonResponse);
+            if portfolioSymbol.crudType == "Delete":
+                logger.debug("Portfolio deleted. Updating client " + str(jsonResponse));
+                return;
             portfolioId = portfolioSymbol.portfolioId
             self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
             self.portfolioSymbolTable.add(portfolioSymbol)
             row = self.portfolioSymbolTable.getComputedRow(portfolioSymbol)
             logger.debug ("Computed row for portfolio symbol " + str(row))
-
             if row == None:
                 pass
             else:

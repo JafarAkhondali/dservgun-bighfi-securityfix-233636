@@ -385,8 +385,8 @@ deletePortfolioSymbol a = dbOps $ do
 	portfolioSymbol <- liftIO $ readPortfolioSymbol a 
 	case portfolioSymbol of 
 		Right (psID, _) -> do 
-			liftIO $ Logger.debugM iModuleName $ "Deleting portfolio symbol " `mappend` (show a) 
-			Postgresql.delete psID 
+			liftIO $ Logger.debugM iModuleName $ "Deleting portfolio symbol " `mappend` (show psID) 
+			_ <- Postgresql.delete psID
 			return portfolioSymbol 
 		Left x -> do 
 			liftIO $ Logger.errorM iModuleName $ "Error deleting portfolio symbol " `mappend` (show a)
