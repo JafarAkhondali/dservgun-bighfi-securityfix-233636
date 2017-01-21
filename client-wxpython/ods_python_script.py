@@ -904,7 +904,7 @@ class CCARClient:
     def checkForChanges(self):
         try:
             keepChecking = True 
-            autoSaveInterval = 0.1
+            autoSaveInterval = 1.0
             while True: 
                 logger.debug("Checking for changes " + str(self.portfolioGroup))
 
@@ -1209,7 +1209,7 @@ class CCARClient:
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "F" + str(computedRow), optionInstance.lastAsk))
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "G" + str(computedRow), optionInstance.change))
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "H" + str(computedRow), optionInstance.openInterest))
-                    yield from asyncio.sleep(0.1, loop = self.loop)         
+                    yield from asyncio.sleep(1.0, loop = self.loop)         
                 except:
                     logger.error(traceback.format_exc())
                     logger.error(chain)
@@ -1256,7 +1256,7 @@ class CCARClient:
                     self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "E" + str(computedRow), event.close))
                     self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "F" + str(computedRow), event.volume))
                     self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "G" + str(computedRow), event.date))
-                    yield from asyncio.sleep(0.01, loop = self.loop)         
+                    yield from asyncio.sleep(0.1, loop = self.loop)         
         except:
             error = traceback.format_exc()
             logger.error(error)
