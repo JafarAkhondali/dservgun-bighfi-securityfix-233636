@@ -613,7 +613,7 @@ class PortfolioGroup:
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
                     yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
-                    yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
+                    yield from asyncio.sleep(0.01, loop = self.ccarClient.loop) # Need to get the waits right.
         except:
             logger.error("Message " + str(result))
             logger.error(traceback.format_exc())
@@ -904,7 +904,7 @@ class CCARClient:
     def checkForChanges(self):
         try:
             keepChecking = True 
-            autoSaveInterval = int(self.activePortfolioIntervalF())
+            autoSaveInterval = 0.1
             while True: 
                 logger.debug("Checking for changes " + str(self.portfolioGroup))
 
@@ -919,7 +919,7 @@ class CCARClient:
                 else:
                     logger.debug("Waiting for changes...");
                     yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
-                yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
+                #yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
 
         except:
             logger.error(traceback.format_exc())
@@ -1209,7 +1209,6 @@ class CCARClient:
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "F" + str(computedRow), optionInstance.lastAsk))
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "G" + str(computedRow), optionInstance.change))
                     self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "H" + str(computedRow), optionInstance.openInterest))
-
                     yield from asyncio.sleep(0.1, loop = self.loop)         
                 except:
                     logger.error(traceback.format_exc())
@@ -1455,7 +1454,7 @@ class PortfolioChanges:
 
     def computeChangesForPortfolio(self, portfolioId):
         logger.debug("Compute changes for a " + portfolioId);
-        maxRows = 10;
+        maxRows = 200;
         portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
         serverDict = {}
         for s in portfolioSymbolsServer: 

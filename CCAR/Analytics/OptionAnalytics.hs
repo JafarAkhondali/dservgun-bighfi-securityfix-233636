@@ -260,7 +260,8 @@ newtype PricerReaderApp a = PricerReaderApp {
 
 pricerReaderThread a c n m = do 
     (y, z) <- flip runStateT False $ do 
-                flip runReaderT (PricerConfiguration a c n m True 300) $ do 
+                let chunkSize = 50
+                flip runReaderT (PricerConfiguration a c n m True chunkSize) $ do 
                     PricerConfiguration app conn nickName marketData mpi _<- ask
                     opts <- liftIO $ getOptionMarketData nickName
                     x <- lift $ State.get
