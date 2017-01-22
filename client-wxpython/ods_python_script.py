@@ -481,13 +481,13 @@ class PortfolioGroup:
             if row == None:
                 pass
             else:
-                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
-                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
-                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
-                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
-                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
-                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
-                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+                self.loop.create_task(self.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
+                self.loop.create_task(self.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
+                self.loop.create_task(self.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
+                self.loop.create_task(self.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
+                self.loop.create_task(self.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                self.loop.create_task(self.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                self.loop.create_task(self.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
                 yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
 
         except:
@@ -616,7 +616,7 @@ class CCARClient:
             if cell == None:
                 logger.debug("No cell found for " + str(value))
             else:                
-                logger.debug("Updating worksheet by name " + worksheet + "CELL " + str(cell) + ": Value " + str(value))
+                logger.debug("Updating worksheet by name " + worksheet + " CELL " + str(cell) + ": Value " + str(value))
                 sheet = self.getWorksheetByName(worksheet)
                 if sheet == None:
                     logger.debug("No sheet found for " + worksheet);
@@ -670,9 +670,12 @@ class CCARClient:
             if model == None: 
                 logger.fatal("This can never happen " + worksheetName)
             if model.Sheets != None:
-                logger.debug("Sheets " + str(model.Sheets))
-                sheet = model.Sheets.getByName(worksheetName) 
-                return sheet   
+                try:                
+                    sheet = model.Sheets.getByName(worksheetName) 
+                    return sheet   
+                except:
+                    logger.error("Couldnt find worksheet " + worksheetName);
+                    return None;
             else:
                 return None;
         except:
@@ -1464,9 +1467,9 @@ class PortfolioChanges:
                 value       = self.ccarClient.getCellContentForSheet(portfolioId, "E" + str(row))
                 stressValue = self.ccarClient.getCellContentForSheet(portfolioId, "F" + str(row))
                 dateTime    = str(datetime.datetime.now())
-                logger.debug("Creating portfolio id " + portfolioId + " for row " + str(row));
                 if symbol == None or symbol == "": 
                     return None;
+                logger.debug("Creating portfolio symbol for id " + portfolioId + " for row " + str(row) + " symbol " + symbol);
                 jsonrecord = {
                       "commandType" : "ManagePortfolioSymbol"
                     , "crudType" : crudType
