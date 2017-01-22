@@ -20,7 +20,7 @@ import tempfile
 from urllib.parse import urlencode
 
 logging.basicConfig(filename="./odspythonscript.log", level = 
-        logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
+        logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(threadName)s %(message)s")
 
 logger = logging.getLogger(__name__)    
 logger.debug("Loaded script file "  + os.getcwd())
@@ -377,6 +377,7 @@ class PortfolioGroup:
             portfolioCol = self.portfolioDetailColumns["portfolioId"]
             summaryCol = self.portfolioDetailColumns["summary"]
             self.brokerDictionary[portfolioCol] = companyCol
+            logger.debug("Updating cell contents");
             self.ccarClient.updateCellContent(self.portfolioWorksheet, 
                                 summaryCol + cellPosition, summary["summary"])
             self.ccarClient.updateCellContent(self.portfolioWorksheet, 
@@ -468,7 +469,7 @@ class PortfolioGroup:
     def updateUsingManagePortfolioSymbol(self, jsonResponse):
         try:
             logger.debug("Updating using manage portfolio symbol response " + str(jsonResponse))
-            portfolioSymbol = PortfolioSymbol(jsonResponse);
+            portfolioSymbol = PortfolioSymbol(self.ccarClient, jsonResponse);
             if portfolioSymbol.crudType == "Delete":
                 logger.debug("Portfolio deleted. Updating client " + str(jsonResponse));
                 return;
@@ -502,7 +503,7 @@ class PortfolioGroup:
             for result in resultSet:
                 logger.debug("Result " + str(result)) 
                 x = result["Right"]
-                portfolioSymbol = PortfolioSymbol(x);
+                portfolioSymbol = PortfolioSymbol(self.ccarClient, x);
                 logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
                 portfolioId = portfolioSymbol.portfolioId
                 self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioId)
@@ -516,12 +517,12 @@ class PortfolioGroup:
                     pass
                 else:
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
-                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
-                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
-                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))                    
-                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
-                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
-                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))                    
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
                     yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
         except:
             logger.error("Message " + str(result))
@@ -599,6 +600,7 @@ class CCARClient:
         self.activePortfolioInterval = 1 # An active portfolio ping request to update any stress data.
         self.marketDataSheet = "MarketDataSheet"
         self.optionDataSheet = "OptionMarketData"
+        self.userLoginSheet = "user_info_login"
     #get the doc from the scripting context which is made available to all scripts
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
@@ -712,10 +714,6 @@ class CCARClient:
         tRange = sheet.getCellRangeByName(self.ERROR_CELL)
         tRange.String = tRange.String + "\n" + (str (aMessage))
 
-    def updateCellContent(self, aCell, aValue) : 
-        sheet = self.getWorksheet(0);
-        tRange = sheet.getCellRangeByName(aCell)
-        tRange.String = aValue
 
     def getNickName(self): 
         return self.getUserName();        
@@ -1405,7 +1403,7 @@ class CCARClient:
             self.loop = loop
             logger.debug("Connecting using %s -> %s", userName, password)
             if userName == None or userName == "" or password == None or password == "":
-                updateCellContent(LOGGER_CELL(), "User name and or password not found")
+                updateCellContent(self.userLoginSheet, LOGGER_CELL(), "User name and or password not found")
                 return;
             loop.run_until_complete(self.ccarLoop(userName, password))
         except:
@@ -1440,7 +1438,7 @@ class PortfolioChanges:
         localDict = {}
         nickName = self.ccarClient.getNickName()
         for x in range(2, maxRows):
-            p = PortfolioSymbol.createPortfolioSymbol(self.ccarClient,portfolioId, nickName, nickName, nickName, "", x)
+            p = self.createPortfolioSymbol(portfolioId, nickName, nickName, nickName, "", x)
             localSymbols.append(p)
         for s in localSymbols :
             localDict[s] = s 
@@ -1485,7 +1483,7 @@ class PortfolioChanges:
                     , "nickName" : nickName
                 }
                 logger.debug("Portfolio json " + str(jsonrecord))
-                return PortfolioSymbol(jsonrecord)
+                return PortfolioSymbol(self.ccarClient, jsonrecord)
 
 
 ### End Class
