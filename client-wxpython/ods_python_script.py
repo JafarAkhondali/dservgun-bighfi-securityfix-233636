@@ -200,73 +200,10 @@ class TableDisplay:
 class Util:
     # Indexes are zero based.
     @staticmethod
-    def getWorksheetByIndex(worksheetIndex): 
-        desktop = XSCRIPTCONTEXT.getDesktop()
-        model = desktop.getCurrentComponent()
-        sheet = model.Sheets.getByIndex(worksheetIndex)    
-
-    @staticmethod
-    def getWorksheetByName(worksheetName): 
-        try:
-            logger.info("Worksheet name " + worksheetName);
-            desktop = XSCRIPTCONTEXT.getDesktop()
-            if desktop == None:
-                return None;
-            model = desktop.getCurrentComponent()
-            if model == None: 
-                logger.fatal("This can never happen " + worksheetName)
-            sheet = model.Sheets.getByName(worksheetName) 
-            return sheet   
-        except:
-            logger.error(traceback.format_exc())
-    @staticmethod
     def convertToBool(aString):    
         bool(aString)
-    @staticmethod
-    def updateCellContent(worksheet, cell, value):
-        try:
-            if cell == None:
-                logger.debug("No cell found for " + str(value))
-            else:                
-                logger.debug("Updating worksheet by name " + worksheet + "CELL " + str(cell) + ": Value " + str(value))
-                sheet = Util.getWorksheetByName(worksheet)
-                tRange = sheet.getCellRangeByName(cell)
-                tRange.String = value
-        except:
-            logger.error(traceback.format_exc())
-    @staticmethod
-    @asyncio.coroutine
-    def updateCellContentT(worksheet, cell,value):
-        Util.updateCellContent(worksheet, cell, value)
-    @staticmethod 
-    def workSheetExists(aName):
-        sheet = Util.getWorksheetByName(aName);
-        return (sheet != None)
-    
-    #Either create a new sheet or return an existing one.
-    @staticmethod
-    def upsertNewWorksheet(aName): 
-        if aName == None:
-            return None
-        desktop = XSCRIPTCONTEXT.getDesktop()
-        model = desktop.getCurrentComponent()
-        logger.debug("Model " + str(model.Sheets))
-        logger.debug("Creating new sheet " + aName)
-        if Util.workSheetExists(aName):
-            return Util.getWorksheetByName(aName)
-        else:
-            newSheet = model.Sheets.insertNewByName(aName, 1)
-            return newSheet
 
-    @staticmethod 
-    def getCellContentForSheet(sheetName, aCell):
-        sheet = Util.getWorksheetByName(sheetName);
-        tRange = sheet.getCellRangeByName(aCell);
-        return tRange.String
-    
-    @staticmethod
-    def getCellContent(aCell): 
-        return Util.getCellContentForSheet("user_login_sheet", aCell);
+
 
 
 class OptionChain: 
@@ -304,7 +241,8 @@ class PortfolioSymbolParseError(Exception) :
             return repr(self.value);
 class PortfolioSymbol:
     # Deal with Right/Errors inside the constructor
-    def __init__(self, jsonRecord) :
+    def __init__(self, ccarClient, jsonRecord) :
+        self.ccarClient = ccarClient;
         self.commandType = jsonRecord["commandType"]
         self.crudType = jsonRecord["crudType"]
         self.portfolioId = jsonRecord["portfolioId"]
@@ -357,35 +295,6 @@ class PortfolioSymbol:
             ,   u"nickName"      :       self.nickName
         }
         return jsonRecord
-    @staticmethod
-    def createPortfolioSymbol(portfolioId, creator, updator, nickName, crudType, row):
-                symbol      = Util.getCellContentForSheet(portfolioId, "A" + str(row))
-                quantity    = Util.getCellContentForSheet(portfolioId, "B" + str(row)) 
-                side        = Util.getCellContentForSheet(portfolioId, "C" + str(row))
-                symbolType  = Util.getCellContentForSheet(portfolioId, "D" + str(row))
-                value       = Util.getCellContentForSheet(portfolioId, "E" + str(row))
-                stressValue = Util.getCellContentForSheet(portfolioId, "F" + str(row))
-                dateTime    = str(datetime.datetime.now())
-                logger.debug("Creating portfolio id " + portfolioId + " for row " + str(row));
-                if symbol == None or symbol == "": 
-                    return None;
-                jsonrecord = {
-                      "commandType" : "ManagePortfolioSymbol"
-                    , "crudType" : crudType
-                    , "portfolioId" : portfolioId
-                    , "symbol" : symbol 
-                    , "quantity" : quantity
-                    , "side" : side 
-                    , "symbolType" : symbolType 
-                    , "value" : value 
-                    , "stressValue" : stressValue 
-                    , "dateTime" : dateTime
-                    , "creator" : creator 
-                    , "updator" : updator 
-                    , "nickName" : nickName
-                }
-                logger.debug("Portfolio json " + str(jsonrecord))
-                return PortfolioSymbol(jsonrecord)
 
 
     # private function insertPortfolioSymbolI(aSymbol : String, aSymbolType : String, aSide: String, quantity : String){
@@ -468,27 +377,27 @@ class PortfolioGroup:
             portfolioCol = self.portfolioDetailColumns["portfolioId"]
             summaryCol = self.portfolioDetailColumns["summary"]
             self.brokerDictionary[portfolioCol] = companyCol
-            Util.updateCellContent(self.portfolioWorksheet, 
+            self.ccarClient.updateCellContent(self.portfolioWorksheet, 
                                 summaryCol + cellPosition, summary["summary"])
-            Util.updateCellContent(self.portfolioWorksheet, 
+            self.ccarClient.updateCellContent(self.portfolioWorksheet, 
                                 portfolioCol + cellPosition, summary["portfolioId"])
-            Util.updateCellContent(self.portfolioWorksheet, 
+            self.ccarClient.updateCellContent(self.portfolioWorksheet, 
                                 companyCol + cellPosition, summary["companyId"])
             self.portfolioDetailCount  = self.portfolioDetailCount + 1                            
-            newSheet = Util.upsertNewWorksheet(summary["portfolioId"])
+            newSheet = self.ccarClient.upsertNewWorksheet(summary["portfolioId"])
             self.createRows(summary["portfolioId"])
             self.portfolioGroupWorksheets[summary["portfolioId"]] = newSheet
             
 
 
     def createRows(self, aWorksheetName):
-        Util.updateCellContent(aWorksheetName, "A1", "Symbol")
-        Util.updateCellContent(aWorksheetName, "B1", "Quantity")
-        Util.updateCellContent(aWorksheetName, "C1", "Side")
-        Util.updateCellContent(aWorksheetName, "D1" ,  "SymbolType")
-        Util.updateCellContent(aWorksheetName, "E1", "Value")
-        Util.updateCellContent(aWorksheetName, "F1", "Stress value")
-        Util.updateCellContent(aWorksheetName, "G1", "Last update time")
+        self.ccarClient.updateCellContent(aWorksheetName, "A1", "Symbol")
+        self.ccarClient.updateCellContent(aWorksheetName, "B1", "Quantity")
+        self.ccarClient.updateCellContent(aWorksheetName, "C1", "Side")
+        self.ccarClient.updateCellContent(aWorksheetName, "D1" ,  "SymbolType")
+        self.ccarClient.updateCellContent(aWorksheetName, "E1", "Value")
+        self.ccarClient.updateCellContent(aWorksheetName, "F1", "Stress value")
+        self.ccarClient.updateCellContent(aWorksheetName, "G1", "Last update time")
 
 
     def getPortfolioIds(self):
@@ -571,13 +480,13 @@ class PortfolioGroup:
             if row == None:
                 pass
             else:
-                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
-                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
-                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
-                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
-                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
-                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
-                yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
+                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
+                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
+                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
+                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
                 yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
 
         except:
@@ -606,14 +515,14 @@ class PortfolioGroup:
                 if row == None:
                     pass
                 else:
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))                    
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
-                    yield from self.ccarClient.loop.create_task(Util.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
-                    yield from asyncio.sleep(0.01, loop = self.ccarClient.loop) # Need to get the waits right.
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
+                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
+                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
+                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))                    
+                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                    yield from self.ccarClient.loop.create_task(Self.ccarClient.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+                    yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
         except:
             logger.error("Message " + str(result))
             logger.error(traceback.format_exc())
@@ -700,6 +609,72 @@ class CCARClient:
     #get the XText interface
         sheet = model.Sheets.getByIndex(0)
 
+    def updateCellContent(self, worksheet, cell, value):
+        try:
+            if cell == None:
+                logger.debug("No cell found for " + str(value))
+            else:                
+                logger.debug("Updating worksheet by name " + worksheet + "CELL " + str(cell) + ": Value " + str(value))
+                sheet = self.getWorksheetByName(worksheet)
+                if sheet == None:
+                    logger.debug("No sheet found for " + worksheet);
+                    return
+                tRange = sheet.getCellRangeByName(cell)
+                tRange.String = value
+        except:
+            logger.error(traceback.format_exc())
+
+    @asyncio.coroutine
+    def updateCellContentT(self, worksheet, cell,value):
+        self.updateCellContent(worksheet, cell, value)
+
+    def workSheetExists(self, aName):
+        sheet = self.getWorksheetByName(aName);
+        return (sheet != None)
+    
+    #Either create a new sheet or return an existing one.
+    def upsertNewWorksheet(self, aName): 
+        if aName == None:
+            return None
+        desktop = XSCRIPTCONTEXT.getDesktop()
+        model = desktop.getCurrentComponent()
+        logger.debug("Model " + str(model.Sheets))
+        logger.debug("Creating new sheet " + aName)
+        if self.workSheetExists(aName):
+            return self.getWorksheetByName(aName)
+        else:
+            newSheet = model.Sheets.insertNewByName(aName, 1)
+            return newSheet
+
+    def getCellContentForSheet(self, sheetName, aCell):
+        sheet = self.getWorksheetByName(sheetName);
+        tRange = sheet.getCellRangeByName(aCell);
+        return tRange.String
+    
+    def getCellContent(self, aCell): 
+        return self.getCellContentForSheet("user_login_sheet", aCell);
+
+    def getWorksheetByIndex(self, worksheetIndex): 
+        desktop = XSCRIPTCONTEXT.getDesktop()
+        model = desktop.getCurrentComponent()
+        sheet = model.Sheets.getByIndex(worksheetIndex)    
+    def getWorksheetByName(self, worksheetName): 
+        try:
+            logger.info("Worksheet name " + worksheetName);
+            desktop = XSCRIPTCONTEXT.getDesktop()
+            if desktop == None:
+                return None;
+            model = desktop.getCurrentComponent()
+            if model == None: 
+                logger.fatal("This can never happen " + worksheetName)
+            if model.Sheets != None:
+                logger.debug("Sheets " + str(model.Sheets))
+                sheet = model.Sheets.getByName(worksheetName) 
+                return sheet   
+            else:
+                return None;
+        except:
+            logger.error(traceback.format_exc())
 
 
     def getCellContent(self, aCell): 
@@ -905,7 +880,7 @@ class CCARClient:
         try:
             keepChecking = True 
             autoSaveInterval = 1.0
-            while True: 
+            while keepChecking: 
                 logger.debug("Checking for changes " + str(self.portfolioGroup))
 
                 if self.portfolioGroup != None: 
@@ -915,6 +890,8 @@ class CCARClient:
                         logger.debug("Updating " + str(p))
                         x = PortfolioChanges(self, p);
                         x.computeChangesForPortfolio(p);
+                    assert self.portfolioGroup != None;
+                    self.portfolioGroup.sendPortfolioRequests();
                     yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
                 else:
                     logger.debug("Waiting for changes...");
@@ -1201,15 +1178,15 @@ class CCARClient:
                     logger.debug("Processing option chain " + str(optionInstance))
                     computedRow = self.optionTable.getComputedRow(optionInstance)
 
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "A" + str(computedRow), optionInstance.symbol))
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "B" + str(computedRow), optionInstance.underlying))
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "C" + str(computedRow), optionInstance.strike))
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "D" + str(computedRow), optionInstance.expiration))
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "E" + str(computedRow), optionInstance.lastBid))
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "F" + str(computedRow), optionInstance.lastAsk))
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "G" + str(computedRow), optionInstance.change))
-                    self.loop.create_task(Util.updateCellContentT(self.optionDataSheet, "H" + str(computedRow), optionInstance.openInterest))
-                    yield from asyncio.sleep(1.0, loop = self.loop)         
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "A" + str(computedRow), optionInstance.symbol))
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "B" + str(computedRow), optionInstance.underlying))
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "C" + str(computedRow), optionInstance.strike))
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "D" + str(computedRow), optionInstance.expiration))
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "E" + str(computedRow), optionInstance.lastBid))
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "F" + str(computedRow), optionInstance.lastAsk))
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "G" + str(computedRow), optionInstance.change))
+                    self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "H" + str(computedRow), optionInstance.openInterest))
+                    yield from asyncio.sleep(0.1, loop = self.loop)         
                 except:
                     logger.error(traceback.format_exc())
                     logger.error(chain)
@@ -1249,13 +1226,13 @@ class CCARClient:
                     logger.debug("Processing time series " + str(timeSeries))
                     (self.marketDataBak[symbol]).add(event)       
                     computedRow = self.marketDataRowMap[event.key()]
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "A" + str(computedRow), symbol))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "B" + str(computedRow), event.high))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "C" + str(computedRow), event.low))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "D" + str(computedRow), event.open))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "E" + str(computedRow), event.close))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "F" + str(computedRow), event.volume))
-                    self.loop.create_task(Util.updateCellContentT(self.marketDataSheet, "G" + str(computedRow), event.date))
+                    self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "A" + str(computedRow), symbol))
+                    self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "B" + str(computedRow), event.high))
+                    self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "C" + str(computedRow), event.low))
+                    self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "D" + str(computedRow), event.open))
+                    self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "E" + str(computedRow), event.close))
+                    self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "F" + str(computedRow), event.volume))
+                    self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "G" + str(computedRow), event.date))
                     yield from asyncio.sleep(0.1, loop = self.loop)         
         except:
             error = traceback.format_exc()
@@ -1463,7 +1440,7 @@ class PortfolioChanges:
         localDict = {}
         nickName = self.ccarClient.getNickName()
         for x in range(2, maxRows):
-            p = PortfolioSymbol.createPortfolioSymbol(portfolioId, nickName, nickName, nickName, "", x)
+            p = PortfolioSymbol.createPortfolioSymbol(self.ccarClient,portfolioId, nickName, nickName, nickName, "", x)
             localSymbols.append(p)
         for s in localSymbols :
             localDict[s] = s 
@@ -1480,6 +1457,35 @@ class PortfolioChanges:
                     s.updateCrudType("Delete")
                     self.ccarClient.sendManagePortfolioSymbol(s.asJson())
 
+        
+    def createPortfolioSymbol(self, portfolioId, creator, updator, nickName, crudType, row):
+                symbol      = self.ccarClient.getCellContentForSheet(portfolioId, "A" + str(row))
+                quantity    = self.ccarClient.getCellContentForSheet(portfolioId, "B" + str(row)) 
+                side        = self.ccarClient.getCellContentForSheet(portfolioId, "C" + str(row))
+                symbolType  = self.ccarClient.getCellContentForSheet(portfolioId, "D" + str(row))
+                value       = self.ccarClient.getCellContentForSheet(portfolioId, "E" + str(row))
+                stressValue = self.ccarClient.getCellContentForSheet(portfolioId, "F" + str(row))
+                dateTime    = str(datetime.datetime.now())
+                logger.debug("Creating portfolio id " + portfolioId + " for row " + str(row));
+                if symbol == None or symbol == "": 
+                    return None;
+                jsonrecord = {
+                      "commandType" : "ManagePortfolioSymbol"
+                    , "crudType" : crudType
+                    , "portfolioId" : portfolioId
+                    , "symbol" : symbol 
+                    , "quantity" : quantity
+                    , "side" : side 
+                    , "symbolType" : symbolType 
+                    , "value" : value 
+                    , "stressValue" : stressValue 
+                    , "dateTime" : dateTime
+                    , "creator" : creator 
+                    , "updator" : updator 
+                    , "nickName" : nickName
+                }
+                logger.debug("Portfolio json " + str(jsonrecord))
+                return PortfolioSymbol(jsonrecord)
 
 
 ### End Class
@@ -1518,7 +1524,6 @@ class ClientOAuth :
 def StartClient(*args):
     try:
         login_cell = "B5"
-        l = Util.getCellContent(login_cell)
         # oauth = ClientOAuth(l)
         # oauth.showBrowser()
         """Starts the CCAR client."""

@@ -125,6 +125,15 @@ executable ccar-websockets
                         ViewPatterns
                         ScopedTypeVariables
 
+  ghc-options: 
+    -O2
+    -threaded
+    -eventlog
+    -- -ddump-simpl
+    -Wall
+    -fprof-auto
+    -caf-all 
+    "-with-rtsopts=-N4 -s"
 
 
 library
@@ -265,7 +274,7 @@ library
     -Wall
     -fprof-auto
     -caf-all 
-    "-with-rtsopts=-N "
+    "-with-rtsopts=-N2 -s"
 
 -- Use this to run
 --cabal run my-project-profiling && hp2ps -e8in -c my-project-profiling.hs 
