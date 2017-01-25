@@ -270,6 +270,11 @@ class PortfolioSymbol:
     def __hash__(self): 
         strCat = self.portfolioId + self.symbol + self.side + self.symbolType;
         return (hash(strCat))
+    def __str__(self): 
+        return repr(self.portfolioId + " " + self.symbol + " " + self.side + " " + 
+                                self.quantity + " " + self.value + " " + self.stressValue);
+
+
     def key(self): 
         key = self.symbol + self.side + self.symbolType + self.portfolioId;
         logger.debug("Symbol key " + key);
@@ -481,13 +486,15 @@ class PortfolioGroup:
             if row == None:
                 pass
             else:
-                self.loop.create_task(self.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
-                self.loop.create_task(self.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
-                self.loop.create_task(self.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
-                self.loop.create_task(self.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
-                self.loop.create_task(self.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
-                self.loop.create_task(self.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
-                self.loop.create_task(self.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
+                changes = PortfolioChanges(self.ccarClient, portfolioId);
+
+                self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
+                self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), portfolioSymbol.quantity))
+                self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "C" + str(row), portfolioSymbol.side))
+                self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "D" + str(row), portfolioSymbol.symbolType))
+                self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "E" + str(row), portfolioSymbol.value))
+                self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "F" + str(row), portfolioSymbol.stressValue))
+                self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "G" + str(row), str(datetime.datetime.now())))
                 yield from asyncio.sleep(0.1, loop = self.ccarClient.loop) # Need to get the waits right.
 
         except:
@@ -594,7 +601,7 @@ class CCARClient:
         self.KEEP_ALIVE_CELL = "B25"
         self.MARKET_DATA_REFRESH_INTERVAL_CELL = "B26"
         self.ACTIVE_PORTFOLIO_INTERVAL_CELL = "B27"
-
+        self.localDict = {} # Maintains local changes to the dictionary
         self.INFO_WORK_SHEET = 0
         self.marketDataRefreshInterval = 1
         self.activePortfolioInterval = 1 # An active portfolio ping request to update any stress data.
@@ -1430,6 +1437,7 @@ class PortfolioChanges:
         self.portfolioId = portfolioId
         self.ccarClient = ccarClient
 
+
     def computeChangesForPortfolio(self, portfolioId):
         logger.debug("Compute changes for a " + portfolioId);
         maxRows = 200;
@@ -1438,19 +1446,35 @@ class PortfolioChanges:
         for s in portfolioSymbolsServer: 
             serverDict[s] = s
         localSymbols = []
-        localDict = {}
+        localDict = self.ccarClient.localDict
         nickName = self.ccarClient.getNickName()
         for x in range(2, maxRows):
             p = self.createPortfolioSymbol(portfolioId, nickName, nickName, nickName, "", x)
-            localSymbols.append(p)
-        for s in localSymbols :
-            localDict[s] = s 
-        for l in localDict:
+            logger.debug("Portfolio created " + str(p));
+            if p != None:
+                localSymbols.append(p)
+
+        for event in localSymbols :
+            logger.debug("Setting s " + str(event))
+            if event in localDict:
+                if localDict[event] != None:                
+                    localDict[event] = (localDict[event]).append(event)
+                else:
+                    newEle = [] 
+                    newEle.append(event)
+                    localDict[event] = newEle
+            else:
+                newEle = []
+                newEle.append(event)
+                localDict[event] = newEle
+
+        for (l, ev) in enumerate(localDict):
             # Create handles both insert and update. This is obviously not efficient.
             # We will manage updates correctly.
-            if l != None:
-                l.updateCrudType("Create")
-                self.ccarClient.sendManagePortfolioSymbol(l.asJson())
+            ev.updateCrudType("Create")
+            logger.debug("Current portfolio value" + str(ev))
+            self.ccarClient.sendManagePortfolioSymbol(ev.asJson())
+
         for s in serverDict:
             if (not (s in localDict)):
                 # Server has it, local doesnt
@@ -1458,8 +1482,14 @@ class PortfolioChanges:
                     s.updateCrudType("Delete")
                     self.ccarClient.sendManagePortfolioSymbol(s.asJson())
 
-        
+    def registerChange(self, portfolioId, creator, updator, nickName, crudType, row):
+        p = self.createPortfolioSymbol(portfolioId, creator, updator, nickName, "", x);
+        localDict = self.ccarClient.localDict;
+        if p != None:
+            if p in localDict:
+
     def createPortfolioSymbol(self, portfolioId, creator, updator, nickName, crudType, row):
+
                 symbol      = self.ccarClient.getCellContentForSheet(portfolioId, "A" + str(row))
                 quantity    = self.ccarClient.getCellContentForSheet(portfolioId, "B" + str(row)) 
                 side        = self.ccarClient.getCellContentForSheet(portfolioId, "C" + str(row))
@@ -1469,7 +1499,8 @@ class PortfolioChanges:
                 dateTime    = str(datetime.datetime.now())
                 if symbol == None or symbol == "": 
                     return None;
-                logger.debug("Creating portfolio symbol for id " + portfolioId + " for row " + str(row) + " symbol " + symbol);
+                logger.debug("Creating portfolio symbol for id " + portfolioId + " for row " + str(row) + " symbol " + symbol + 
+                                        " " + "Quantity " + quantity);
                 jsonrecord = {
                       "commandType" : "ManagePortfolioSymbol"
                     , "crudType" : crudType

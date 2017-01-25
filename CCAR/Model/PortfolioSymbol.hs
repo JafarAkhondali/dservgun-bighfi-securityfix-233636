@@ -229,6 +229,17 @@ manageSearch aNickName aValue@(Object a) =
 							"Error processing manage search for portfolio symbol: "  ++ s)
 
 
+computePortfolioWith :: T.Text -> Double -> IO Double 
+computePortfolioWith s v = do 
+		lastPriceList<- getLatestPrice s 
+		case lastPriceList of 
+			lastPrice:_ -> do 
+					let lastClose = historicalPriceClose lastPrice 
+					let pValue = v
+					let r = pValue * lastClose 
+					return r 
+			[]	-> return 0.0
+
 computePortfolio :: PortfolioSymbol -> IO PortfolioSymbol 
 computePortfolio  = \x -> do 
 		lastPriceList<- getLatestPrice $ portfolioSymbolSymbol x 
@@ -321,11 +332,13 @@ insertPortfolioSymbol a@(PortfolioSymbolT crType commandType
 								req <- getBy $ UniqueNickName requestor 
 								case (cr, up, req) of 
 									(Just (Entity crID crValue), Just (Entity upID upValue), Just (Entity reqID reqValue)) -> do 
-											n <- Postgresql.insert $ PortfolioSymbol pID symbol 
+											let pS = PortfolioSymbol pID symbol 
 														(quantity) 
 														side symbolType 
 														"0.0"
 														crID currentTime upID currentTime
+											portfolioSymbol <- liftIO $ computePortfolio pS
+											n <- Postgresql.insert portfolioSymbol
 											return $ Right (n, (creator, updator, portfolioId))
 									_ -> do 
 										liftIO $ Logger.errorM iModuleName $ 
@@ -349,9 +362,16 @@ updatePortfolioSymbolI portfolioSymbol a@(PortfolioSymbolT crType commandType
 			liftIO $ Logger.debugM iModuleName $ "Updating portfolio " <> (show a)
 			case portfolioSymbol of 
 				Right (psID, _) -> do 
-								x <- update psID [PortfolioSymbolQuantity =. quantity
-											   , PortfolioSymbolUpdatedOn =. currentTime]
-								return $ Right (psID, (creator, updator, portfolioId))
+								pS <- Postgresql.get psID
+								case pS of 
+									Just y -> do
+										psV <- liftIO $ computePortfolioWith symbol $ Util.parse_float $ T.unpack quantity
+										let psvS = (T.pack . show) psV 
+										x <- update psID [PortfolioSymbolQuantity =. quantity
+													   , PortfolioSymbolUpdatedOn =. currentTime
+													   , PortfolioSymbolValue =. psvS]
+										return $ Right (psID, (creator, updator, portfolioId))
+									Nothing -> return $ Left "Error updating portfolio symbol" 
 				Left x -> do 
 					liftIO $ Logger.errorM iModuleName $ "Error updating portfolio symbol " `mappend` (show a) 
 					return portfolioSymbol
