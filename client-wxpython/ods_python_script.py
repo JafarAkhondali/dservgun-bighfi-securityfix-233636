@@ -487,9 +487,9 @@ class PortfolioGroup:
                 pass
             else:
                 changes = PortfolioChanges(self.ccarClient, portfolioId);
-                crudType = "update";
+                crudType = ""; 
                 nickName = self.ccarClient.getNickName();
-                p = changes.registerChange(portfolioId, nickName, nickName, nickName, crudType, row);
+                p = changes.registerChange(portfolioSymbol, nickName, nickName, nickName, crudType, row);
                 q = portfolioSymbol.quantity
                 if p != None:
                     q = p.quantity
@@ -530,9 +530,9 @@ class PortfolioGroup:
                     pass
                 else:
                     changes = PortfolioChanges(self.ccarClient, portfolioId);
-                    crudType = "update";
+                    crudType = "";
                     nickName = self.ccarClient.getNickName();
-                    p = changes.registerChange(portfolioId, nickName, nickName, nickName, crudType, row);
+                    p = changes.registerChange(portfolioSymbol, nickName, nickName, nickName, crudType, row);
                     q = portfolioSymbol.quantity
                     if p != None:
                         q = p.quantity
@@ -911,7 +911,7 @@ class CCARClient:
                     for p in portfolioIds :
                         logger.debug("Updating " + str(p))
                         x = PortfolioChanges(self, p);
-                        x.computeChangesForPortfolio(p);
+                        x.collectNewrowsForPortfolio(p);
                     assert self.portfolioGroup != None;
                     self.portfolioGroup.sendPortfolioRequests();
                     yield from asyncio.sleep(autoSaveInterval, loop = self.loop)
@@ -1452,15 +1452,17 @@ class PortfolioChanges:
         self.ccarClient = ccarClient
 
 
-    def computeChangesForPortfolio(self, portfolioId):
+    def collectNewrowsForPortfolio(self, portfolioId):
+        # This is not going to work.
+        # Look at the places where the updates happen.
         logger.debug("Compute changes for a " + portfolioId);
-        maxRows = 200;
+        maxRows = 200; # Approximate page size.
         portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
         serverDict = {}
         for s in portfolioSymbolsServer: 
             serverDict[s] = s
         localSymbols = []
-        localDict = self.ccarClient.localDict
+        localDict = {}
         logger.debug("Local dictionary " + str(localDict))
         nickName = self.ccarClient.getNickName()
         for x in range(2, maxRows):
@@ -1471,41 +1473,31 @@ class PortfolioChanges:
 
         for event in localSymbols :
             logger.debug("Setting s " + str(event))
-            if event in localDict:
-                if localDict[event] != None:                
-                    localDict[event] = (localDict[event]).append(event)
-                else:
-                    newEle = [] 
-                    newEle.append(event)
-                    localDict[event] = newEle
-            else:
-                newEle = []
-                newEle.append(event)
-                localDict[event] = newEle
+            localDict[event] = event
 
         for l in localDict:
             # Create handles both insert and update. This is obviously not efficient.
             # We will manage updates correctly.
-            ev = localDict[l]
-            
-            if ev != None: 
-                for e in ev:
-                    e.updateCrudType("Create")
-                    logger.debug("Current portfolio value" + str(e))
-                    self.ccarClient.sendManagePortfolioSymbol(e.asJson())
+            e = localDict[l]            
+            if (not e in serverDict):
+                e.updateCrudType("Create")
+                logger.debug("Adding a new symbol: current portfolio value" + str(e))
+                self.ccarClient.sendManagePortfolioSymbol(e.asJson())
 
-        for s in serverDict:
-            if (not (s in localDict)):
-                # Server has it, local doesnt
-                if s != None:
-                    s.updateCrudType("Delete")
-                    self.ccarClient.sendManagePortfolioSymbol(s.asJson())
 
-    def registerChange(self, portfolioId, creator, updator, nickName, crudType, row):
+    def registerChange(self, portfolioSymbol, creator, updator, nickName, crudType, row):
+        assert (portfolioSymbol != None);
+        portfolioId = portfolioSymbol.portfolioId;
         p = self.createPortfolioSymbol(portfolioId, creator, updator, nickName, "", row);
         if p != None:
+            p.updateCrudType("Create")
             self.ccarClient.sendManagePortfolioSymbol(p.asJson());
             return p;
+        else:
+            if portfolioSymbol != None:
+                portfolioSymbol.updateCrudType("Delete")
+                self.ccarClient.sendManagePortfolioSymbol(portfolioSymbol.asJson());
+
     def createPortfolioSymbol(self, portfolioId, creator, updator, nickName, crudType, row):
 
                 symbol      = self.ccarClient.getCellContentForSheet(portfolioId, "A" + str(row))
