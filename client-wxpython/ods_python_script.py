@@ -476,7 +476,7 @@ class PortfolioGroup:
             logger.debug("Updating using manage portfolio symbol response " + str(jsonResponse))
             portfolioSymbol = PortfolioSymbol(self.ccarClient, jsonResponse);
             if portfolioSymbol.crudType == "Delete":
-                logger.debug("Portfolio deleted. Updating client " + str(jsonResponse));
+                logger.debug("Portfolio symbol deleted. Updating client " + str(jsonResponse));
                 return;
             portfolioId = portfolioSymbol.portfolioId
             self. portfolioSymbolTable = self.getPortfolioSymbolTable(portfolioSymbol.portfolioId)
@@ -489,10 +489,13 @@ class PortfolioGroup:
                 changes = PortfolioChanges(self.ccarClient, portfolioId);
                 crudType = ""; 
                 nickName = self.ccarClient.getNickName();
-                p = changes.registerChange(portfolioSymbol, nickName, nickName, nickName, crudType, row);
+                p = changes.createLocalvalue(portfolioSymbol, nickName, nickName, nickName, crudType, row);
+                changes.register(p, portfolioSymbol);
                 q = portfolioSymbol.quantity
                 if p != None:
                     q = p.quantity
+                else:
+                    pass;
                 # Need to create an event model to handle updates correctly.
                 self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
                 self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), q))
@@ -532,10 +535,10 @@ class PortfolioGroup:
                     changes = PortfolioChanges(self.ccarClient, portfolioId);
                     crudType = "";
                     nickName = self.ccarClient.getNickName();
-                    p = changes.registerChange(portfolioSymbol, nickName, nickName, nickName, crudType, row);
+                    #p = changes.createLocalvalue(portfolioSymbol, nickName, nickName, nickName, crudType, row);
                     q = portfolioSymbol.quantity
-                    if p != None:
-                        q = p.quantity
+                    # if p != None:
+                    #     q = p.quantity
 
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "A" + str(row), portfolioSymbol.symbol))
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(portfolioId, "B" + str(row), q))
@@ -1452,6 +1455,14 @@ class PortfolioChanges:
         self.ccarClient = ccarClient
 
 
+    def getPortfolioSymbolDict(self, portfolioId):
+        logger.debug("Return all the portfolios from the server");
+        portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
+        serverDict = {}
+        for s in portfolioSymbolsServer: 
+            serverDict[s] = s
+        return serverDict;        
+
     def collectNewrowsForPortfolio(self, portfolioId):
         # This is not going to work.
         # Look at the places where the updates happen.
@@ -1462,7 +1473,7 @@ class PortfolioChanges:
         for s in portfolioSymbolsServer: 
             serverDict[s] = s
         localSymbols = []
-        localDict = {}
+        localDict = self.ccarClient.localDict
         logger.debug("Local dictionary " + str(localDict))
         nickName = self.ccarClient.getNickName()
         for x in range(2, maxRows):
@@ -1481,22 +1492,43 @@ class PortfolioChanges:
             e = localDict[l]            
             if (not e in serverDict):
                 e.updateCrudType("Create")
-                logger.debug("Adding a new symbol: current portfolio value" + str(e))
+                logger.debug("Adding a new symbol: current portfolio value" + str(l))
+                self.ccarClient.sendManagePortfolioSymbol(l.asJson())
+        for s in serverDict:
+            e = serverDict[s]
+            if (not e in localDict):
+                e.updateCrudType("Delete")
+                logger.debug("Deleting an existing symbol: current portfolio value" + str(e))
                 self.ccarClient.sendManagePortfolioSymbol(e.asJson())
 
 
-    def registerChange(self, portfolioSymbol, creator, updator, nickName, crudType, row):
+
+    def register(self, localVal, remoteVal):
+        if hasChanged(localVal, remoteVal):
+            saveLocal(localVal);
+        else:
+            pass;
+
+    def saveLocal(self, localValue): 
+        self.ccarClient.localDict[localValue];
+
+    def hasChanged(self, p1, p2) :
+        # Has the value changed
+        if p1 == None :
+            return False
+        if p2 == None : 
+            return False;
+        return p1.quantity != p2.quantity: 
+
+    def createLocalvalue(self, portfolioSymbol, creator, updator, nickName, crudType, row):
         assert (portfolioSymbol != None);
         portfolioId = portfolioSymbol.portfolioId;
         p = self.createPortfolioSymbol(portfolioId, creator, updator, nickName, "", row);
-        if p != None:
-            p.updateCrudType("Create")
-            self.ccarClient.sendManagePortfolioSymbol(p.asJson());
-            return p;
-        else:
-            if portfolioSymbol != None:
-                portfolioSymbol.updateCrudType("Delete")
-                self.ccarClient.sendManagePortfolioSymbol(portfolioSymbol.asJson());
+        # if p != None:
+        #     p.updateCrudType("Create")
+        #     self.ccarClient.sendManagePortfolioSymbol(p.asJson());
+        #     return p;
+
 
     def createPortfolioSymbol(self, portfolioId, creator, updator, nickName, crudType, row):
 
