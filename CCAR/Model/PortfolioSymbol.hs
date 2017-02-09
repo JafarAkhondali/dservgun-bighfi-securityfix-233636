@@ -27,7 +27,9 @@ import Control.Exception
 import qualified  Data.Map 														as IMap
 import Control.Exception
 import Control.Monad
+import Control.Monad.Trans
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Either
 import Control.Monad.Logger														(runStderrLoggingT)
 import Network.WebSockets.Connection 											as WSConn
 import Data.Text 																as T
@@ -170,6 +172,10 @@ getPortfolioSymbols pUUID = dbOps $ do
 
 	return $ processError result $ T.intercalate ":" 
 					$ ["Error processing getPortfolioSymbols" , unP pUUID]
+
+
+queryPortfolioSymbolM :: PortfolioSymbolQueryT -> EitherT T.Text IO PortfolioSymbolQueryT
+queryPortfolioSymbolM = undefined
 
 queryPortfolioSymbol :: PortfolioSymbolQueryT -> IO (Either T.Text PortfolioSymbolQueryT) 
 queryPortfolioSymbol p@(PortfolioSymbolQueryT cType 

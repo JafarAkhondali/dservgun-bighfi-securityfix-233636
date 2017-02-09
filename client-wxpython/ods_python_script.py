@@ -73,6 +73,16 @@ logger.debug("Loaded script file "  + os.getcwd())
 #  }
 
 
+class QuantityChanged(XModifyListener, unohelper.Base): 
+    def __init__(self):
+        self.doc = None 
+    def setDocument(self, doc):
+        self.doc = doc
+    def modified(self, oevent):
+        logger.debug("Cell modified");
+    def disposing(self, oevent):
+        pass;    
+
 def loadCABundleOffline(certFile, filename):
     try:
         logger.debug("Loading from " + certFile);
@@ -1518,7 +1528,7 @@ class PortfolioChanges:
             return False
         if p2 == None : 
             return False;
-        return p1.quantity != p2.quantity: 
+        return p1.quantity != p2.quantity 
 
     def createLocalvalue(self, portfolioSymbol, creator, updator, nickName, crudType, row):
         assert (portfolioSymbol != None);

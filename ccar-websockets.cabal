@@ -107,6 +107,7 @@ executable ccar-websockets
                      , wreq                          >= 0.4 && < 0.5
                      , hnetcdf                       >= 0.3 && < 0.4
                      , split                         >= 0.2 && < 0.3
+                     , either                        >= 4.3 && < 4.4
 
 
   -- Base language which the package is written in.
@@ -246,6 +247,7 @@ library
                      , wreq                          >= 0.4 && < 0.5
                      , hnetcdf                       >= 0.3 && < 0.4
                      , split                         >= 0.2 && < 0.3
+                     , either                        >= 4.3 && < 4.4
 
   -- Directories containing source files.
   -- hs-source-dirs: 
