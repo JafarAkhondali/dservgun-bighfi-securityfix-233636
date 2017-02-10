@@ -174,14 +174,39 @@ getPortfolioSymbols pUUID = dbOps $ do
 					$ ["Error processing getPortfolioSymbols" , unP pUUID]
 
 
-queryPortfolioSymbolM :: PortfolioSymbolQueryT -> EitherT T.Text IO PortfolioSymbolQueryT
-queryPortfolioSymbolM = undefined
-
-queryPortfolioSymbol :: PortfolioSymbolQueryT -> IO (Either T.Text PortfolioSymbolQueryT) 
-queryPortfolioSymbol p@(PortfolioSymbolQueryT cType 
+queryPortfolioSymbolM :: PortfolioSymbolQueryT -> MaybeT IO PortfolioSymbolQueryT
+queryPortfolioSymbolM p@(PortfolioSymbolQueryT cType 
 						pUUID 
 						resultSet
-						nickName) = dbOps $ do 
+						nickName) = do 
+	Just(Entity portfolioId pValue) <- liftIO $ dbOps $ getBy $ UniquePortfolio pUUID
+	portfolioSymbolList <- liftIO $ dbOps $ selectList [PortfolioSymbolPortfolio ==. portfolioId] []
+	portfolioSymbolListT  <- liftIO $ mapM (\(Entity k pS) -> dbOps $ do 
+			creator <- get $ portfolioSymbolCreatedBy pS  
+			updator <- get $ portfolioSymbolUpdatedBy pS  
+			case(creator, updator) of 
+				(Just cr, Just upd ) -> 
+					return $ daoToDto Read 
+						pUUID 
+						(personNickName cr) 
+						(personNickName upd)
+						nickName
+						pS "0.0") portfolioSymbolList
+
+	return $ p {psqtResultSet = portfolioSymbolListT}
+
+
+queryPortfolioSymbol' :: PortfolioSymbolQueryT -> EitherT T.Text IO PortfolioSymbolQueryT 
+queryPortfolioSymbol' p = do 
+						computation <- liftIO $ runMaybeT $ queryPortfolioSymbolM p 
+						let r = 
+							case computation of 
+								Nothing -> Left $ "Unable to query portfolio for " <> (T.pack . show $ p)
+								Just x -> Right x
+						hoistEither r
+
+queryPortfolioSymbol p = runEitherT $ queryPortfolioSymbol' p
+{-	dbOps $ do 
 				portfolio <- getBy $ UniquePortfolio pUUID 
 				case portfolio of 
 					Just (Entity pID pValue) -> do 
@@ -198,8 +223,8 @@ queryPortfolioSymbol p@(PortfolioSymbolQueryT cType
 											nickName
 											pS "0.0") portfolioSymbolList
 						return . Right $ p {psqtResultSet = portfolioSymbolListT}
-					Nothing -> return . Left $ "Unable to delete portfolio " <> (T.pack . show $ p)
-
+					Nothing -> return . Left $ "Unable to query portfolio " <> (T.pack . show $ p)
+-}
 
 dtoToDao :: PortfolioSymbolT -> IO PortfolioSymbol 
 dtoToDao = undefined
