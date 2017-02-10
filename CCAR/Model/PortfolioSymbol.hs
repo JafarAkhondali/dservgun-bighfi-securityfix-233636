@@ -206,25 +206,6 @@ queryPortfolioSymbol' p = do
 						hoistEither r
 
 queryPortfolioSymbol p = runEitherT $ queryPortfolioSymbol' p
-{-	dbOps $ do 
-				portfolio <- getBy $ UniquePortfolio pUUID 
-				case portfolio of 
-					Just (Entity pID pValue) -> do 
-						portfolioSymbolList <- selectList [PortfolioSymbolPortfolio ==. pID] []
-						portfolioSymbolListT  <- liftIO $ mapM (\(Entity k pS) -> dbOps $ do 
-								creator <- get $ portfolioSymbolCreatedBy pS  
-								updator <- get $ portfolioSymbolUpdatedBy pS  
-								case(creator, updator) of 
-									(Just cr, Just upd ) -> 
-										return $ daoToDto Read 
-											pUUID 
-											(personNickName cr) 
-											(personNickName upd)
-											nickName
-											pS "0.0") portfolioSymbolList
-						return . Right $ p {psqtResultSet = portfolioSymbolListT}
-					Nothing -> return . Left $ "Unable to query portfolio " <> (T.pack . show $ p)
--}
 
 dtoToDao :: PortfolioSymbolT -> IO PortfolioSymbol 
 dtoToDao = undefined

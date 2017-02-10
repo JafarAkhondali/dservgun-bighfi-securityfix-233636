@@ -73,15 +73,15 @@ logger.debug("Loaded script file "  + os.getcwd())
 #  }
 
 
-class QuantityChanged(XModifyListener, unohelper.Base): 
-    def __init__(self):
-        self.doc = None 
-    def setDocument(self, doc):
-        self.doc = doc
-    def modified(self, oevent):
-        logger.debug("Cell modified");
-    def disposing(self, oevent):
-        pass;    
+# class QuantityChanged(XModifyListener, unohelper.Base): 
+#     def __init__(self):
+#         self.doc = None 
+#     def setDocument(self, doc):
+#         self.doc = doc
+#     def modified(self, oevent):
+#         logger.debug("Cell modified");
+#     def disposing(self, oevent):
+#         pass;    
 
 def loadCABundleOffline(certFile, filename):
     try:
