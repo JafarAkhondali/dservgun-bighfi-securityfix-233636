@@ -160,6 +160,15 @@ getLatestPrice v = do
 	return $ List.map (\a@(Entity x z) -> z) y
 
 
+getPortfolioSymbolsM :: PortfolioUUID -> MaybeT IO [(T.Text, Double)]
+getPortfolioSymbolsM = \p -> do 
+	Just (Entity pID pValue) <- liftIO . dbOps . getBy . UniquePortfolio . unP $ p 
+	entList <- liftIO $ dbOps $ selectList [PortfolioSymbolPortfolio ==. pID] [Asc PortfolioSymbolSymbol] 
+	return $ Prelude.map (\a@(Entity k value) -> (portfolioSymbolSymbol value
+												 , Util.parse_float $ T.unpack $ 
+												 		portfolioSymbolQuantity value)) entList
+
+
 -- | Return portfolio symbols for a given portfolio UUID.
 getPortfolioSymbols :: PortfolioUUID -> IO (Either T.Text [(T.Text, Double)])
 getPortfolioSymbols pUUID = dbOps $ do
@@ -192,7 +201,6 @@ queryPortfolioSymbolM p@(PortfolioSymbolQueryT cType
 						(personNickName upd)
 						nickName
 						pS "0.0") portfolioSymbolList
-
 	return $ p {psqtResultSet = portfolioSymbolListT}
 
 
@@ -425,8 +433,8 @@ deletePortfolioSymbol a = dbOps $ do
 			return portfolioSymbol
 
 
-readPortfolioSymbol :: PortfolioSymbolT -> IO (Either T.Text (Key PortfolioSymbol, (T.Text, T.Text, T.Text)))
-readPortfolioSymbol a@(PortfolioSymbolT crType commandType 
+readPortfolioSymbolM :: PortfolioSymbolT -> MaybeT IO (Key PortfolioSymbol, (T.Text, T.Text, T.Text))
+readPortfolioSymbolM a@(PortfolioSymbolT crType commandType 
 								portfolioId 
 								symbol 
 								quantity
@@ -436,18 +444,17 @@ readPortfolioSymbol a@(PortfolioSymbolT crType commandType
 								sVal  
 								creator
 								updator
-								requestor) = dbOps $ do 
-	portfolio <- getBy $ UniquePortfolio portfolioId
-	case portfolio of 
-		Just (Entity pID pValue) -> do 
-			portfolioSymbol <- getBy $ UniquePortfolioSymbol pID symbol symbolType side 
-			case portfolioSymbol of 
-				Just (Entity psID pValue) -> do 
-					liftIO $ Logger.debugM iModuleName $ "Reading portfolio symbol " `mappend` (show a)
-					return $ Right (psID, (creator, updator, portfolioId))
-				Nothing -> do 
-					liftIO $ Logger.errorM iModuleName $ "Portfolio symbol not found " `mappend` (show a) 
-					return $ Left $ T.pack $ "Error reading " `mappend` (show a)
+								requestor) = do 
+	Just (Entity pID pValue) <- liftIO $ dbOps $ getBy $ UniquePortfolio portfolioId
+	Just (Entity psID psValue) <- liftIO $ dbOps $ getBy $ UniquePortfolioSymbol pID symbol symbolType side 
+	return (psID, (creator, updator, portfolioId))
+
+readPortfolioSymbol :: PortfolioSymbolT -> IO (Either T.Text (Key PortfolioSymbol, (T.Text, T.Text, T.Text)))
+readPortfolioSymbol a = do 
+	x <- runMaybeT $ readPortfolioSymbolM a 
+	case x of 
+		Nothing -> return $ Left $ "Error reading portfolio symbol" 
+		Just y -> return $ Right y 
 
 uuidAsString = UUID.toString 
 
@@ -477,6 +484,8 @@ testInsert index portfolioID = dbOps $ do
 	case x of 
 		Just x -> return x 
 		Nothing -> return $ Left $ "testInsert failed"
+
+
 {-- | This method is mainly as an example of how non monadic code can create the dreaded 
 staircase. --}
 testInsertNonM :: Integer -> Key Portfolio -> IO (Either T.Text (Key PortfolioSymbol, (T.Text, T.Text, T.Text))) 
@@ -506,29 +515,28 @@ testInsertNonM index portfolioID = dbOps $ do
 												(personNickName userFound)
 												(personNickName userFound)
 							Nothing -> return $ Left $ "Test insert failed"
+				_	-> return $ Left "testinsert failed"
 		_ -> return $ Left $ "testInsert failed"										
 
+testInsertNew :: Show a => a -> Key Portfolio -> MaybeT IO (Key PortfolioSymbol)
 testInsertNew index pId = do 
-	xo <- dbOps $ do 
-		x <- runMaybeT $ do 
-				u <- liftIO nextUUID 			
-				currentTime <- liftIO $ getCurrentTime
-				Just portfolio <- lift $ get pId 
-				Just companyUser <- lift $ get $ portfolioCompanyUserId portfolio 
-				Just user <- lift $ get $ companyUserUserId companyUser 
-				Just (Entity userId uIgnore) <- lift $ getBy $ UniqueNickName $ personNickName user 
-				lift $ insert $ 
-							PortfolioSymbol pId
-								("ABC" `mappend` (T.pack $ show index))
-								"314.14"
-								EnTypes.Buy
-								EnTypes.Equity
-								"0.0"
-								userId 
-								currentTime
-								userId
-								currentTime
+	u <- liftIO nextUUID 			
+	currentTime <- liftIO getCurrentTime
+	Just portfolio <- liftIO $ dbOps $ get pId 
+	Just companyUser <- liftIO $ dbOps $ get $ portfolioCompanyUserId portfolio 
+	Just user <- liftIO $ dbOps $ get $ companyUserUserId companyUser 
+	Just (Entity userId uIgnore) <- liftIO $ dbOps $ getBy $ UniqueNickName $ personNickName user 
+	liftIO $ dbOps $ insert $ 
+				PortfolioSymbol pId
+					("ABC" `mappend` (T.pack $ show index))
+					"314.14"
+					EnTypes.Buy
+					EnTypes.Equity
+					"0.0"
+					userId 
+					currentTime
+					userId
+					currentTime
 
-		return x 
-	return xo
+	
 

@@ -31,6 +31,7 @@ import Data.Conduit
 import GHC.Generics
 import GHC.IO.Exception
 
+import Control.Monad.Trans.Maybe
 import Data.Data
 import Data.Monoid (mappend)
 import Data.Typeable 
@@ -88,7 +89,7 @@ testCase2 aCount = do
 testCase4 = do 
 	p <- Portfolio.testInsertPortfolio 
 	case p of 
-		Right pid -> PortfolioSymbol.testInsertNew 1 pid 
+		Right pid -> runMaybeT $ PortfolioSymbol.testInsertNew 1 pid 
 		{-Left _ -> return $ Left $ "Failed insert"-}
 
 
