@@ -174,6 +174,38 @@ COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
 
 
 
+class ClientOAuth:
+    def __init__(self, loginHint):
+        logger.debug("Creating an oauth client")
+        self.loginHint = loginHint
+        # This url needs to change to the actual site.
+        self.url = "https://beta.ccardemo.tech/gmailOauthRequest"
+    def getRequest(self):
+        logger.debug("Creating a auth request")
+        scope = "openid email"
+        r = requests.get(self.url + "/" + self.loginHint + "/" + scope)
+        oauthJson = json.loads(r.text)
+        authUri = oauthJson["authDetails"]["authorizationURI"]
+        clientId = oauthJson["clientId"]["unCI"]
+        responseType = "code"
+        scope = "openid email"
+        redirect_uri = oauthJson["redirectURLs"][0]
+        login_hint = self.loginHint
+        payload = {
+                "client_id" : clientId, 
+                "response_type" : responseType,
+                "scope" : scope,
+                "redirect_uri" : redirect_uri,  
+                "login_hint" : login_hint}
+        logger.debug("Auth uri " + authUri)
+        logger.debug("payload " + urlencode(payload))
+        authRequest = authUri + "?" + urlencode(payload)
+        logger.debug ("Auth url " + authRequest)
+        return authRequest
+
+    def showBrowser(self):
+        logger.debug ("Display web browser with the server params");
+        webbrowser.open(self.getRequest())
 
 ## Display a dictionary on the spreadsheet.
 ## Clients update elements to the map

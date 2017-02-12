@@ -149,6 +149,7 @@ library
                     , CCAR.Main.Driver
                     , CCAR.Main.EnumeratedTypes
                     , CCAR.Main.GroupCommunication
+                    , CCAR.Main.GmailAuth
                     , CCAR.Main.UserJoined
                     , CCAR.Main.Util
                     , CCAR.Model.CCAR

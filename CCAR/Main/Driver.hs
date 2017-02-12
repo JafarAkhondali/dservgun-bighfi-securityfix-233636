@@ -97,6 +97,7 @@ import Debug.Trace(traceEventIO)
 import                          CCAR.Analytics.MarketDataLanguage(evalMDL)
 import                          CCAR.Data.EquityBenchmark as EquityBenchmark
 import  CCAR.Data.ClientState(runAP)
+import CCAR.Main.GmailAuth
 
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
@@ -218,25 +219,14 @@ type Url = T.Text
 
 mkYesod "App" [parseRoutes|
 /chat HomeR GET
-/gmailOauthRequest/#EmailHint GmailOauthR GET POST
+-- | The request object to make a request with the application details to 
+-- | gmail.
+/gmailOauthRequest/#EmailHint/#OpenIdScope GmailOauthR GET
+-- | Setup gmail call back
 /gmailOauthCallback GmailOauthCallbackR GET
 |]
 
 
-postGmailOauthR :: T.Text -> Handler T.Text
-postGmailOauthR a = undefined
-getGmailOauthR :: EmailHint -> Handler Value
-getGmailOauthR = \a -> do
-        x <- lift $ authenticateGmail a 
-        let y = toJSON x
-        return y
-
---getGmailOauthCallbackR :: State -> Url -> AuthCode -> Handler (State, Url, AuthCode)
-getGmailOauthCallbackR = do
-    request <- waiRequest
-    liftIO $ Logger.debugM iModuleName $ "Auth callback " <> (show request)
-    -- Here do a post using the client secret 
-    return ("Auth callback" :: String)
 
 checkPassword :: CheckPassword -> IO (DestinationType, CheckPassword) 
 checkPassword b@(CheckPassword personNickName password _ attempts) = do

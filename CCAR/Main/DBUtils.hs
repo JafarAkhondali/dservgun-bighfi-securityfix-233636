@@ -67,9 +67,16 @@ instance FromJSON PortfolioSymbolSide
 instance ToJSON SupportedScript
 instance FromJSON SupportedScript
 
+instance ToJSON Locale 
+instance FromJSON Locale
+
+instance ToJSON IdentityProvider 
+instance FromJSON IdentityProvider
+
 newtype NickName = NickName {unN:: T.Text} 
     deriving (Show, Read, Eq, Data, Generic, Typeable, Monoid)
 type Base64Text = Text -- Base64 encoded text representing the image.
+
 
 getPoolSize :: IO Int 
 getPoolSize = getEnv "POOL_SIZE"  >>= (return . read)
@@ -741,4 +748,33 @@ share [mkPersist sqlSettings, mkMigrate "ccarModel", mkDeleteCascade sqlSettings
             zone Text 
             UniqueZone identification zone
             deriving Eq Show 
+        -- Register a user for accepting the token after consent.
+        OpenIdProfile json 
+            profileKind Text 
+            gender Gender
+            sub  Text -- Identity of the authenticated user
+            name Text -- Users full name
+            given_name Text
+            family_name Text
+            profile URL 
+            picture URL
+            email Text
+            email_verified  Text
+            hd URL Maybe 
+            locale Locale Maybe
+            UniqueProfile email
+            deriving Show Eq Read Typeable
+
+        OAuthSession json
+            csrfToken Text 
+            -- Fully qualified email id. Not the email hint which is a convenience string without the domain name.
+            -- for example, test is the email hint, whereas the string we are looking for is test@test.com.
+            email Text 
+            scope Text -- The scope of the session.
+            identityProvider IdentityProvider default = Google
+            identityToken Text Maybe -- The token that the oauth flow returns.
+            creationTime UTCTime
+            UniqueCSRFToken csrfToken
+            deriving Show Eq Read Typeable
+
         |]

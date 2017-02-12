@@ -4,12 +4,15 @@ module CCAR.Main.EnumeratedTypes where
 import Database.Persist.TH
 import GHC.Generics
 import Data.Data
-
+import Data.Text 
 
 
 
 getSupportedScripts :: [SupportedScript]
 getSupportedScripts = [minBound..maxBound]
+
+
+
 
 -- We could support a basic script or a file format.
 -- Do we need to split these types. 
@@ -50,10 +53,8 @@ data MessageDestinationType = Reply | Broadcast
 getMessageDestinationTypes :: [MessageDestinationType]
 getMessageDestinationTypes = [minBound..maxBound]
 
-data Gender = Male | Female | WontShare -- This needs to address the transgender and other members of our community. 
-			deriving(Show, Read, Enum, Bounded, Eq, Data, Generic, Typeable)
-getGenderList :: [Gender]
-getGenderList = [minBound..maxBound]
+
+
 
 {--| Survey prefix is present to allow for other states. |--}
 data SurveyPublicationState  = SURVEY_DRAFT | SURVEY_REVIEWED | SURVEY_APPROVED 
@@ -67,7 +68,7 @@ data RoleType = Guest | ReturningUser | Admin | Support
 getRoleTypes :: [RoleType]
 getRoleTypes = [minBound..maxBound]
 
-data ContactType = Twitter | LinkedIn | Facebook | Phone | Email | Cell | Work | Home | Pinterest
+data ContactType = TwitterCT | LinkedInCT | FacebookCT | Phone | Email | Cell | Work | Home | PinterestCT
 			deriving(Show, Read, Enum, Bounded, Eq, Data, Generic, Typeable)
 
 getContactTypes :: [ContactType]
@@ -113,7 +114,28 @@ getTestIssueTypes = [minBound..maxBound]
 data OptionType = Call | Put 
 	deriving (Show, Enum, Bounded, Eq, Data, Generic, Typeable, Read)
 
+type URL = Text
+data Gender = Male | Female | Declined deriving (Show, Read, Generic, Enum, Bounded, Eq, Ord)
+makeGender :: [Char] -> Gender 
+makeGender "male"   = Male 
+makeGender "female" = Female 
+makeGender _        = Declined
+getGenderList :: [Gender]
+getGenderList = [minBound..maxBound]
 
+
+data Locale = Locale {unLocale :: Text} deriving(Show, Read, Generic, Eq, Ord)
+newtype CSRFToken = CSRFToken {unCS :: Text} deriving (Show, Generic, Eq, Ord)
+newtype IdentityToken = IdentityToken {unIdTok :: Text} deriving (Show, Generic, Eq, Ord)
+data IdentityProvider = Google | LinkedIn | Facebook | Outlook deriving (Show, Generic, Eq, Read)
+
+
+type EmailHint = Text
+type OpenIdScope = Text
+
+
+
+derivePersistField "Locale"
 derivePersistField "OptionType"
 derivePersistField "TestIssue"
 derivePersistField "SupportedScript"
@@ -132,3 +154,4 @@ derivePersistField "PermissionType"
 derivePersistField "TimeUnit"
 derivePersistField "PortfolioSymbolSide"
 derivePersistField "PortfolioAnalysisResultType"
+derivePersistField "IdentityProvider"

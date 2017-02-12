@@ -15,6 +15,7 @@ import GHC.Generics
 import Data.Aeson 																as J
 import Yesod.Core
 
+import Data.List 																as DList
 import Data.Monoid
 import CCAR.Model.Portfolio 													as Portfolio (queryPortfolioUUID)
 import CCAR.Model.PortfolioT
@@ -252,24 +253,17 @@ manageSearch aNickName aValue@(Object a) =
 computePortfolioWith :: T.Text -> Double -> IO Double 
 computePortfolioWith s v = do 
 		lastPriceList<- getLatestPrice s 
-		case lastPriceList of 
-			lastPrice:_ -> do 
-					let lastClose = historicalPriceClose lastPrice 
-					let pValue = v
-					let r = pValue * lastClose 
-					return r 
-			[]	-> return 0.0
+		return $ 
+			DList.foldr (\e s -> s + (pVal e)) 0.0 $ DList.take 1 lastPriceList
+			where 
+				pVal e = v * (historicalPriceClose e)
 
 computePortfolio :: PortfolioSymbol -> IO PortfolioSymbol 
-computePortfolio  = \x -> do 
-		lastPriceList<- getLatestPrice $ portfolioSymbolSymbol x 
-		case lastPriceList of 
-			lastPrice:_ -> do 
-					let lastClose = historicalPriceClose lastPrice 
-					let pValue = Util.parse_float $ T.unpack $ portfolioSymbolQuantity x 
-					let r = pValue * lastClose 
-					return $ x {portfolioSymbolValue = T.pack $ show r}
-			[]	-> return $ x {portfolioSymbolValue = "0.0"}
+computePortfolio  = \x -> do
+		let pValue = Util.parse_float $ T.unpack $ portfolioSymbolQuantity x 
+		pV <- computePortfolioWith (portfolioSymbolSymbol x) pValue
+		return $ x {portfolioSymbolValue = T.pack . show $ pV}
+
 
 -- create, read , update and delete operations
 manage :: NickName -> Value -> IO (GC.DestinationType, T.Text)
@@ -526,7 +520,7 @@ testInsertNew index pId = do
 	Just companyUser <- liftIO $ dbOps $ get $ portfolioCompanyUserId portfolio 
 	Just user <- liftIO $ dbOps $ get $ companyUserUserId companyUser 
 	Just (Entity userId uIgnore) <- liftIO $ dbOps $ getBy $ UniqueNickName $ personNickName user 
-	liftIO $ dbOps $ insert $ 
+	liftIO $ dbOps $ Postgresql.insert $ 
 				PortfolioSymbol pId
 					("ABC" `mappend` (T.pack $ show index))
 					"314.14"

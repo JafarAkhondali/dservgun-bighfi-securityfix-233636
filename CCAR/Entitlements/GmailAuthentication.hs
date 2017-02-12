@@ -2,25 +2,14 @@
 
 module CCAR.Entitlements.GmailAuthentication(authenticateGmail, EmailHint) where
 import Prelude	
-import Data.Conduit
-import Data.Conduit.Binary
 import Data.Aeson
 import Data.Aeson.Lens
-import Data.Aeson.Types
 import Control.Lens hiding((.=))
 import Data.Text as T 
-import Data.Text.Lazy as L
-import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Lazy.Encoding as LE
-import Control.Applicative
-import Data.Monoid
 import Control.Monad
 import Control.Exception
-import Control.Monad.IO.Class(liftIO)
-import Control.Monad.Trans(lift)
 import System.IO
 import System.Environment
-import Network.URI
 import Data.Vector as V
 import GHC.Generics
 import System.Log.Logger as Logger
@@ -106,8 +95,8 @@ jsonToAuthenticationDetails aString = do
 {-- Read the credentials stored in a file and return the authentication details --}
 makeConnectionDetails :: FilePath -> IO (Maybe AuthenticationDetails)
 makeConnectionDetails aFile = do 
-	handle <- openFile aFile ReadMode
-	contents <- hGetContents handle
+	fHandle <- openFile aFile ReadMode
+	contents <- hGetContents fHandle
 	return $ jsonToAuthenticationDetails contents
 
 
