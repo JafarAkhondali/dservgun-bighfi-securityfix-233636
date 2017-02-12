@@ -216,7 +216,7 @@ instance Yesod App
 type State = T.Text 
 type AuthCode = T.Text
 type Url = T.Text
-
+type OpenIdScope = T.Text
 mkYesod "App" [parseRoutes|
 /chat HomeR GET
 -- | The request object to make a request with the application details to 
