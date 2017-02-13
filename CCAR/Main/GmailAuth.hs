@@ -18,6 +18,7 @@ import qualified GHC.Conc as GHCConc
 
 import Data.Map as M
 import Control.Monad as Monad
+import Control.Monad.Trans.Maybe
 import Control.Monad.IO.Class(liftIO)
 
 import Control.Exception
@@ -41,11 +42,15 @@ data ApplicationType = Web | Desktop | Browser deriving (Show, Generic)
 
 newtype Project = Project {unPrjId :: T.Text} deriving (Show, Generic) 
 newtype ClientSecret = ClientSecret {unClientSecrete :: T.Text} 
-instance Show ClientSecret where 
-    show _ = "Neither can we on the command line."
+
 
 instance ToJSON ClientSecret where 
     toJSON _ = object ["secret" .= ("We cant display it in json" :: String)]
+
+instance Show ClientSecret where 
+    show _ = "Neither can we on the command line."
+
+
 data CertificateType = X509 | Unknown deriving (Show, Generic)
 
 newtype ClientIdentifier = ClientIdentifier {unCI :: T.Text} deriving (Show, Generic)
@@ -105,10 +110,8 @@ jsonToAuthenticationDetails aString = do
                                         javascript_origins
                                         Nothing
     where 
-        isSome (Just y) = True
-        isSome _        = False
         -- Extract texts from json values. 
-        -- Hack: there must me a method in aeson to do this.            
+        -- Hack: there must be a method in aeson to do this.            
         textOnly :: Value -> T.Text
         textOnly x = case x of 
                             String y -> y
@@ -145,13 +148,13 @@ authenticateGmail = do
         getEnv ("GMAIL_OAUTH_LOCATION") >>= makeConnectionDetails 
         `catch`
         (\a@(SomeException e) -> do
-                            Logger.errorM iModuleName $ show a
-                            return Nothing )
+                Logger.errorM iModuleName $ show a
+                return Nothing )
 
 
 
 
---getGmailOauthCallbackR :: Handler Value
+getGmailOauthCallbackR :: MonadHandler m => m Value
 getGmailOauthCallbackR = do
     r <- getRequest
     let params = M.fromList $ reqGetParams r
@@ -161,7 +164,7 @@ getGmailOauthCallbackR = do
         Just resp -> do 
                 y <- liftIO $ requestAuthenticationToken resp
                 profile <- liftIO $ getUserProfile Google $ makeIdentityToken y
-                liftIO $ updatePersonProfile profile
+                _ <- liftIO $ updatePersonProfile profile
                 returnJson $ profile
 
 makeIdentityResponse :: IdentityProvider -> Map T.Text T.Text -> Maybe IdentityResponse 
@@ -178,13 +181,6 @@ instance OpenIdConnect IdentityProvider where
     openIdConnect a b = gmailOpenIdConnect a b 
     openIdConnect a b = undefined -- For other providers
 
-{-{"Right":"{\n \"kind\": \"plus#personOpenIdConnect\",\n \"gender\": 
-\"male\",\n \"sub\": \"115485454779635604021\",
-\n \"name\": \"Dinkar Ganti\",\n \"given_name\": \"Dinkar\",\n \"family_name\": 
-\"Ganti\",\n \"profile\": \"https://plus.google.com/115485454779635604021\",
-\n \"picture\": \"https://lh4.googleusercontent.com/-tNoHO27OkNU/AAAAAAAAAAI/AAAAAAAAElw/OCfpOLfGxmc/photo.jpg?sz=50\",
-\n \"email\": \"dinkar.ganti@gmail.com\",\n \"email_verified\": \"true\"\n}\n"}
--}
 
 gmailOpenIdConnect :: IdentityProvider -> IdentityToken -> IO (Either T.Text OpenIdProfile)
 gmailOpenIdConnect _ (IdentityToken a) = do 
@@ -219,9 +215,16 @@ makeIdentityToken :: Maybe T.Text -> IdentityToken
 makeIdentityToken Nothing = IdentityToken "Invalid token" 
 makeIdentityToken (Just x) = IdentityToken x
 
+
+-- If we do have a csrf token, then insert the session.
 updateUserMap :: Maybe CSRFToken -> EmailHint -> OpenIdScope -> IdentityProvider -> IO (Key OAuthSession)
 updateUserMap (Just (CSRFToken csrfToken)) email scope idP = getCurrentTime >>= \x -> 
                 dbOps $ DB.insert $ OAuthSession csrfToken email scope idP Nothing x
+updateUserMap Nothing email scope idP = 
+                getCurrentTime >>= \x -> do
+                    let madeUpStr = T.pack $ "INVALID_TOKEN_" <> (show x)
+                    dbOps $ DB.insert $ OAuthSession madeUpStr email scope idP Nothing x 
+
 
 
 
@@ -229,8 +232,9 @@ updatePersonProfile :: Either T.Text OpenIdProfile -> IO (Maybe (Entity OpenIdPr
 updatePersonProfile (Right aProfile ) = dbOps $ do 
     pro <- DB.getBy $ UniqueProfile $ openIdProfileEmail aProfile 
     case pro of 
-        Just (Entity profId prof) -> DB.replace profId aProfile >> return pro
+        Just (Entity profId _) -> DB.replace profId aProfile >> return pro
         Nothing -> DB.insertEntity aProfile >> return pro
+updatePersonProfile (Left _) = return Nothing
 
 
 
@@ -253,42 +257,36 @@ data IdentityResponse = IdentityResponse {
 instance ToJSON IdentityResponse 
 
 
-requestAuthenticationToken :: IdentityResponse -> IO (Maybe Text)
+
+-- This code is a bit of lens trickery, 
+-- return wraps into a maybe
+requestAuthenticationToken :: IdentityResponse -> IO (Maybe T.Text)
 requestAuthenticationToken ir = do
-    y <- authenticateGmail
-    -- Try to create a MaybeT with a HandlerT wrapped inside to remove the pattern
-    -- match.
-    case y of 
-        Just x -> do 
-                    let tokenUri = T.unpack $ getTokenURI x
-                    let opts = defaults 
-                            & param "client_id" .~ [clientIdT x]
-                            & param "client_secret" .~ [clientSecretT x]
-                            & param "redirect_uri" .~ [redirectUrls x]
-                            & param "grant_type" .~ ["authorization_code"]
-                    -- TODO: Review this: why should this be duplicated?
-                    p <- liftIO $ post tokenUri $ 
-                                    ["client_id" := clientIdT x
-                                       , "client_secret" := clientSecretT x 
-                                       , "redirect_uri" := redirectUrls x 
-                                       , "grant_type" := ("authorization_code" :: T.Text)
-                                       , "code" := otp ir
-                                    ]
-                    access_token <- return $ p ^? Wreq.responseBody . key "access_token" . _String
-                    id_token <- return $ p ^? Wreq.responseBody . key "id_token" 
-                    expires_in <- return $ p ^? Wreq.responseBody . key  "expires_in"
-                    token_type <- return $ p ^? Wreq.responseBody . key "token_type"
-                    res <- returnJson $ (access_token, id_token, expires_in, token_type, clientIdT x)
-                    return access_token
-        Nothing -> return $ Just ("Token error : Revalidate authentication." :: T.Text)
+    Just x <- authenticateGmail
+    let tokenUri = T.unpack $ getTokenURI x
+{-    let opts = defaults 
+            & param "client_id" .~ [clientIdT x]
+            & param "client_secret" .~ [clientSecretT x]
+            & param "redirect_uri" .~ [redirectUrls x]
+            & param "grant_type" .~ ["authorization_code"]
+    -- TODO: Review this: why should this be duplicated?-}
+    p <- liftIO $ post tokenUri $ 
+                    ["client_id" := clientIdT x
+                       , "client_secret" := clientSecretT x 
+                       , "redirect_uri" := redirectUrls x 
+                       , "grant_type" := ("authorization_code" :: T.Text)
+                       , "code" := otp ir
+                    ]
+    access_token <- return $ p ^? Wreq.responseBody . key "access_token" . _String
+    return access_token
 
 
---getGmailOauthR :: EmailHint -> OpenIdScope -> Handler Value
+getGmailOauthR :: MonadHandler m => EmailHint -> OpenIdScope -> m Value
 getGmailOauthR a s = do
         r <- getRequest
         rToken <- return $ Just ("Do something here." :: T.Text)
         x <- liftIO $ authenticateGmail
         let c = makeCSRFToken rToken
         let y = toJSON $ updateCSRFToken x c
-        liftIO $ updateUserMap c a s Google
+        _ <- liftIO $ updateUserMap c a s Google
         return y
