@@ -179,7 +179,6 @@ getPortfolioSymbols pUUID = dbOps $ do
 			return $ Prelude.map (\a@(Entity k value) -> (portfolioSymbolSymbol value
 														 , Util.parse_float $ T.unpack $ 
 														 		portfolioSymbolQuantity value)) entList
-
 	return $ processError result $ T.intercalate ":" 
 					$ ["Error processing getPortfolioSymbols" , unP pUUID]
 
@@ -206,28 +205,35 @@ queryPortfolioSymbolM p@(PortfolioSymbolQueryT cType
 
 
 queryPortfolioSymbol' :: PortfolioSymbolQueryT -> EitherT T.Text IO PortfolioSymbolQueryT 
-queryPortfolioSymbol' p = do 
-						computation <- liftIO $ runMaybeT $ queryPortfolioSymbolM p 
-						let r = 
-							case computation of 
-								Nothing -> Left $ "Unable to query portfolio for " <> (T.pack . show $ p)
-								Just x -> Right x
-						hoistEither r
+queryPortfolioSymbol' p = 
+	do 
+		computation <- liftIO $ runMaybeT $ queryPortfolioSymbolM p 
+		let r = 
+			case computation of 
+				Nothing -> Left $ "Unable to query portfolio for " <> (T.pack . show $ p)
+				Just x -> Right x
+		hoistEither r
 
+queryPortfolioSymbol :: PortfolioSymbolQueryT -> IO (Either T.Text PortfolioSymbolQueryT)
 queryPortfolioSymbol p = runEitherT $ queryPortfolioSymbol' p
 
 dtoToDao :: PortfolioSymbolT -> IO PortfolioSymbol 
 dtoToDao = undefined
 
 
+
+daoToDtoDefaultsT :: T.Text -> PortfolioSymbol -> EitherT T.Text IO PortfolioSymbolT 
+daoToDtoDefaultsT nickName pS = 
+	do 
+	portfolioUUID <- liftIO $ Portfolio.queryPortfolioUUID $ portfolioSymbolPortfolio pS
+	hoistEither $ 
+		case portfolioUUID of 
+			Right pUUID -> daoToDto P_Update pUUID nickName nickName nickName pS "0.0"
+			Left y -> Left y
+
 -- A default CRUD convertor for portfolio symbol. This hits the database.
 daoToDtoDefaults :: T.Text -> PortfolioSymbol -> IO (Either T.Text PortfolioSymbolT)
-daoToDtoDefaults nickName pS = do 
-		portfolioUUID <- Portfolio.queryPortfolioUUID $ portfolioSymbolPortfolio pS
-		case portfolioUUID of 
-			Right pUUID -> do 
-					return $ daoToDto P_Update pUUID nickName nickName nickName pS "0.0"
-			Left y -> return $ Left y
+daoToDtoDefaults n p = runEitherT $ daoToDtoDefaultsT n p
 
 
 daoToDto :: CRUD -> T.Text -> T.Text -> T.Text -> T.Text -> PortfolioSymbol -> T.Text -> (Either T.Text PortfolioSymbolT) 
@@ -315,6 +321,9 @@ process pT = case (pstCrudType pT) of
 type P_Creator = T.Text
 type P_Updator = T.Text 
 type P_PortfolioId = T.Text
+
+
+
 insertPortfolioSymbol :: PortfolioSymbolT -> IO (Either T.Text (Key PortfolioSymbol, (P_Creator, P_Updator, P_PortfolioId)))
 insertPortfolioSymbol a@(PortfolioSymbolT crType commandType 
 								portfolioId 

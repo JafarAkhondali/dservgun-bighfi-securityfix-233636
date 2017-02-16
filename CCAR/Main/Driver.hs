@@ -604,8 +604,7 @@ processUserLoggedIn aConn aText app@(App a c) nickName = do
                             Error errMessage ->  
                                     return (GroupCommunication.Reply 
                                         , ser $ appError
-                                                $ ("Guest login failed ") `mappend`  errMessage )
-
+                                                $ ("Guest login failed ") `mappend`  errMessage)
                     String "Login" -> do 
                             atomically $ addConnection app aConn nickName currentTime 
                             return (GroupCommunication.Reply, aText) -- tuple the input up

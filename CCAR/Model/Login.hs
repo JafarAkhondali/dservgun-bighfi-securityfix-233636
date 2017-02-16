@@ -51,9 +51,9 @@ data Login  =    Login {login :: Maybe Person, loginStatus :: Maybe LoginStatus}
 
 
 instance DBOps.ModuleInfo String where 
-    name nick = "CCAR.Model.Login->" ++ nick
+    name nick = "CCAR.Model.Login->" <> nick
 instance DBOps.ModuleInfo T.Text where 
-    name nick= "CCAR.Model.Login -> " `mappend` (T.unpack nick)
+    name nick= "CCAR.Model.Login -> " <> (T.unpack nick)
 
 {- handle login. Login returns a check for the user.-}
 queryLogin nickName aValue = do 
@@ -80,10 +80,7 @@ genLogin  (Login a b) = object [
 instance ToJSON Login where
     toJSON = genLogin 
 
-parseLogin v = Login <$> 
-                v .: "login" <*>
-                (v .: "loginStatus")
 
 instance FromJSON Login where
-    parseJSON (Object v) = parseLogin v
+    parseJSON (Object v) = Login <$> v .: "login" <*> v .: "loginStatus"
     parseJSON _          = Appl.empty
