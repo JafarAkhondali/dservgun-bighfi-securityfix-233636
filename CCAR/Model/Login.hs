@@ -19,16 +19,11 @@ import qualified CCAR.Main.EnumeratedTypes as EnumeratedTypes
 import qualified CCAR.Main.GroupCommunication as GC
 import Data.Aeson
 import Data.Aeson.Encode as En
-import Data.Aeson.Types as AeTypes(Result(..), parse)
+import Data.Aeson.Types as AeTypes(parse)
 import Data.Monoid
-import Data.Text.Lazy.Encoding as E
-import Data.Text.Lazy as L 
 
 import GHC.Generics
 import Data.Data
-import Data.Typeable 
-import Data.Time
-import CCAR.Main.Util 
 import System.Log.Logger as Logger
 import CCAR.Main.DBOperations as DBOps
 

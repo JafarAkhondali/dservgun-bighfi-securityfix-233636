@@ -123,8 +123,8 @@ iModuleName = "CCAR.Main.GmailAuth"
 {-- Read the credentials stored in a file and return the authentication details --}
 makeConnectionDetails :: FilePath -> IO (Maybe AuthenticationDetails)
 makeConnectionDetails aFile = do 
-    handle <- openFile aFile ReadMode
-    contents <- hGetContents handle
+    fHandle <- openFile aFile ReadMode
+    contents <- hGetContents fHandle
     return $ jsonToAuthenticationDetails contents
 
 getTokenURI :: AuthenticationDetails -> URL 

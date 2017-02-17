@@ -528,11 +528,29 @@ getAllClients app@(App a c) nn = do
 
 
 
-getPersonNickName :: Maybe Person -> Maybe T.Text
-getPersonNickName  = fmap personNickName
+conv :: Result a -> Maybe a 
+conv a = 
+    case a of 
+        Success r -> Just r 
+        Error s -> Nothing
+
+
+authenticateM :: WSConn.Connection -> T.Text -> App -> MaybeT IO (DestinationType, T.Text) 
+authenticateM aConn aText app@(App a c) = do 
+    Just o@(Object a) <- return $ J.decode . E.encodeUtf8 . L.fromStrict $ aText
+    Just (r@(Login a b)) <- return . conv $ (parse parseJSON o :: Result Login) 
+    Just nickName <- return $ fmap personNickName a 
+    return (GroupCommunication.Reply, UserJoined.userJoined nickName)
+
+
 
 authenticate :: WSConn.Connection -> T.Text -> App -> IO (DestinationType, T.Text)
 authenticate aConn aText app@(App a c) = do 
+    r <- runMaybeT $ authenticateM aConn aText app 
+    case r of 
+        Just x -> return x 
+        Nothing -> return (GroupCommunication.Reply, "Invalid user name " :: T.Text)
+{-        
     case aCommand of 
         Nothing -> return (GroupCommunication.Reply, 
                     L.toStrict $ E.decodeUtf8 $ En.encode 
@@ -542,7 +560,7 @@ authenticate aConn aText app@(App a c) = do
             case result of 
                 Success (r@(Login a b)) -> do 
                         x <- runMaybeT $ do 
-                            Just nickName <- return $ getPersonNickName a 
+                            Just nickName <- return $ fmap personNickName a 
                             return $ UserJoined.userJoined nickName
                         case x of 
                             Nothing -> return(GroupCommunication.Reply, 
@@ -552,7 +570,7 @@ authenticate aConn aText app@(App a c) = do
                     return (GroupCommunication.Reply, T.pack s)
     where 
         aCommand = (J.decode  $ E.encodeUtf8 (L.fromStrict aText)) :: Maybe Value
-
+-}
 
 
 ser  = (L.toStrict) . (E.decodeUtf8) . (En.encode)
