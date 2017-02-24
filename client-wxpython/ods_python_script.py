@@ -31,6 +31,14 @@ logger.debug("Loaded script file "  + os.getcwd())
 ##### We will break them down into modules as the size of the macros grow.
 ##### 
 
+#### 
+# oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
+# oSeries = oXChartType.getDataSeries()
+# oNewSeries = ()
+# oNewSeries = (oSeries[4], oSeries[3], oSeries[2], oSeries[1], oSeries[0] )
+# oXChartType.setDataSeries(oNewSeries)
+
+
 ##### Todo:
 ##### Package the server interaction as a library.
 
@@ -281,6 +289,7 @@ class PortfolioSymbolParseError(Exception) :
             self.value = value
         def __str__(self): 
             return repr(self.value);
+
 class PortfolioSymbol:
     # Deal with Right/Errors inside the constructor
     def __init__(self, ccarClient, jsonRecord) :
@@ -620,10 +629,10 @@ class PortfolioGroup:
 class MarketDataTimeSeries:
 
     def __init__(self, symbol, high, low, openL, close, volume, date):
-        self.high = high
-        self.low = low
-        self.open = openL
-        self.close = close
+        self.high = '%.2f' % float(high)
+        self.low = '%.2f' % float(low)
+        self.open = '%.2f' % float(openL)
+        self.close = '%.2f' % float(close)
         self.date =  date
         self.symbol = symbol
         self.volume = volume
@@ -631,12 +640,18 @@ class MarketDataTimeSeries:
         return (str(self.date) + " " + self.symbol)
     def key(self):
         return self.symbol + self.date 
+
 class MarketData:
     def __init__(self, symbol):
         self.timeSeries = {}
         self.symbol = symbol
     def add(self, event):
         self.timeSeries[event.date] = event
+
+    ## Return a list of all highs sorted by date.
+    def sortedByDate(self):
+        return self.timeSeries.sort(key=(MarketDataTimeSeries().key()), self.timeSeries)        
+
 class CCARClient:
     def __init__(self):
         self.marketData = {}
@@ -747,6 +762,8 @@ class CCARClient:
         except:
             logger.error(traceback.format_exc())
 
+    def getMarketDataWorksheet(self):
+        return self.getWorksheetByName(self.markeDataSheet);
 
     def getCellContent(self, aCell): 
         sheet = self.getWorksheet(0);
@@ -1604,6 +1621,7 @@ class PortfolioChanges:
                 return PortfolioSymbol(self.ccarClient, jsonrecord)
 
 
+
 ### End Class
 class ClientOAuth :
     def __init__(self, loginHint):
@@ -1637,6 +1655,41 @@ class ClientOAuth :
         logger.debug ("Display web browser with the server params");
         webbrowser.open(self.getRequest())
 
+class MarketDataChart:
+    def __init__(self, ccarClient):
+        logger.debug("Creating market data charts")
+        self.ccarClient = ccarClient
+        if ccarClient != None:
+            self.marketDataDict = self.ccarClient.marketDataBak
+        else:
+            self.marketDataDict = {}
+
+    def allSymbols(self):
+        logger.debug("Symbols for this sheet");
+        return self.marketDataDict.keys()
+
+    def createChart(self, aSymbol, index):
+        if aSymbol in self.marketDataDict:
+            logger.debug("Market data dict " + aSymbol)
+            marketData = self.marketDataDict[aSymbol]
+            marketDataTimeSeries = marketData.timeSeries.sortedByDate();
+            sheet = self.ccarClient.getMarketDataWorksheet();
+            oCharts = sheet.getCharts()
+            mChart = oCharts.getByName("TEST_CHART")
+            logger.debug("Mchart " + str(mchart));
+
+            # oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
+            
+            # oSeries = oXChartType.getDataSeries()
+            # oNewSeries = ()
+            # oNewSeries = (oSeries[4], oSeries[3], oSeries[2], oSeries[1], oSeries[0] )
+            # oXChartType.setDataSeries(oNewSeries)
+
+        else
+            logger.error("Key not found " + aSymbol)
+
+
+
 def StartClient(*args):
     try:
         login_cell = "B5"
@@ -1658,4 +1711,24 @@ def StartClient(*args):
         logger.error(traceback.format_exc())
 
 
-g_exportedScripts = StartClient,
+
+
+
+def createChart():
+        symbol = "IBM"
+        logger.debug("Market data dict " + aSymbol)
+        marketData = self.marketDataDict[aSymbol]
+        marketDataTimeSeries = marketData.timeSeries.sortedByDate();
+        sheet = self.ccarClient.getMarketDataWorksheet();
+        oCharts = sheet.getCharts()
+        mChart = oCharts.getByName("TEST_CHART")
+        logger.debug("Mchart " + str(mchart));
+
+        # oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
+        
+        # oSeries = oXChartType.getDataSeries()
+        # oNewSeries = ()
+        # oNewSeries = (oSeries[4], oSeries[3], oSeries[2], oSeries[1], oSeries[0] )
+        # oXChartType.setDataSeries(oNewSeries)
+
+g_exportedScripts = StartClient,createChart
