@@ -16,6 +16,7 @@ import webbrowser
 import requests
 import urllib 
 import tempfile
+import uno, unohelper
 
 from urllib.parse import urlencode
 
@@ -25,15 +26,65 @@ logging.basicConfig(filename="./testapp.log", level =
 logger = logging.getLogger(__name__)    
 logger.debug("Loaded script file "  + os.getcwd())
 
-def createChart():
-        symbol = "IBM"
+def setupContext():
+        import socket 
+        import uno 
+        # get the uno component context from the PyUNO runtime
+        localContext = uno.getComponentContext()
+
+        # create the UnoUrlResolver
+        resolver = localContext.ServiceManager.createInstanceWithContext(
+                                "com.sun.star.bridge.UnoUrlResolver", localContext )
+
+        # connect to the running office
+        ctx = resolver.resolve( "uno:socket,host=localhost,port=2002;urp;StarOffice.ComponentContext" )
+        smgr = ctx.ServiceManager
+
+        # get the central desktop object
+        desktop = smgr.createInstanceWithContext( "com.sun.star.frame.Desktop",ctx)
+
+        # access the current writer document
+        model = desktop.getCurrentComponent()
+        return model
+
+def getWorksheetUno(aName):
+        model = setupContext();
+        sheet = model.Sheets.getByName(aName);
+        return sheet;
+
+
+def getWorksheet(aName) :
+        desktop = XSCRIPTCONTEXT.getDesktop()
+        model = desktop.getCurrentComponent()
+        sheet = model.Sheets.getByName(aName)
+        return sheet
+def createChartUno(sheet, name):
+        rect = uno.createUnoStruct('com.sun.star.awt.Rectangle')
+        rect.Y = 1000
+        rect.X = 1000
+        rect.Width = 10000
+        rect.Height = 10000
+
+        oCellRangeAddress = (sheet.getCellRangeByName("A1:B13").getRangeAddress())
+        print(str(oCellRangeAddress))
+        chartsCollection = sheet.getCharts()
+        columnHeader = False
+        rowHeader = False
+        chart = chartsCollection.addNewByName(name, rect, oCellRangeAddress, columnHeader, rowHeader)
+        return chart
+
+def createChartTest():
+        sheet = getWorksheetUno("Sheet1")
+        chart = createChartUno(sheet, "TEST_CHART")
+        return chart
+def createChart(self):
+        aSymbol = "IBM"
         logger.debug("Market data dict " + aSymbol)
-        marketData = self.marketDataDict[aSymbol]
-        marketDataTimeSeries = marketData.timeSeries.sortedByDate();
-        sheet = self.ccarClient.getMarketDataWorksheet();
+        sheet = getWorksheet("Sheet1")
         oCharts = sheet.getCharts()
-        mChart = oCharts.getByName("TEST_CHART")
-        logger.debug("Mchart " + str(mchart));
+        mChart = oCharts.addNewByName("TEST_CHART", Rectangle(1000, 1000, 15000, 1000), 
+                        CellRangeAddresss(0, 0, 0, 100, 100), true, true)
+        logger.debug("Mchart " + str(oCharts));
 
         # oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
         

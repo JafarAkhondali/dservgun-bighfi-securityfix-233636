@@ -7,3 +7,7 @@ Will review.
 * Support for promises
 * Statically typed.
 
+#### How to test using the shell 
+
+libreoffice --accept="socket,host=localhost,port=2002,urp;StarOffice.ServiceManager'
+

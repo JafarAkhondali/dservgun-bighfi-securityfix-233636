@@ -650,7 +650,8 @@ class MarketData:
 
     ## Return a list of all highs sorted by date.
     def sortedByDate(self):
-        return self.timeSeries.sort(key=(MarketDataTimeSeries().key()), self.timeSeries)        
+        pass
+        #return self.timeSeries.sort(key=(MarketDataTimeSeries().key()), self.timeSeries)
 
 class CCARClient:
     def __init__(self):
@@ -881,7 +882,6 @@ class CCARClient:
         sheet = model.Sheets.getByIndex(0)
         tRange = sheet.getCellRangeByName(self.SECURITY_CELL)
         tRangeO = sheet.getCellRangeByName(self.SECURITY_CELL_LOG)
-        tRangeO.String = "Using " + tRange.String
         return tRange.String
 
     def sendSelectAllCompaniesRequest(self, aJsonMessage) :
@@ -1328,10 +1328,9 @@ class CCARClient:
 
 
 
-    ## https returns and invalid url. 
     def clientConnection (self) : 
-        CONNECTION_CELL = "C3";
-        return self.getCellContent(CONNECTION_CELL);
+        CONNECTION_CELL = "B1";
+        return self.getCellContentForSheet("settings", CONNECTION_CELL);
 
 
     ### Right in the json response implies no errors.
@@ -1685,7 +1684,7 @@ class MarketDataChart:
             # oNewSeries = (oSeries[4], oSeries[3], oSeries[2], oSeries[1], oSeries[0] )
             # oXChartType.setDataSeries(oNewSeries)
 
-        else
+        else:
             logger.error("Key not found " + aSymbol)
 
 
