@@ -921,18 +921,19 @@ staleClientInterval = getEnv("STALE_CLIENT_INTERVAL") >>= \x -> return $ (parse_
 cleanupStaleConnections :: App -> IO ()
 cleanupStaleConnections app = loop 
     where loop = do 
-            staleClientInterval <- staleClientInterval
-            threadDelay staleClientInterval -- Active connection for 30 seconds.
-            currentTime <- getCurrentTime
-            Logger.debugM  "CCAR" $ "Waiting for stale connections-----" <> (show currentTime)
-            -- Stale client is broken now.
-            staleClients <- atomically $ getStaleClients app (3600 :: NominalDiffTime) currentTime
-            mapM_ (\x -> do 
-                    Logger.infoM "CCAR" $ "Deleting client " ++ (show x)
-                    atomically $ deleteConnection app (ClientState.nickName x)
-                    ) staleClients
-            Logger.debugM "CCAR" "Stale connections cleaned"
-            loop
+                staleClientInterval <- staleClientInterval
+                Logger.debugM "CCAR " $ "Using " <> (show staleClientInterval)
+                threadDelay staleClientInterval -- Active connection for 30 seconds.
+                currentTime <- getCurrentTime
+                Logger.debugM  "CCAR" $ "Waiting for stale connections-----" <> (show currentTime)
+                -- Stale client is broken now.
+                staleClients <- atomically $ getStaleClients app (20 :: NominalDiffTime) currentTime
+                mapM_ (\x -> do 
+                        Logger.infoM "CCAR" $ "Deleting client " ++ (show x)
+                        atomically $ deleteConnection app (ClientState.nickName x)
+                        ) staleClients
+                Logger.debugM "CCAR" "Stale connections cleaned"
+                loop
 
 driver :: IO ()
 driver = do
@@ -963,7 +964,7 @@ driver = do
     chan <- atomically newBroadcastTChan
 --    static@(Static settings) <- static "static"
     nickNameMap <- newTVarIO $ IMap.empty
-    app <- return $ App chan nickNameMap
+    let app = App chan nickNameMap
     v <- A.async $ cleanupStaleConnections app
     warp 3000 app 
 
