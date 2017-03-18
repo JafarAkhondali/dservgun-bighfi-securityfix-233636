@@ -188,7 +188,7 @@ class Company {
 		if(newCompany) {
 			crud = "Create";
 		}else {
-			crud = "C_Update";
+			crud = "P_Update";
 		}
 		var payload = getPayload(nickName
 				, crud

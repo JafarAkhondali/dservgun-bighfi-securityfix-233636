@@ -2286,6 +2286,7 @@ massive_munit_TestRunner.prototype = {
 					return;
 				}
 			}
+			this.testSuites[i] = null;
 		}
 		if(!this.asyncPending) {
 			var time = massive_munit_util_Timer.stamp() - this.startTime;
@@ -2364,7 +2365,6 @@ massive_munit_TestRunner.prototype = {
 				this.asyncDelegate.cancelTest();
 				this.asyncDelegate = null;
 			}
-			if(js_Boot.__instanceof(e,org_hamcrest_AssertionException)) e = new massive_munit_AssertionException(e.message,e.info);
 			if(js_Boot.__instanceof(e,massive_munit_AssertionException)) {
 				result.executionTime = massive_munit_util_Timer.stamp() - this.testStartTime;
 				result.failure = e;
@@ -3846,68 +3846,6 @@ model_UserOperation.__name__ = ["model","UserOperation"];
 model_UserOperation.prototype = {
 	__class__: model_UserOperation
 };
-var org_hamcrest_Exception = function(message,cause,info) {
-	if(message == null) message = "";
-	this.name = Type.getClassName(js_Boot.getClass(this));
-	this.message = message;
-	this.cause = cause;
-	this.info = info;
-};
-org_hamcrest_Exception.__name__ = ["org","hamcrest","Exception"];
-org_hamcrest_Exception.prototype = {
-	get_name: function() {
-		return this.name;
-	}
-	,get_message: function() {
-		return this.message;
-	}
-	,get_cause: function() {
-		return this.cause;
-	}
-	,toString: function() {
-		var str = this.get_name() + ": " + this.get_message();
-		if(this.info != null) str += " at " + this.info.className + "#" + this.info.methodName + " (" + this.info.lineNumber + ")";
-		if(this.get_cause() != null) str += "\n\t Caused by: " + Std.string(this.get_cause());
-		return str;
-	}
-	,__class__: org_hamcrest_Exception
-};
-var org_hamcrest_AssertionException = function(message,cause,info) {
-	if(message == null) message = "";
-	org_hamcrest_Exception.call(this,message,cause,info);
-};
-org_hamcrest_AssertionException.__name__ = ["org","hamcrest","AssertionException"];
-org_hamcrest_AssertionException.__super__ = org_hamcrest_Exception;
-org_hamcrest_AssertionException.prototype = $extend(org_hamcrest_Exception.prototype,{
-	__class__: org_hamcrest_AssertionException
-});
-var org_hamcrest_IllegalArgumentException = function(message,cause,info) {
-	if(message == null) message = "Argument could not be processed.";
-	org_hamcrest_Exception.call(this,message,cause,info);
-};
-org_hamcrest_IllegalArgumentException.__name__ = ["org","hamcrest","IllegalArgumentException"];
-org_hamcrest_IllegalArgumentException.__super__ = org_hamcrest_Exception;
-org_hamcrest_IllegalArgumentException.prototype = $extend(org_hamcrest_Exception.prototype,{
-	__class__: org_hamcrest_IllegalArgumentException
-});
-var org_hamcrest_MissingImplementationException = function(message,cause,info) {
-	if(message == null) message = "Abstract method not overridden.";
-	org_hamcrest_Exception.call(this,message,cause,info);
-};
-org_hamcrest_MissingImplementationException.__name__ = ["org","hamcrest","MissingImplementationException"];
-org_hamcrest_MissingImplementationException.__super__ = org_hamcrest_Exception;
-org_hamcrest_MissingImplementationException.prototype = $extend(org_hamcrest_Exception.prototype,{
-	__class__: org_hamcrest_MissingImplementationException
-});
-var org_hamcrest_UnsupportedOperationException = function(message,cause,info) {
-	if(message == null) message = "";
-	org_hamcrest_Exception.call(this,message,cause,info);
-};
-org_hamcrest_UnsupportedOperationException.__name__ = ["org","hamcrest","UnsupportedOperationException"];
-org_hamcrest_UnsupportedOperationException.__super__ = org_hamcrest_Exception;
-org_hamcrest_UnsupportedOperationException.prototype = $extend(org_hamcrest_Exception.prototype,{
-	__class__: org_hamcrest_UnsupportedOperationException
-});
 var promhx_base_AsyncBase = function(d) {
 	this._resolved = false;
 	this._pending = false;
@@ -4124,7 +4062,7 @@ promhx_base_AsyncBase.prototype = {
 		}
 	}
 	,then: function(f) {
-		var ret = new promhx_base_AsyncBase();
+		var ret = new promhx_base_AsyncBase(null);
 		promhx_base_AsyncBase.link(this,ret,f);
 		return ret;
 	}
@@ -4179,7 +4117,7 @@ var promhx_Promise = $hx_exports.promhx.Promise = function(d) {
 };
 promhx_Promise.__name__ = ["promhx","Promise"];
 promhx_Promise.whenAll = function(itb) {
-	var ret = new promhx_Promise();
+	var ret = new promhx_Promise(null);
 	promhx_base_AsyncBase.linkAll(itb,ret);
 	return ret;
 };
@@ -4205,7 +4143,7 @@ promhx_Promise.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		this._resolve(val);
 	}
 	,then: function(f) {
-		var ret = new promhx_Promise();
+		var ret = new promhx_Promise(null);
 		promhx_base_AsyncBase.link(this,ret,f);
 		return ret;
 	}
@@ -4226,7 +4164,7 @@ promhx_Promise.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		this._handleError(error);
 	}
 	,pipe: function(f) {
-		var ret = new promhx_Promise();
+		var ret = new promhx_Promise(null);
 		promhx_base_AsyncBase.pipeLink(this,ret,f);
 		return ret;
 	}
@@ -4243,12 +4181,11 @@ promhx_Promise.prototype = $extend(promhx_base_AsyncBase.prototype,{
 });
 var promhx_Stream = $hx_exports.promhx.Stream = function(d) {
 	promhx_base_AsyncBase.call(this,d);
-	this._end_deferred = new promhx_Deferred();
-	this._end_promise = this._end_deferred.promise();
+	this._end_promise = new promhx_Promise();
 };
 promhx_Stream.__name__ = ["promhx","Stream"];
 promhx_Stream.foreach = function(itb) {
-	var s = new promhx_Stream();
+	var s = new promhx_Stream(null);
 	var $it0 = $iterator(itb)();
 	while( $it0.hasNext() ) {
 		var i = $it0.next();
@@ -4258,12 +4195,12 @@ promhx_Stream.foreach = function(itb) {
 	return s;
 };
 promhx_Stream.wheneverAll = function(itb) {
-	var ret = new promhx_Stream();
+	var ret = new promhx_Stream(null);
 	promhx_base_AsyncBase.linkAll(itb,ret);
 	return ret;
 };
 promhx_Stream.concatAll = function(itb) {
-	var ret = new promhx_Stream();
+	var ret = new promhx_Stream(null);
 	var $it0 = $iterator(itb)();
 	while( $it0.hasNext() ) {
 		var i = $it0.next();
@@ -4272,7 +4209,7 @@ promhx_Stream.concatAll = function(itb) {
 	return ret;
 };
 promhx_Stream.mergeAll = function(itb) {
-	var ret = new promhx_Stream();
+	var ret = new promhx_Stream(null);
 	var $it0 = $iterator(itb)();
 	while( $it0.hasNext() ) {
 		var i = $it0.next();
@@ -4281,18 +4218,18 @@ promhx_Stream.mergeAll = function(itb) {
 	return ret;
 };
 promhx_Stream.stream = function(_val) {
-	var ret = new promhx_Stream();
+	var ret = new promhx_Stream(null);
 	ret.handleResolve(_val);
 	return ret;
 };
 promhx_Stream.__super__ = promhx_base_AsyncBase;
 promhx_Stream.prototype = $extend(promhx_base_AsyncBase.prototype,{
 	then: function(f) {
-		var ret = new promhx_Stream();
+		var ret = new promhx_Stream(null);
 		promhx_base_AsyncBase.link(this,ret,f);
-		this._end_promise.then(function(x) {
+		this._end_promise._update.push({ async : ret._end_promise, linkf : function(x) {
 			ret.end();
-		});
+		}});
 		return ret;
 	}
 	,detachStream: function(str) {
@@ -4303,13 +4240,18 @@ promhx_Stream.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		while(_g < _g1.length) {
 			var u = _g1[_g];
 			++_g;
-			if(u.async == str) removed = true; else filtered.push(u);
+			if(u.async == str) {
+				this._end_promise._update = this._end_promise._update.filter(function(x) {
+					return x.async != str._end_promise;
+				});
+				removed = true;
+			} else filtered.push(u);
 		}
 		this._update = filtered;
 		return removed;
 	}
 	,first: function() {
-		var s = new promhx_Promise();
+		var s = new promhx_Promise(null);
 		this.then(function(x) {
 			if(!s._resolved) s.handleResolve(x);
 		});
@@ -4323,7 +4265,7 @@ promhx_Stream.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		this._pause = set;
 	}
 	,pipe: function(f) {
-		var ret = new promhx_Stream();
+		var ret = new promhx_Stream(null);
 		promhx_base_AsyncBase.pipeLink(this,ret,f);
 		this._end_promise.then(function(x) {
 			ret.end();
@@ -4331,7 +4273,7 @@ promhx_Stream.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		return ret;
 	}
 	,errorPipe: function(f) {
-		var ret = new promhx_Stream();
+		var ret = new promhx_Stream(null);
 		this.catchError(function(e) {
 			var piped = f(e);
 			piped.then($bind(ret,ret._resolve));
@@ -4365,7 +4307,7 @@ promhx_Stream.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		return this._end_promise.then(f);
 	}
 	,filter: function(f) {
-		var ret = new promhx_Stream();
+		var ret = new promhx_Stream(null);
 		this._update.push({ async : ret, linkf : function(x) {
 			if(f(x)) ret.handleResolve(x);
 		}});
@@ -4375,7 +4317,7 @@ promhx_Stream.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		return ret;
 	}
 	,concat: function(s) {
-		var ret = new promhx_Stream();
+		var ret = new promhx_Stream(null);
 		this._update.push({ async : ret, linkf : $bind(ret,ret.handleResolve)});
 		promhx_base_AsyncBase.immediateLinkUpdate(this,ret,function(x) {
 			return x;
@@ -4392,7 +4334,7 @@ promhx_Stream.prototype = $extend(promhx_base_AsyncBase.prototype,{
 		return ret;
 	}
 	,merge: function(s) {
-		var ret = new promhx_Stream();
+		var ret = new promhx_Stream(null);
 		this._update.push({ async : ret, linkf : $bind(ret,ret.handleResolve)});
 		s._update.push({ async : ret, linkf : $bind(ret,ret.handleResolve)});
 		promhx_base_AsyncBase.immediateLinkUpdate(this,ret,function(x) {
@@ -4410,7 +4352,7 @@ var promhx_PublicStream = $hx_exports.promhx.PublicStream = function(def) {
 };
 promhx_PublicStream.__name__ = ["promhx","PublicStream"];
 promhx_PublicStream.publicstream = function(val) {
-	var ps = new promhx_PublicStream();
+	var ps = new promhx_PublicStream(null);
 	ps.handleResolve(val);
 	return ps;
 };
@@ -4614,7 +4556,7 @@ view_Company.prototype = {
 		var imageEncoded = encodedString;
 		var nickName = MBooks_$im.getSingleton().getNickName();
 		var crud = "";
-		if(this.newCompany) crud = "Create"; else crud = "C_Update";
+		if(this.newCompany) crud = "Create"; else crud = "P_Update";
 		var payload = this.getPayload(nickName,crud,companyName,companyID,companyMailbox,imageEncoded,nickName);
 		MBooks_$im.getSingleton().doSendJSON(payload);
 	}
@@ -4747,10 +4689,11 @@ view_CompanyEntitlement.prototype = {
 		((function($this) {
 			var $r;
 			var varargf = function(f) {
-				var ret = new promhx_Stream();
+				var ret = new promhx_Stream(null);
 				var arr = [stream,eStream];
-				var p = promhx_Stream.wheneverAll(arr);
-				p._update.push({ async : ret, linkf : function(x) {
+				var s = new promhx_Stream();
+				promhx_base_AsyncBase.linkAll(arr,s);
+				s._update.push({ async : ret, linkf : function(x) {
 					ret.handleResolve(f(arr[0]._val,arr[1]._val));
 				}});
 				return ret;
