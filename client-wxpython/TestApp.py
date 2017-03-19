@@ -82,9 +82,8 @@ def createChart(self):
         logger.debug("Market data dict " + aSymbol)
         sheet = getWorksheet("Sheet1")
         oCharts = sheet.getCharts()
-        mChart = oCharts.addNewByName("TEST_CHART", Rectangle(1000, 1000, 15000, 1000), 
-                        CellRangeAddresss(0, 0, 0, 100, 100), true, true)
-        logger.debug("Mchart " + str(oCharts));
+        mChart = oCharts.getByIndex(0)
+        logger.debug("Mchart " + str(mChart));
 
         # oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
         
