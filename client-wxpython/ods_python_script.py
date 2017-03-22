@@ -678,8 +678,8 @@ class CCARClient:
         self.INFO_ROW_COUNT = 30
         self.SECURITY_CELL = "B15"
         self.SECURITY_CELL_LOG = "B16"
-        self.LOGIN_CELL = "B5"
-        self.PASSWORD_CELL = "B6"
+        self.LOGIN_CELL = "F11"
+        self.PASSWORD_CELL = "F13"
         self.ERROR_CELL = "A23"
         self.KEEP_ALIVE_CELL = "B25"
         self.MARKET_DATA_REFRESH_INTERVAL_CELL = "B26"
@@ -744,6 +744,16 @@ class CCARClient:
             return self.getWorksheetByName(aName)
         else:
             newSheet = model.Sheets.insertNewByName(aName, 1)
+            row = 1
+            displayName = aName
+            logger.debug("Adding header rows for " + displayName)
+            self.updateCellContent(displayName, "A1", "Symbol")
+            self.updateCellContent(displayName, "B1", "Quantity")
+            self.updateCellContent(displayName, "C1", "Side")
+            self.updateCellContent(displayName, "D1", "SymbolType")
+            self.updateCellContent(displayName, "E1", "Value")
+            self.updateCellContent(displayName, "F1", "Stress value")
+            self.updateCellContent(displayName, "G1", "Time stamp")
             return newSheet
 
     def getCellContentForSheet(self, sheetName, aCell):
@@ -839,9 +849,10 @@ class CCARClient:
         model = desktop.getCurrentComponent()
         sheet = model.Sheets.getByIndex(0)
         oDrawPage = sheet.DrawPage
-        companyList = oDrawPage.getForms().getByIndex(0).getByName(COMPANY_SELECTION_LIST_CONTROL)
-        companyListControl = model.getCurrentController().getControl(companyList)
-        return companyListControl
+        #companyList = oDrawPage.getForms().getByIndex(0).getByName(COMPANY_SELECTION_LIST_CONTROL)
+        #companyListControl = model.getCurrentController().getControl(companyList)
+        #return companyListControl
+        return None
 
     def commandDictionary (self) :
         return {
@@ -1031,7 +1042,7 @@ class CCARClient:
             self.updateErrorWorksheet("Invalid user name password. Call support");
             return;
         (self.loop.create_task(self.keepAlivePing()))
-        (self.loop.create_task(self.checkForChanges()))
+#        (self.loop.create_task(self.checkForChanges()))
         logger.debug("Handling login response: " + str(data))
         result = self.sendUserLoggedIn(data);
         return result
@@ -1080,7 +1091,7 @@ class CCARClient:
         portfolioQueries = []
         count = 0
         for aCompany in companiesList:
-            self.getCompanySelectListBox().addItem(aCompany["companyID"], count)
+#            self.getCompanySelectListBox().addItem(aCompany["companyID"], count)
             count = count + 1
             portfolioQuery = {
                     'commandType' : "QueryPortfolios"
@@ -1707,7 +1718,7 @@ class MarketDataChart:
 
 def StartClient(*args):
     try:
-        login_cell = "B5"
+        login_cell = "F11"
         # oauth = ClientOAuth(l)
         # oauth.showBrowser()
         """Starts the CCAR client."""
