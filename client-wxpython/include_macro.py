@@ -3,6 +3,16 @@ import shutil
 import os
 import sys
 
+
+def zipdir(path, ziph):
+    # ziph is zipfile handle
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            dest = os.path.relpath(os.path.join(root, file), os.path.join(path, '..'))
+            print ("Dest " + dest)
+            ziph.write(os.path.join(root, file), 
+            	dest)
+
 print("Delete and create directory with_macro")
 shutil.rmtree("with_macro",True)
 os.mkdir("with_macro")
@@ -16,6 +26,9 @@ shutil.copyfile(sys.argv[1],filename)
 doc = zipfile.ZipFile(filename,'a')
 ## XXX: Use python based path separators
 doc.write(scriptName, "Scripts/python/" + scriptName)
+# zipdir("/usr/lib/python3/dist-packages/requests", doc)
+# zipdir("/usr/local/lib/python3.4/dist-packages/websockets", doc)
+
 doc.write("../beta.ccardemo.tech/beta_ccardemo_tech.ca-bundle", "Scripts/beta_ccardemo_tech.ca-bundle")
 # Copy the certificate bundle.
 #doc.write("ca_bundle.pem.bak", "certificates/ca_bundle.pem")
