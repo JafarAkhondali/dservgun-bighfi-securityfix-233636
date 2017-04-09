@@ -46,7 +46,7 @@ csvFile = endBy line eol
 line = sepBy cell (char '|')
 cell = quotedCell <|> many (noneOf "|\n")
 quotedCell = 
-	do 	char '"'
+	do 	_ <- char '"'
 		content <- many quotedChar 
 		char '"' <?> "Incomplete quotes" 
 		return content 

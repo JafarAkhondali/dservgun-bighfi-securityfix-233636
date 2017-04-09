@@ -8,19 +8,15 @@ import Data.Text as Text
 import CCAR.Model.CcarDataTypes
 import CCAR.Model.Maturity
 import Control.Monad
-import Control.Monad.IO.Class(liftIO)
-import Data.Monoid((<>))
-import Data.Functor.Identity
-syntaxError i = CCARError $ Text.append "Invalid symbol " i 
-symbol :: Parser Char
-symbol = oneOf "!#$%&|*+-/:<=>?@^_-"
+
+syntaxError :: Text -> CCARError
+syntaxError = \i -> CCARError $ Text.append "Invalid symbol " i
 
 
-readExprTree :: Text -> [Stress] 
-readExprTree input = case parse parseStatements (Text.unpack $ msg $ syntaxError input)
-                            (Text.unpack input) of
-    Left err -> []
-    Right (val, pos) -> val 
+
+readExprTree :: Text -> Either ParseError ([Stress], SourcePos) 
+readExprTree = \input -> parse parseStatements (Text.unpack $ msg $ syntaxError input)
+                            (Text.unpack input)
 
 readExpr :: Text -> Value
 readExpr input = case parse (parseStatements) (Text.unpack $ msg $ syntaxError input) (Text.unpack input) of 
@@ -70,14 +66,14 @@ parseBasisPoints = do
 
 parsePercentage :: Parser StressValue
 parsePercentage = do
-        string "pct"
+        _ <- string "pct"
         spaces
         sign <- parseSign
         many space
         pNum <- many1 alphaNum
         spaces
         many space
-        string "%"
+        _ <- string "%"
         spaces
         pDenom <- liftM read $ many1 digit
         if (pDenom == (0 :: Integer))
@@ -91,19 +87,19 @@ parseStressValue = try parsePercentage
                 <?> "Error parsing stress value"
 parseCurrencyStress :: Parser Stress
 parseCurrencyStress = do
-    string "Create"
+    _ <- string "Create"
     spaces
-    string "Currency"
+    _ <- string "Currency"
     spaces
-    string "Shock"
+    _ <- string "Shock"
     spaces
-    string "for"
+    _ <- string "for"
     spaces
-    string "major"
+    _ <- string "major"
     spaces
     curr1 <- many1 alphaNum
     spaces
-    string "minor"
+    _ <- string "minor"
     spaces
     curr2 <-many1 alphaNum
     spaces
@@ -113,13 +109,13 @@ parseCurrencyStress = do
 
 parseEquityStress :: Parser Stress
 parseEquityStress = do 
-        string "Create"
+        _ <- string "Create"
         spaces
-        string "Equity"
+        _ <- string "Equity"
         spaces 
-        string "Shock"
+        _ <- string "Shock"
         spaces
-        string "for"
+        _ <- string "for"
         spaces
         equitySymbol <- many1 alphaNum
         spaces
@@ -128,13 +124,13 @@ parseEquityStress = do
 
 parseIndexStress :: Parser Stress 
 parseIndexStress = do 
-        string "Create"
+        _ <- string "Create"
         spaces
-        string "Index"
+        _ <- string "Index"
         spaces 
-        string "Shock"
+        _ <- string "Shock"
         spaces
-        string "for"
+        _ <- string "for"
         spaces
         equitySymbol <- many1 alphaNum
         spaces
@@ -143,13 +139,13 @@ parseIndexStress = do
 
 parseSectorStress :: Parser Stress
 parseSectorStress = do 
-        string "Create"
+        _ <- string "Create"
         spaces
-        string "Sector"
+        _ <- string "Sector"
         spaces 
-        string "Shock"
+        _ <- string "Shock"
         spaces
-        string "for"
+        _ <- string "for"
         spaces
         equitySymbol <- many1 alphaNum
         spaces
@@ -159,23 +155,23 @@ parseSectorStress = do
 
 parseOptionStress :: Parser Stress
 parseOptionStress = do
-        string "Create"
+        _ <- string "Create"
         spaces
-        string "Option"
+        _ <- string "Option"
         spaces
-        string "Shock"
+        _ <- string "Shock"
         spaces
-        string "for"
+        _ <- string "for"
         spaces
         optionSymbol <- many1 alphaNum
         spaces
-        string "Exp"
+        _ <- string "Exp"
         spaces
         month <- many1 alphaNum -- Read of month needs to support APR/4 and should be less than 13
         spaces
         year <- many1 alphaNum
         spaces
-        string "Strike"
+        _ <- string "Strike"
         spaces
         price <- many1 alphaNum
         spaces
@@ -186,14 +182,14 @@ parseOptionStress = do
 
 parseTenorValue :: Parser (Mat, StressValue)
 parseTenorValue = do
-    string "("
+    _ <- string "("
     tenorValue <- many1 digit
     tenorPeriod <- many1 alphaNum
-    many space
-    string "->"
-    many space
+    _ <- many space
+    _ <- string "->"
+    _ <- many space
     stressValue <-  parseStressValue
-    string ")"
+    _ <- string ")"
     return ((createMat tenorValue tenorPeriod), stressValue)
     where
         createMat tenorValue tenorPeriod =
@@ -204,11 +200,11 @@ parseTenorValue = do
 
 parseTenorCurve :: Parser [(Mat, StressValue)]
 parseTenorCurve = do
-    string "["
-    many space
+    _ <- string "["
+    _ <- many space
     tenors <- sepBy parseTenorValue (char ',')
-    many space
-    string "]" 
+    _ <- many space
+    _ <- string "]" 
     return tenors
 
 parseMaturity :: Parser Mat 
@@ -225,39 +221,39 @@ parseMaturity = do
 
 parseRatesStress :: Parser Stress
 parseRatesStress = do
-    string "Create"
+    _ <- string "Create"
     spaces
-    string "Rates"
+    _ <- string "Rates"
     spaces
-    string "Shock"
+    _ <- string "Shock"
     spaces
-    string "for"
+    _ <- string "for"
     spaces
     currency <- many1 alphaNum
-    many space
+    _ <- many space
     tenors <- parseTenorCurve
     return $ TenorStress (Currency currency) tenors
 
 parseRatesVegaStress :: Parser Stress
 parseRatesVegaStress = do
-    string "Create"
+    _ <- string "Create"
     spaces
-    string "Rates"
+    _ <- string "Rates"
     spaces
-    string "Vega"
+    _ <- string "Vega"
     spaces
-    string "Shock"
+    _ <- string "Shock"
     spaces
-    string "for"
+    _ <- string "for"
     spaces
     currency <- many1 alphaNum
     spaces
-    string "Expiry"
+    _ <- string "Expiry"
     spaces
-    string "="
+    _ <- string "="
     spaces
     tenor <- parseMaturity
-    many space 
+    _ <- many space 
     curve <- parseTenorCurve
     return $ TenorVegaStress (Currency currency) tenor curve
 

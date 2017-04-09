@@ -656,40 +656,51 @@ startUserThreads app connection nickNameV = do
                         , (d, "Market data thread" , T.unpack nickNameV)]
         A.waitAny [a, b, c, d]
         return "Threads had exception" 
+
+
+
+
+
+validateClientState :: App -> Network.WebSockets.Connection -> T.Text -> ErrorT DriverError IO T.Text
+validateClientState app connection = \command -> do 
+        nickName <- runP $ nickName2 $ incomingDictionary command
+        clientState <- atomically $ getClientState nickName app
+        case clientState of 
+            [] -> do 
+                (destination, text) <- liftIO $ authenticate connection command app  
+                processResult <- liftIO $ do  
+                            _ <- (processClientLost app connection nickName command)
+                                    `catch` 
+                                    (\ a@(CloseRequest e1 e2) -> do  
+                                        atomically $ deleteConnection app nickName
+                                        return "Close request" )
+                            a <- liftBaseWith (\run -> run $ liftIO $ startUserThreads app connection nickName)
+                            return ("All threads exited " :: T.Text)
+                return processResult 
+            _ -> do 
+                    liftIO $ WSConn.sendClose connection 
+                        ("Active connection. Multiple logins not allowed. " `mappend` nickName)
+                    return ("Multiple logins not allowed " :: T.Text)
+
+
+
 -- Do not let multiple connections to the same nick name.
 -- How do we allow multiple connections for handling larger data, such as
 -- video or file upload?
 -- Create a session id for a connection and send that token back to the client.
 -- Subsequent request for another connection needs to be assigned the same token. 
 
+
 ccarApp :: WebSocketsT Handler ()
 ccarApp = do
         connection <- ask
         app <- getYesod
         command <- liftIO $ WSConn.receiveData connection
-        error1  <- liftIO $ runErrorT $ runP $ nickName2 $ incomingDictionary (command :: T.Text)
-        case error1 of 
-            Left driverError -> do 
-                    liftIO $ WSConn.sendClose connection (T.pack $ show driverError)
-                    return ("Close sent" :: T.Text)
-            Right nickNameV -> do 
-                clientState <- atomically $ getClientState nickNameV app
-                case clientState of 
-                    [] -> do 
-                        (destination, text) <- liftIO $ authenticate connection command app  
-                        processResult <- liftIO $ do  
-                                    (processClientLost app connection nickNameV command)
-                                     `catch` 
-                                            (\ a@(CloseRequest e1 e2) -> do  
-                                                atomically $ deleteConnection app nickNameV
-                                                return "Close request" )
-                                    a <- liftBaseWith (\run -> run $ liftIO $ startUserThreads app connection nickNameV)
-                                    return ("All threads exited " :: T.Text)
-                        return processResult 
-                    _ -> do 
-                            liftIO $ WSConn.sendClose connection 
-                                ("Active connection. Multiple logins not allowed. " `mappend` nickNameV)
-                            return ("Multiple logins not allowed " :: T.Text)
+        error1  <- liftIO $ runErrorT $ validateClientState app connection command 
+        _ <- case error1 of 
+                Left driverError -> do 
+                        liftIO $ WSConn.sendClose connection (T.pack $ show driverError)
+                        return ("Close sent" :: T.Text)
         return ()
 
 
@@ -707,7 +718,7 @@ processClientLost app connection nickNameV iText = do
                                 $ incomingDictionary iText
                     liftIO $ Logger.errorM iModuleName $ "Sending " ++ ( show nickNameFound)
                     WSConn.sendTextData connection nickNameFound
-                    (processClientLeft connection app nickNameV) `catch`
+                    _ <- (processClientLeft connection app nickNameV) `catch`
                                     (\a@(SomeException e) -> do  
                                             atomically $ deleteConnection app nickNameV
                                             return ("Close request" :: T.Text))
@@ -984,5 +995,7 @@ processActivePortfolio nickName app (Object a) = do
                 return(CCAR.Main.GroupCommunication.Reply, Right p)
         Error e -> 
                 return (CCAR.Main.GroupCommunication.Reply, Left $ appError e)
+
+processActivePortfolio nickName app _ = return (CCAR.Main.GroupCommunication.Reply, Left $ appError $ ("Not an object" :: String))
 
 

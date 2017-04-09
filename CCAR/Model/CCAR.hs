@@ -62,17 +62,13 @@ instance ToJSON CCARText where
                                         , "commandType" .= ("ParsedCCARText" :: T.Text)]
 
 
-genCCARUpload (CCARUpload a b c d ) = object["uploadedBy" .= a 
+instance ToJSON CCARUpload where
+    toJSON (CCARUpload a b c d ) = object["uploadedBy" .= a 
                                     , "ccarOperation" .= b 
                                     , "ccarData" .= c
                                     , "ccarResultSet" .= d
                                     , "commandType" .= (String "CCARUpload")]
 
-
-
-
-instance ToJSON CCARUpload where
-    toJSON = genCCARUpload 
 
 parseCCARUpload v = CCARUpload <$>
                         v .: "uploadedBy" <*>

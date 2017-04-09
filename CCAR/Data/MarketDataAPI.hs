@@ -22,6 +22,7 @@ import Control.Monad
 import Control.Monad.Trans(liftIO, lift)
 import Data.Monoid(mappend)
 import Control.Monad.Trans.Maybe
+import Import
 
 
 
@@ -43,22 +44,28 @@ getActivePortfolio nickName app@(App a c) = do
 getActiveScenario :: App -> T.Text -> STM [Stress]
 getActiveScenario app nn = do 
     cMap <- readTVar $ nickNameMap app 
-    clientState <- return $ Map.lookup nn cMap 
+    let clientState = Map.lookup nn cMap 
     case clientState of 
             Nothing -> return [] 
             Just x1 -> return $ activeScenario x1
 
-updateActiveScenario :: App -> T.Text -> [Stress] -> STM()
+
+
+updateActiveScenario :: App -> T.Text -> Either ParseError ([Stress], SourcePos) -> STM()
 updateActiveScenario app nn x = do 
+    let scenario = squash x
     cMap <- readTVar $ nickNameMap app 
     clientState <- return $ Map.lookup nn cMap
     case clientState of 
             Nothing -> return () 
             Just x1 -> do 
                 _ <- writeTVar (nickNameMap app) 
-                            (Map.insert nn (x1 {activeScenario = x}) (cMap))
+                            (Map.insert nn (x1 {activeScenario = scenario}) (cMap))
                 return ()
-
+    where
+        squash :: Either ParseError ([Stress], SourcePos) -> [Stress]
+        squash (Right (x, _)) = x 
+        squash _              = []
 
 queryMarketData :: IO (Map T.Text HistoricalPrice)
 queryMarketData = dbOps $ do 

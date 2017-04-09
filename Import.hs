@@ -8,5 +8,5 @@ import           Data.Typeable          as Import
 import           Data.Aeson             as Import
 import           Data.Text.Lazy         as Import (toStrict) 
 import           Data.Text.Lazy.Builder as Import (toLazyText)
-import           Data.ByteString.Lazy   as BL
+import           Data.ByteString.Lazy() 
 import           Data.Text.Encoding     as Import
