@@ -20,6 +20,7 @@ import Data.Time
 
 import Data.Either(rights)
 import Control.Monad.IO.Class(liftIO)
+import Control.Monad.Error
 import Control.Concurrent
 import Control.Concurrent.STM.Lifted
 import Control.Concurrent.Async
@@ -27,7 +28,7 @@ import Control.Exception
 import qualified  Data.Map as IMap
 import Control.Monad
 import Control.Monad.Logger(runStderrLoggingT)
-import Control.Monad.Trans.Maybe(runMaybeT)
+import Control.Monad.Trans.Maybe(runMaybeT, MaybeT)
 import Control.Monad.Trans.State as State
 import Network.WebSockets.Connection as WSConn
 import Data.Text as T
@@ -71,7 +72,7 @@ queryPortfolio = "QueryPortfolio"
 uuidAsString = UUID.toString 
 uuidFromString aString = do
 	case (x aString) of 
-		Just y -> y  
+		Just y -> y 
 	where 
 		x = UUID.fromString
 
@@ -131,11 +132,26 @@ queryPortfolioSymbolSides n (Object a) =
 
 type INickName = T.Text
 
+type InvalidPortfolio = String
 
 
 {-- Make sure that the dto and the dao refer to the same thing. To be implemented. --}
 sanityCheck :: Key Portfolio -> PortfolioT -> Either T.Text Bool
 sanityCheck a b = Right True
+
+
+dtoToDaoE :: PortfolioT -> ErrorT InvalidPortfolio IO Portfolio 
+dtoToDaoE pT@(PortfolioT cType 
+			porId comId userId summary createdBy updatedBy) = do 
+	currentTime <- liftIO getCurrentTime  
+	r <- liftIO $ dbOps $ do 
+				com <- getBy $ UniqueCompanyId . unC $ comId 
+				porKV <- getBy . UniquePortfolio . unP $ porId 
+				return porKV
+	case r of 
+		Just (Entity pKey pValue) -> return pValue
+		Nothing -> throwError ("Invalid portfolio" :: String)
+
 
 dtoToDao :: PortfolioT -> IO (Either PortfolioUUID Portfolio)
 dtoToDao pT@(PortfolioT cType 
@@ -155,33 +171,34 @@ queryPortfolioUUID = \pId -> dbOps $ do
 		Just x -> return $ Right (portfolioUuid x) 
 		Nothing -> return $ Left "Portfolio not found"
 
+
+
+daoToDTOM :: CRUD -> PortfolioId -> MaybeT IO PortfolioT 
+daoToDTOM = \crType pid -> do 
+	Just porKV <- liftIO $ dbOps $ Postgresql.get pid 
+	Just companyUser  <-  liftIO $ dbOps $ Postgresql.get (portfolioCompanyUserId porKV) 
+	Just company <- liftIO $ dbOps $ Postgresql.get (companyUserCompanyId companyUser) 
+	Just cUser <- liftIO $ dbOps $ Postgresql.get (companyUserUserId companyUser) 
+	Just createdBy <- liftIO $ dbOps $ Postgresql.get (portfolioCreatedBy porKV) 
+	Just updatedBy <- liftIO $ dbOps $ Postgresql.get (portfolioUpdatedBy porKV) 
+	return $ 
+		PortfolioT 
+			crType
+			(PortfolioUUID . portfolioUuid $ porKV)
+			(CompanyID . companyCompanyID $ company)
+			(NickName . personNickName $ cUser)
+			(portfolioSummary porKV)
+			(NickName . personNickName $ createdBy)
+			(NickName . personNickName $ updatedBy)
+
 -- Optimisation note? or have we given up on database caches and let the db do its thing --
 daoToDto :: CRUD -> PortfolioId -> IO (Either T.Text PortfolioT)
 daoToDto crType pid = do 
-	currentTime <- getCurrentTime 
-	dbOps $ do
-		porKV <- Postgresql.get pid 
-		case porKV of 
-			Just v -> do 
-				comUser <- Postgresql.get (portfolioCompanyUserId v)
-				case comUser of 
-					Just coUser1 -> do 				
-						company <- Postgresql.get (companyUserCompanyId coUser1)
-						cUser <- Postgresql.get (companyUserUserId coUser1) 
-						createdBy <- Postgresql.get (portfolioCreatedBy v) 
-						updatedBy <- Postgresql.get (portfolioUpdatedBy v)
-						case (comUser, company, cUser, createdBy, updatedBy) of
-							(Just coUser, Just com, Just cu, Just createdByObj, Just updby) -> 
-								return $ Right $ PortfolioT crType 
-											(PortfolioUUID . portfolioUuid $ v) 
-											(CompanyID . companyCompanyID $ com)
-											(NickName . personNickName $ cu)
-											(portfolioSummary v)
-											(NickName . personNickName $ createdByObj) 
-											(NickName . personNickName $ updby)
-							_-> return $ Left $ T.pack "Unable to create portfolio transfer object.ouch!"
-			Nothing -> return $ Left $ T.pack $ 
-								"Unable to query db " `mappend` (show pid) 
+	r <- runMaybeT $ daoToDTOM crType pid 
+	case r of 
+		Just res -> return $ Right res 
+		Nothing -> return $ Left $ T.pack $ " Unable to create portfolio " <> (show pid)
+
 
 
 manageSearch :: NickName -> Value -> IO (GC.DestinationType, T.Text) 
