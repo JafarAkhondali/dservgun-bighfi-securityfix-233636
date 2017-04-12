@@ -392,65 +392,62 @@ deletePortfolio p@(PortfolioT cType
 -- cabal repl 
 -- :l Portfolio.hs
 -- >testInsertPortfolio -- it should work most of the times.
+testInsertPortfolio :: (MonadIO m) => MaybeT m (Either T.Text (Key Portfolio))
 testInsertPortfolio = do 
 	-- Create a person
-	uuid <- nextUUID 
-	currentTime <- getCurrentTime
-	case uuid of 
-		Just u -> do 
-			person <- dbOps $ insert $ Person "portfolioTest" "portfolioTest" 
-								(T.pack $ uuidAsString u) "portfolioTest" (Just "en-us") currentTime
-			companyUUID <- nextUUID 
-			case companyUUID of 
-				Just cU -> do 
-					currentTime <- getCurrentTime
-					company <- dbOps $ insert $ Company "PortfolioTester" (T.pack $ uuidAsString cU) 
-													"tester@portfoliotester.com" 
-													"No image" 
-													person 
-													currentTime 
-													currentTime
+	Just uuid <- liftIO nextUUID 
+	currentTime <- liftIO getCurrentTime
 
-					--Create a company user
-					companyUser <- dbOps $ insert $ CompanyUser company person chatMinder support locale
-					portfolio <- insertPortfolio $ PortfolioT PortfolioT.Create 
-							(PortfolioUUID "insert_me")
-							(CompanyID . uuidAsText $ cU) 
-							(NickName userIdAsText)
-							"Test portfolio" 
-							(NickName userIdAsText)
-							(NickName userIdAsText)
-					return portfolio
-					where 
-							uuidAsText = T.pack . uuidAsString 
-							userIdAsText = uuidAsText u
-	where
+	person <- liftIO $ dbOps $ insert $ Person "portfolioTest" "portfolioTest" 
+						(uuidAsText uuid) "portfolioTest" (Just "en-us") currentTime
+	Just companyUUID <- liftIO nextUUID 
+	currentTime <- liftIO getCurrentTime
+	company <- liftIO $ dbOps $ insert $ Company "PortfolioTester" (T.pack $ uuidAsString companyUUID) 
+									"tester@portfoliotester.com" 
+									"No image" 
+									person 
+									currentTime 
+									currentTime
+
+	--Create a company user
+	companyUser <- liftIO $ dbOps $ insert $ CompanyUser company person chatMinder support locale
+	portfolio <- liftIO $ insertPortfolio $ PortfolioT PortfolioT.Create 
+			(PortfolioUUID "insert_me")
+			(CompanyID . uuidAsText $ companyUUID) 
+			(NickName $ userIdAsText uuid)
+			"Test portfolio" 
+			(NickName $ userIdAsText uuid)
+			(NickName $ userIdAsText uuid)
+	return portfolio
+	where 
+		uuidAsText = T.pack . uuidAsString 
+		userIdAsText = uuidAsText
 		chatMinder = True
 		support = True
 		locale = Just ("en-us")
 
 {-- Ignore warnings in test cases --}
+testQueryPortfolios :: (MonadIO m) => MaybeT m (Either T.Text PortfolioQuery)
 testQueryPortfolios = do 
-	portfolio <- testInsertPortfolio
+	Just portfolio <- runMaybeT testInsertPortfolio
 	case portfolio of 
 		Right pID -> do 
-			pEntity <- dbOps $ Postgresql.get pID 
+			pEntity <- liftIO $ dbOps $ Postgresql.get pID 
 			case pEntity of 
 				Just pEV -> do
-					user <- dbOps $ Postgresql.get (portfolioCreatedBy pEV)
-					companyUser <- dbOps $ Postgresql.get (portfolioCompanyUserId pEV)
+					user <- liftIO $ dbOps $ Postgresql.get (portfolioCreatedBy pEV)
+					companyUser <- liftIO $ dbOps $ Postgresql.get (portfolioCompanyUserId pEV)
 					case (user, companyUser) of 
 						(Just u, Just cu) -> do
-								com <- dbOps $ Postgresql.get (companyUserCompanyId cu)
+								com <- liftIO $ dbOps $ Postgresql.get (companyUserCompanyId cu)
 								case com of 
 									Just com1 -> do    
-										queryPortfolios $ PortfolioQuery queryPortfolio 
+										liftIO $ queryPortfolios $ PortfolioQuery queryPortfolio 
 												(NickName . personNickName $ u) 
 												(CompanyID . companyCompanyID $ com1)
 												(NickName . personNickName $ u) 
 												[]
 									Nothing -> return . Left $ "Test failed"
-
 
 instance ToJSON PortfolioCommands 
 instance FromJSON PortfolioCommands
