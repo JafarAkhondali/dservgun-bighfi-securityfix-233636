@@ -3,6 +3,8 @@
 
 module CCAR.Main.DBUtils where
 
+import Control.Monad.Error
+import Control.Exception
 import Database.Persist.Postgresql as DB
 import Database.Persist.TH
 import Data.Time
@@ -78,8 +80,45 @@ newtype NickName = NickName {unN:: T.Text}
 type Base64Text = Text -- Base64 encoded text representing the image.
 
 
+
+
+getEnvT :: String -> ErrorT String IO String 
+getEnvT = \aString -> 
+        ErrorT $ 
+            (getEnv aString >>= return . Right)
+            `catch`
+            (\a@(SomeException e) -> 
+                return $ Left $ 
+                    errorMessage <> ":" <> (show e))
+        where
+            errorMessage :: String 
+            errorMessage = "Missing environment variable"
+
 getPoolSize :: IO Int 
 getPoolSize = getEnv "POOL_SIZE"  >>= (return . read)
+
+getPoolSizeT = 
+    getEnvT "POOL_SIZE"  >>= \x -> return . read $ x
+type ConnectionStringError = Either String 
+
+getConnectionStringT :: ErrorT String IO ByteString
+getConnectionStringT = do 
+        liftIO $ infoM "CCAR.Main.DBUtils" "Initializing connection string"
+        host <- getEnvT "PGHOST"
+        dbName <- getEnvT "PGDATABASE"
+        user <- getEnvT "PGUSER"
+        pass <- getEnvT "PGPASS"
+        port <- getEnvT "PGPORT"
+        return $ C8.pack ("host=" ++ host
+                    ++ " "
+                    ++ "dbname=" ++ dbName
+                    ++ " "
+                    ++ "user=" ++ user 
+                    ++ " " 
+                    ++ "password=" ++ pass 
+                    ++ " " 
+                    ++ "port=" ++ port)
+
 
 getConnectionString :: IO ByteString 
 getConnectionString = do
@@ -108,13 +147,23 @@ dbOp f = do
     liftIO $ debugM "CCAR.Main.DBUtils" "Closing connection"
     x
 
+
 dbOps f = do
-    connStr <- getConnectionString 
+    connStr <- getConnectionString
     poolSize <- getPoolSize
     x <- runResourceT $ runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
         liftIO $ do
             flip runSqlPersistMPool pool f 
     liftIO $ debugM "CCAR.Main.DBUtils" "Closing connection"
+    return x
+
+dbOpsT :: SqlPersistM b -> ErrorT String IO b
+dbOpsT f = do
+    connStr <- getConnectionStringT
+    poolSize <- getPoolSizeT
+    x <- runResourceT $ runStderrLoggingT $ withPostgresqlPool connStr poolSize $ \pool ->
+        liftIO $ do
+            flip runSqlPersistMPool pool f 
     return x
 
 

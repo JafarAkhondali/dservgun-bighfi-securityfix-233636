@@ -11,6 +11,7 @@ module CCAR.Model.Portfolio (
 	, testQueryPortfolios
 	, PortfolioUUID
 	, queryPortfolioUUID
+	, PortfolioError
 	) where 
 import CCAR.Main.DBUtils
 import GHC.Generics
@@ -301,6 +302,8 @@ queryUniqueSymbolsForCompany companyId userId = dbOps $ do
 
 
 
+insertPortfolioT :: PortfolioT -> PortfolioError (Key Portfolio) 
+insertPortfolioT = undefined
 
 insertPortfolio :: PortfolioT -> IO (Either T.Text (Key Portfolio) )
 insertPortfolio p@(PortfolioT cType 
@@ -385,6 +388,11 @@ deletePortfolio p@(PortfolioT cType
 				delete pid 
 				return $ Right pid
 
+uuidAsText = T.pack . uuidAsString 
+userIdAsText = uuidAsText
+chatMinder = True
+support = True
+locale = Just ("en-us")
 
 
 -- Test scripts
@@ -401,7 +409,6 @@ testInsertPortfolio = do
 	person <- liftIO $ dbOps $ insert $ Person "portfolioTest" "portfolioTest" 
 						(uuidAsText uuid) "portfolioTest" (Just "en-us") currentTime
 	Just companyUUID <- liftIO nextUUID 
-	currentTime <- liftIO getCurrentTime
 	company <- liftIO $ dbOps $ insert $ Company "PortfolioTester" (T.pack $ uuidAsString companyUUID) 
 									"tester@portfoliotester.com" 
 									"No image" 
@@ -419,15 +426,39 @@ testInsertPortfolio = do
 			(NickName $ userIdAsText uuid)
 			(NickName $ userIdAsText uuid)
 	return portfolio
-	where 
-		uuidAsText = T.pack . uuidAsString 
-		userIdAsText = uuidAsText
-		chatMinder = True
-		support = True
-		locale = Just ("en-us")
 
+type PortfolioError = ErrorT String (MaybeT IO)
 {-- Ignore warnings in test cases --}
-testQueryPortfolios :: (MonadIO m) => MaybeT m (Either T.Text PortfolioQuery)
+{-testQueryPortfoliosT :: PortfolioError PortfolioQuery
+testQueryPortfoliosT = do 
+	Just portfolio <- testInsertPortfolioT
+-}
+testInsertPortfolioT :: PortfolioError (Key Portfolio)
+testInsertPortfolioT = do 
+	Just uuid <- liftIO nextUUID 
+	currentTime <- liftIO getCurrentTime 
+	person <- liftIO $ dbOps $ insert $ Person "portfolioTest" "portfolioTest" 
+						(uuidAsText uuid) "portfolioTest" (Just "en-us") currentTime
+	Just companyUUID <- liftIO nextUUID 
+	company <- liftIO $ dbOps $ insert $ Company "PortfolioTester" (T.pack $ uuidAsString companyUUID) 
+									"tester@portfoliotester.com" 
+									"No image" 
+									person 
+									currentTime 
+									currentTime
+
+	--Create a company user
+	companyUser <- liftIO $ dbOps $ insert $ CompanyUser company person chatMinder support locale
+	portfolio <- insertPortfolioT $ PortfolioT PortfolioT.Create 
+			(PortfolioUUID "insert_me")
+			(CompanyID . uuidAsText $ companyUUID) 
+			(NickName $ userIdAsText uuid)
+			"Test portfolio" 
+			(NickName $ userIdAsText uuid)
+			(NickName $ userIdAsText uuid)
+	return portfolio
+
+
 testQueryPortfolios = do 
 	Just portfolio <- runMaybeT testInsertPortfolio
 	case portfolio of 
