@@ -20,7 +20,6 @@ import Control.Monad.Trans.Resource(runResourceT)
 import System.Log.Logger as Logger
 import Data.Data
 import GHC.Generics 
-import Data.Typeable
 import Data.Monoid hiding(Product)
 
 instance ToJSON OptionType

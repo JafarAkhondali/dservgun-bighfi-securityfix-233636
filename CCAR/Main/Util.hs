@@ -49,6 +49,7 @@ parseDate (Just aDate) = parseTime Loc.defaultTimeLocale (Loc.rfc822DateFormat) 
 
 
 {--| Reads intervals in millis |--}  
+parse_time_interval :: String -> Int
 parse_time_interval input = 
     case Parsec.parse parse_time_interval1 ("Unknown") input of 
         Right x -> x 
@@ -67,7 +68,7 @@ parse_time_interval1 = do
         "millis" ->  return 1000
         "seconds" -> return $ 10 ^ 6 
         "minutes" -> return $ 60 * 10 ^ 6
-    return (r *i)
+    return (r * i)
 
 
 

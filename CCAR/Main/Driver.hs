@@ -31,6 +31,7 @@ import Control.Concurrent.Async as A (waitSTM, wait, async, cancel, waitEither, 
 import Control.Monad.IO.Class(liftIO)
 import Control.Monad.Logger(runStderrLoggingT)
 import Data.Time
+import Data.Time.Clock
 import Data.Monoid ((<>), mappend)
 import Control.Concurrent.STM.Lifted
 import Data.Text as T  hiding(foldl, foldr)
@@ -150,17 +151,6 @@ type To = T.Text
 
 data UserPreferences = UserPreferences {prefs :: T.Text} deriving (Show, Eq, Generic)
 
-
-genPerson (Person a b c d e f) = object ["firstName" .= a
-                                       , "lastName" .= b
-                                       , "nickName" .= c
-                                       , "password" .= d
-                                       , "locale" .= e
-                                       , "lastLoginTime" .= f]
-
-
-genUserTermsOperations (UserTermsOperations o t) = object ["utOperation" .= o, "terms" .= t]
-
 genTermsAndConditions (TermsAndConditions t des accept) = object ["title" .= t
                                             , "description" .= des
                                             , "acceptDate" .= accept]
@@ -170,13 +160,10 @@ genCommandKeepAlive a  = object ["KeepAlive" .= a
 
 
 instance ToJSON UserTermsOperations where
-    toJSON = genUserTermsOperations
+    toJSON (UserTermsOperations o t) = object ["utOperation" .= o, "terms" .= t]
 
 
 parseKeepAlive v = v .: "keepAlive"
-
--- The upload 
-
 
 parsePerson = \v -> Person <$>  
                 v .: "firstName"
@@ -194,13 +181,6 @@ parseTermsAndConditions v = TermsAndConditions <$>
                         v .: "description" <*>
                         v .: "acceptDate"
 
-
-
-
-
-
-
-
 iParseJSON :: (FromJSON a) => T.Text -> Either String (Maybe a)
 iParseJSON = J.eitherDecode . E.encodeUtf8 . L.fromStrict
 
@@ -208,9 +188,6 @@ pJSON :: (FromJSON a) => T.Text -> IO (Either String (Maybe a))
 pJSON  aText = do
     Logger.infoM  iModuleName ( T.unpack aText)
     return $ iParseJSON aText
-
-
-
 
 instance Yesod App
 type State = T.Text 
@@ -239,7 +216,6 @@ checkPassword b@(CheckPassword personNickName password _ attempts) = do
 
 validatePassword :: T.Text -> CheckPassword -> Maybe Bool 
 validatePassword dbPassword input = Just $ dbPassword == (pwPassword input)
-
 
 
 processCommandValue :: App -> T.Text -> Value -> IO (DestinationType, T.Text)
@@ -389,15 +365,12 @@ processCommandValue app nickName aValue@(Object a)   = do
                          ( GroupCommunication.Reply
                          , ser $ appError ("Unable to process command " ++ (show aType)))
     where 
-        cType =  LH.lookup "commandType" a
+        cType = lookupTag aValue "commandType"
         ser a = L.toStrict $ E.decodeUtf8 $ En.encode a 
 
 
-
-lookupTag :: Maybe Value -> T.Text -> IO (Maybe Value)
-lookupTag aCommand aTag = do
-    case aCommand of 
-        Just (Object a) -> return $ LH.lookup aTag  a 
+lookupTag :: Value -> T.Text -> (Maybe Value)
+lookupTag (Object a ) aTag = LH.lookup aTag a 
 
 data DriverError = NickNameNotFound T.Text 
                 | InvalidCommand T.Text
@@ -506,7 +479,7 @@ countAllClients app@(App a c) = do
 
 type TimeInterval = NominalDiffTime -- time in seconds
 
--- Return all clients that 
+-- Return all clients that have been inactive for more than the interval
 getStaleClients :: App -> TimeInterval -> UTCTime -> STM[ClientState]
 getStaleClients app@(App a c) interval currentTime = do 
     nMap <- readTVar c 
@@ -924,27 +897,32 @@ getHomeR = do
     return $ show request
 
 
-staleClientInterval :: IO Int 
-staleClientInterval = getEnv("STALE_CLIENT_INTERVAL") >>= \x -> return $ (parse_time_interval x)
+staleClientInterval :: IO Integer 
+staleClientInterval = getEnv("STALE_CLIENT_INTERVAL") >>= \x -> return 
+            $ toInteger . parse_time_interval $ x
 
-
+-- TODO: Fix this
+mkClientInterval :: Integer -> NominalDiffTime 
+mkClientInterval _ = 20::NominalDiffTime 
 -- TODO: use parsec to return the stale client interval.
 cleanupStaleConnections :: App -> IO ()
 cleanupStaleConnections app = loop 
     where loop = do 
-                staleClientInterval <- staleClientInterval
-                Logger.debugM "CCAR " $ "Using " <> (show staleClientInterval)
-                threadDelay staleClientInterval -- Active connection for 30 seconds.
-                currentTime <- getCurrentTime
-                Logger.debugM  "CCAR" $ "Waiting for stale connections-----" <> (show currentTime)
+                clientInterval <- staleClientInterval
+                Logger.debugM "CCAR " $ "Using " <> (show clientInterval)
+                threadDelay (fromIntegral clientInterval) -- Active connection for 30 seconds.
+                Logger.debugM  "CCAR" $ "Waiting for stale connections-----" -- time is in the logger.
                 -- Stale client is broken now.
-                staleClients <- atomically $ getStaleClients app (20 :: NominalDiffTime) currentTime
+                staleClients <- 
+                    getCurrentTime >>= \x -> 
+                            atomically $ getStaleClients app (mkClientInterval clientInterval) x
                 mapM_ (\x -> do 
                         Logger.infoM "CCAR" $ "Deleting client " ++ (show x)
                         atomically $ deleteConnection app (ClientState.nickName x)
                         ) staleClients
                 Logger.debugM "CCAR" "Stale connections cleaned"
                 loop
+
 
 driver :: IO ()
 driver = do

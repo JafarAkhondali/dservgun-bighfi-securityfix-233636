@@ -109,6 +109,8 @@ executable ccar-websockets
                      , split                         >= 0.2 && < 0.3
                      , either                        >= 4.3 && < 4.4
                      , ghc-prim
+                     , logict                        >= 0.6 && < 0.7
+                     , time                          >= 1.4.2 && < 1.5
 
 
   -- Base language which the package is written in.
@@ -252,6 +254,8 @@ library
                      , either                        >= 4.3 && < 4.4
                      , QuickCheck                   >= 2.7.6 && < 2.8
                      , ghc-prim
+                     , logict                        >= 0.6 && < 0.7
+                     , time                          >= 1.4.2 && < 1.5
 
   -- Directories containing source files.
   -- hs-source-dirs: 
@@ -308,6 +312,8 @@ test-suite spec
         , time                           >= 1.4.2 && < 1.5
         , QuickCheck                     >= 2.7.6 && < 2.8
         , ghc-prim
+        , logict                        >= 0.6 && < 0.7
+        , time                          >= 1.4.2 && < 1.5
 
     default-language:
         Haskell2010
