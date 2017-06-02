@@ -174,8 +174,6 @@ parsePerson = \v -> Person <$>
                 <*> v .: "lastLoginTime"
                 
 
-
-
 parseTermsAndConditions v = TermsAndConditions <$>
                         v .: "title" <*>
                         v .: "description" <*>
@@ -189,11 +187,13 @@ pJSON  aText = do
     Logger.infoM  iModuleName ( T.unpack aText)
     return $ iParseJSON aText
 
+
 instance Yesod App
 type State = T.Text 
 type AuthCode = T.Text
 type Url = T.Text
 type OpenIdScope = T.Text
+
 mkYesod "App" [parseRoutes|
 /chat HomeR GET
 -- | The request object to make a request with the application details to 
@@ -409,22 +409,17 @@ nickName2 aCommand = do
 
 
 
-processLoginMessages :: App -> WSConn.Connection -> T.Text -> Maybe Value -> IO (DestinationType, T.Text)
-processLoginMessages app conn aNickName aDictionary = do 
-    x <- runMaybeT $ do 
-        Just (Object a) <- return aDictionary
-        Just commandType <- return $ LH.lookup "commandType" a 
-        case commandType of 
-            String "Login" -> 
-                        liftIO $ Login.query aNickName (Object a)
-                        >>= \(gc, result) -> 
-                        return (gc, 
-                            Util.serialize
-                            (result ::Either ApplicationError Login))
-    case x of 
-        Just y -> return y
-        Nothing -> return (GroupCommunication.Reply, 
-                            ser $ appError ("Error processing login messages." :: String))
+processLoginMessages :: App -> WSConn.Connection -> T.Text -> Maybe Value  -> MaybeT IO (DestinationType, T.Text)
+processLoginMessages app conn aNickName Nothing = 
+    return (GroupCommunication.Reply, "Invalid value")
+    
+processLoginMessages app conn aNickName (Just (Object aDictionary)) = do 
+    Just commandType <- return $ LH.lookup "commandType" aDictionary
+    case commandType of 
+        String "Login" -> 
+                    liftIO $ Login.query aNickName (Object aDictionary)
+                    >>= \(GroupCommunication.Reply, (result :: Either ApplicationError Login)) -> 
+                        return (GroupCommunication.Reply, aNickName)
 
 processIncomingMessage :: App -> WSConn.Connection -> T.Text ->  Maybe Value -> IO (DestinationType , T.Text)
 processIncomingMessage app conn aNickName aCommand = do 

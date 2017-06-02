@@ -51,6 +51,7 @@ instance DBOps.ModuleInfo T.Text where
     name nick= "CCAR.Model.Login -> " <> (T.unpack nick)
 
 {- handle login. Login returns a check for the user.-}
+queryLogin :: Text -> Value -> IO (GC.DestinationType, Either ApplicationError Login)
 queryLogin nickName aValue = do 
     Logger.debugM (name nickName) $ show aValue
     x <- case (parse parseJSON aValue) of 
