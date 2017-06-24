@@ -80,7 +80,7 @@ testCase2 aCount = do
 	portfolio <- Portfolio.testInsertPortfolio 
 	case portfolio of 
 		Right (portfolioID) -> do 
-			forM [1..aCount] $ \x -> (PortfolioSymbol.testInsert x portfolioID)
+			forM [1..aCount] $ \x -> liftIO $ PortfolioSymbol.testInsert x portfolioID
 		Left _ ->  return $ [Left $ "Failed inserting portfolio symbol"]
 
 
@@ -89,8 +89,8 @@ testCase2 aCount = do
 testCase4 = do 
 	p <- Portfolio.testInsertPortfolio 
 	case p of 
-		Right pid -> runMaybeT $ PortfolioSymbol.testInsertNew 1 pid 
-		{-Left _ -> return $ Left $ "Failed insert"-}
+		Right pid -> PortfolioSymbol.testInsertNew 1 pid 
+		Left _ -> MaybeT $ return Nothing
 
 
 testCase5 = TestCase $ assertFailure "Failed"

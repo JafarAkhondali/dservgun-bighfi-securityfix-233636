@@ -133,12 +133,12 @@ class MBooks_im {
 		//var kStream : Stream<Dynamic> = initializeElementStream(cast getKickUserElement(), "blur");
 //		kStream.then(kickUser);
 		//Same as above.
-//		var mStream : Stream<Dynamic> = 
-//			initializeElementStream(getMessageInput(), "keyup");
-//		mStream.then(sendMessage);
-//		var sendMessageButton : Stream<Dynamic> = 
-//			initializeElementStream(getSendMessageElement(), "click");
-//		sendMessageButton.then(sendMessageFromButton);
+		var mStream : Stream<Dynamic> = 
+			initializeElementStream(getMessageInput(), "keyup");
+		mStream.then(sendMessage);
+		var sendMessageButton : Stream<Dynamic> = 
+			initializeElementStream(getSendMessageElement(), "click");
+		sendMessageButton.then(sendMessageFromButton);
 		userLoggedIn = new Deferred<Dynamic>();
 		userLoggedIn.then(authenticationChecks);
 		selectedCompanyStream = new Deferred<Dynamic>();
@@ -562,7 +562,9 @@ class MBooks_im {
 			setError(p);
 		}
 	}
-	private function processSendMessage(incomingMessage) {
+	private function processSendMessage(incomingMessage : Dynamic) {
+
+		trace("Processing send message " + incomingMessage);
 		var textAreaElement : TextAreaElement = cast Browser.document.getElementById(MESSAGE_HISTORY);
 		if(incomingMessage.privateMessage != "") {
 			textAreaElement.value = textAreaElement.value + incomingMessage.sentTime + "@" + incomingMessage.from + ":" + incomingMessage.privateMessage + "\n";

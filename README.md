@@ -1,5 +1,51 @@
 ## Realtime information system
 
+#### Components
+* Yesod server 
+* Haxe client 
+* Python plugin integrating with libreoffice
+
+### Instructions
+url: beta.ccardemo.tech
+
+* Enter a user name (most likely that wont exist), please follow instructions, email need not be valid. The site doesnt validate that.
+* Portfolio analysis lets a user create a portfolio.
+* There is a chat window to type simple text.
+
+
+#### Server features
+* CCAR - Comprehensive Capital Analysis and Review is a specification to handle books of large financial organisations
+this prototype presents an approach to manage the review documents using a description language. 
+  ** A declarative language used to manage stress, curves etc.
+  ** A query language to download equity and option as well as portfolio data.
+
+
+#### Client features (haxe/web)
+  * Display graphs as user uploads symbols
+  * Realtime file upload 
+  * Realtime chat 
+  * Realtime stress computation - basic equity stress, prices change every n seconds 
+  * Realtime market data: equity and option using tradier api.
+
+
+#### Client features (python) 
+  * Application data is loaded into a libreoffice spreadsheet. 
+  * Users can use the spreadsheet as a regular spreadsheet, while connected to the server. 
+  * Support for open id.
+  * SSL support: uses a well known location to download public certificates. This may need to be revisited.
+
+
+#### Notes
+* Error handling needs work.
+* Login checks for login as the user leaves the field. This check required me to have the check twice (need to look into that and see if that can be reduced). This clutters the code for the login.
+* Tests need to improve to check for disconnects.
+* Haskell realtime server uses TBQueue (this was after TChan blew up under specific load conditions)
+* Parser errors need to be handled better : using parsec was great, though without QQ i couldnt test 
+the parser inline (todo). 
+* Custom serialization was monadic at some instances.
+* Use aeson lenses for json to control the code.
+
+
 
 
 #### [Stackage installation](https://www.stackage.org/install#ubuntu)

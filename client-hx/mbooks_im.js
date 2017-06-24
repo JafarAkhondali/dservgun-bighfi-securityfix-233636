@@ -129,6 +129,10 @@ var MBooks_$im = function() {
 	console.log("Registering password");
 	var rStream = this.initializeElementStream(this.getRegisterElement(),"click");
 	rStream.then($bind(this,this.registerUser));
+	var mStream = this.initializeElementStream(this.getMessageInput(),"keyup");
+	mStream.then($bind(this,this.sendMessage));
+	var sendMessageButton = this.initializeElementStream(this.getSendMessageElement(),"click");
+	sendMessageButton.then($bind(this,this.sendMessageFromButton));
 	this.userLoggedIn = new promhx_Deferred();
 	this.userLoggedIn.then($bind(this,this.authenticationChecks));
 	this.selectedCompanyStream = new promhx_Deferred();
@@ -520,8 +524,9 @@ MBooks_$im.prototype = {
 		}
 	}
 	,processSendMessage: function(incomingMessage) {
+		console.log("Processing send message " + Std.string(incomingMessage));
 		var textAreaElement = window.document.getElementById(MBooks_$im.MESSAGE_HISTORY);
-		if(incomingMessage.privateMessage != "") textAreaElement.value = textAreaElement.value + incomingMessage.sentTime + "@" + incomingMessage.from + ":" + incomingMessage.privateMessage + "\n";
+		if(incomingMessage.privateMessage != "") textAreaElement.value = textAreaElement.value + Std.string(incomingMessage.sentTime) + "@" + Std.string(incomingMessage.from) + ":" + Std.string(incomingMessage.privateMessage) + "\n";
 	}
 	,updateMessageHistory: function(currentTime,localMessage) {
 		var textAreaElement = window.document.getElementById(MBooks_$im.MESSAGE_HISTORY);
