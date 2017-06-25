@@ -99,6 +99,7 @@ import                          CCAR.Analytics.MarketDataLanguage(evalMDL)
 import                          CCAR.Data.EquityBenchmark as EquityBenchmark
 import  CCAR.Data.ClientState(runAP)
 import CCAR.Main.GmailAuth
+import  CCAR.Data.Transport.Cloud.DistribUtils(processMain)
 
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
@@ -950,6 +951,7 @@ driver = do
     nickNameMap <- newTVarIO $ IMap.empty
     let app = App chan nickNameMap
     v <- A.async $ cleanupStaleConnections app
+    A.async $ processMain app    
     warp 3000 app 
 
 
