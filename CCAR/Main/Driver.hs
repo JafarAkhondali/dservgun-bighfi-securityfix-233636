@@ -99,7 +99,7 @@ import                          CCAR.Analytics.MarketDataLanguage(evalMDL)
 import                          CCAR.Data.EquityBenchmark as EquityBenchmark
 import  CCAR.Data.ClientState(runAP)
 import CCAR.Main.GmailAuth
-import  CCAR.Data.Transport.Cloud.DistribUtils(processMain)
+import  CCAR.Data.Transport.Cloud.Supervisor(supervisor)
 
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
@@ -623,7 +623,7 @@ startUserThreads app connection nickNameV = do
                         , (b, "Reader thread", T.unpack nickNameV)
                         , (c, "Job thread", T.unpack nickNameV)
                         , (d, "Market data thread" , T.unpack nickNameV)]
-        A.waitAny [a, b, c, d]
+        _ <- A.waitAny [a, b, c, d]
         return "Threads had exception" 
 
 
@@ -920,8 +920,8 @@ cleanupStaleConnections app = loop
                 loop
 
 
-driver :: IO ()
-driver = do
+driverInternal :: Int -> App -> IO ()
+driverInternal port app = do
     sH <- openFile "debug.log" WriteMode
     hSetBuffering sH $ BlockBuffering $ Just 4096
     h <- SimpleLogger.streamHandler sH Log.DEBUG
@@ -933,7 +933,9 @@ driver = do
     _ <- Logger.updateGlobalLogger "CCAR.DBUtils" $ Logger.setLevel 
                                             Log.INFO . setHandlers[lh]
     _ <- Logger.updateGlobalLogger "CCAR.Analytics.OptionAnalytics" $ Logger.setLevel 
-                                        Log.INFO . setHandlers[lh]                                        
+                                        Log.INFO . setHandlers[lh]
+    _ <- Logger.updateGlobalLogger "CCAR.Data.Transport.Cloud.Supervisor" 
+                        $ Logger.setLevel Log.DEBUG . setHandlers[lh]
     Logger.debugM "CCAR" "Starting yesod.."
 
     connStr <- getConnectionString
@@ -946,14 +948,18 @@ driver = do
     c <- A.async $ Country.startup
     t <- A.async $ TradierApi.startup
     u <- A.async $ EquityBenchmark.startup
-    chan <- atomically newBroadcastTChan
 --    static@(Static settings) <- static "static"
-    nickNameMap <- newTVarIO $ IMap.empty
-    let app = App chan nickNameMap
     v <- A.async $ cleanupStaleConnections app
-    A.async $ processMain app    
-    warp 3000 app 
+    Logger.debugM "CCAR" $ "Port number " <> (show port)
+    warp port app 
 
+
+driver :: Int -> IO ()
+driver port = do
+  nickNameMap <- newTVarIO $ IMap.empty
+  chan <- atomically newBroadcastTChan
+  let app = App chan nickNameMap
+  driverInternal port app 
 
 
 -- Needs to go somewhere other than the driver.

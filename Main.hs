@@ -8,7 +8,7 @@ main :: IO()
 main = do 
 	args <- getArgs
 	case args of 
-		[] -> Driver.driver 
+		[port] -> Driver.driver (read port :: Int)
 		"tests":[] ->  doTests
 		_		   -> return ()
 

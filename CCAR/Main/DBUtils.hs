@@ -14,7 +14,7 @@ import System.Environment(getEnv)
 import Data.ByteString as DBS 
 import Data.ByteString.Char8 as C8
 import Data.Aeson
-import Control.Monad.IO.Class 
+--import Control.Monad.IO.Class 
 import Control.Monad.Logger
 import Control.Monad.Trans.Resource(runResourceT) 
 import System.Log.Logger as Logger

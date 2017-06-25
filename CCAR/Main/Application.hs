@@ -14,6 +14,7 @@ import CCAR.Data.ClientState
 import Control.Monad.Trans.Reader
 import CCAR.Model.PortfolioT
 import Control.Monad.Trans
+
 type NickName = T.Text
 
 -- the broadcast channel for the application.

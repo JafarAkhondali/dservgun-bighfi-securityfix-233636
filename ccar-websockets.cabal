@@ -294,9 +294,9 @@ library
     -- -ddump-simpl
     -Wall
     -fprof-auto
-    -caf-all 
-    "-with-rtsopts=-N2 -s"
-
+    -caf-all
+    "-with-rtsopts=-N4 -s"
+    
 -- Use this to run
 --cabal run my-project-profiling && hp2ps -e8in -c my-project-profiling.hs 
 
