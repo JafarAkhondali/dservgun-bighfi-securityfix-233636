@@ -9,6 +9,7 @@ import Data.Text as T
 import Data.Map as Map
 import CCAR.Main.GroupCommunication as GroupCommunication
 import Control.Concurrent.STM.Lifted
+import Control.Distributed.Process
 import Data.Time
 import CCAR.Data.ClientState
 import Control.Monad.Trans.Reader
@@ -18,7 +19,9 @@ import Control.Monad.Trans
 type NickName = T.Text
 
 -- the broadcast channel for the application.
-data App = App { chan :: (TChan T.Text)
+-- todo : explore changing this to a tighter abstraction.   
+data App = App { chan :: TChan T.Text
+                , proxy :: TChan (Process())
                 , nickNameMap :: ClientMap}
 
 
@@ -28,13 +31,13 @@ type ClientMap = GroupCommunication.ClientIdentifierMap
 
 -- Convert a result of a map to a list
 getClientState :: T.Text -> App -> STM [ClientState]
-getClientState nickName app@(App a c) = do
+getClientState nickName app@(App a _ c) = do
         nMap <- readTVar c
         return $ Map.elems $ filterWithKey(\k _ -> k ==  nickName) nMap
 
 
 updateClientState :: T.Text -> App -> UTCTime -> STM ()
-updateClientState nickName app@(App a c) currentTime = do 
+updateClientState nickName app@(App a _ c) currentTime = do 
     nMap <- readTVar c 
     if Map.member nickName nMap then do 
         nClientState <- return $ nMap ! nickName
@@ -44,7 +47,7 @@ updateClientState nickName app@(App a c) currentTime = do
         return ()
 
 updateActivePortfolio :: T.Text -> App -> PortfolioT -> STM ()
-updateActivePortfolio nickName app@(App a c) p = do 
+updateActivePortfolio nickName app@(App a _ c) p = do 
     nMap <- readTVar c 
     if Map.member nickName nMap then do  
         nClientState <- return $ nMap ! nickName

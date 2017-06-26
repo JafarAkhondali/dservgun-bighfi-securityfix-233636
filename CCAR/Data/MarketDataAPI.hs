@@ -34,7 +34,7 @@ class MarketDataServer a where
 
 
 getActivePortfolio :: T.Text -> App -> STM (Maybe ActivePortfolio)
-getActivePortfolio nickName app@(App a c) = do 
+getActivePortfolio nickName app@(App a _ c) = do 
     cMap <- readTVar $ nickNameMap app 
     clientState <- return $ Map.lookup nickName cMap 
     case clientState of
