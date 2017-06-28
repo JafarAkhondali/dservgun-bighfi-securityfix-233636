@@ -22,6 +22,7 @@ type NickName = T.Text
 -- todo : explore changing this to a tighter abstraction.   
 data App = App { chan :: TChan T.Text
                 , proxy :: TChan (Process())
+                , connectionsMap :: TVar (Map ProcessId Int)
                 , nickNameMap :: ClientMap}
 
 
@@ -31,13 +32,13 @@ type ClientMap = GroupCommunication.ClientIdentifierMap
 
 -- Convert a result of a map to a list
 getClientState :: T.Text -> App -> STM [ClientState]
-getClientState nickName app@(App a _ c) = do
+getClientState nickName app@(App a _ _ c) = do
         nMap <- readTVar c
         return $ Map.elems $ filterWithKey(\k _ -> k ==  nickName) nMap
 
 
 updateClientState :: T.Text -> App -> UTCTime -> STM ()
-updateClientState nickName app@(App a _ c) currentTime = do 
+updateClientState nickName app@(App a _ _ c) currentTime = do 
     nMap <- readTVar c 
     if Map.member nickName nMap then do 
         nClientState <- return $ nMap ! nickName
@@ -47,7 +48,7 @@ updateClientState nickName app@(App a _ c) currentTime = do
         return ()
 
 updateActivePortfolio :: T.Text -> App -> PortfolioT -> STM ()
-updateActivePortfolio nickName app@(App a _ c) p = do 
+updateActivePortfolio nickName app@(App a _ _ c) p = do 
     nMap <- readTVar c 
     if Map.member nickName nMap then do  
         nClientState <- return $ nMap ! nickName

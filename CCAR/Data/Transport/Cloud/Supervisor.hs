@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell, DeriveDataTypeable, DeriveGeneric #-}
 module CCAR.Data.Transport.Cloud.Supervisor
   (supervisor) where 
+import Data.Map as Map
 import Data.Binary  
 import Data.Typeable
 import Data.Text
@@ -40,15 +41,21 @@ data ProcessMessage =
 
 
 updateConnectionCount :: App -> Int -> ProcessId -> STM ()
-updateConnectionCount anApp aCount aProcessId = return ()
+updateConnectionCount (App _ _ connMap _) aCount aProcessId = do
+  m <- readTVar connMap
+  writeTVar connMap (Map.insert aProcessId aCount m)
 handleRemoteMessage :: App -> ProcessMessage -> Process() 
 handleRemoteMessage app aMessage = do 
   say $ 
     printf $ 
       "handling remote message " <> (show aMessage)
+  selfPid <- getSelfPid
   case aMessage of 
     ClientsConnected aNumber aProcessId -> 
-        liftIO $ atomically $ updateConnectionCount app aNumber aProcessId 
+        if selfPid /= aProcessId then 
+          liftIO $ atomically $ updateConnectionCount app aNumber aProcessId 
+        else 
+          return()
     _ -> say $ printf
                 "%s - %s" ("Processing " :: String) (show aMessage)
 
@@ -65,11 +72,11 @@ handleMonitorNotification anApp a@(ProcessMonitorNotification _ pid _) =
 
 -- Remote communication
 proxyProcess :: App -> Process()
-proxyProcess a@(App _ proxy _) =  
+proxyProcess a@(App _ proxy _ _) =  
   forever $ join $ liftIO $ atomically $ readTChan proxy
 
 publishAppState :: ProcessId -> App -> Process ()
-publishAppState pid app@(App _ proxy _) = do
+publishAppState pid app@(App _ proxy _ _) = do
   forever $ do
     count <- liftIO $ atomically $ countAllClients app
     atomically $ sendRemote app pid (ClientsConnected count pid) 
@@ -80,7 +87,7 @@ publishAppState pid app@(App _ proxy _) = do
 
 
 sendRemote :: App -> ProcessId -> ProcessMessage -> STM ()
-sendRemote (App _ proxyChan _) pid pmsg = writeTChan proxyChan (send pid pmsg)
+sendRemote (App _ proxyChan _ _) pid pmsg = writeTChan proxyChan (send pid pmsg)
 
 -- A simple supervisor that can be used to manage load.
 

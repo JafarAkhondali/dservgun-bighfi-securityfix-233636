@@ -463,13 +463,13 @@ addConnection app aConn nn currentTime = do
                 return ()
 
 getAllClientIdentifiers :: App -> STM [ClientIdentifier]
-getAllClientIdentifiers app@(App a proxy c) = do 
+getAllClientIdentifiers app@(App a proxy _ c) = do 
     nMap <- readTVar c 
     return $ Map.keys nMap
 
 
 countAllClients :: App ->  STM Int 
-countAllClients app@(App a proxy c) = do
+countAllClients app@(App a proxy _ c) = do
     nMap <- readTVar c 
     return $ Map.size nMap
 
@@ -477,7 +477,7 @@ type TimeInterval = NominalDiffTime -- time in seconds
 
 -- Return all clients that have been inactive for more than the interval
 getStaleClients :: App -> TimeInterval -> UTCTime -> STM[ClientState]
-getStaleClients app@(App a p c) interval currentTime = do 
+getStaleClients app@(App a p _ c) interval currentTime = do 
     nMap <- readTVar c 
     return $ IMap.elems $ filterWithKey (\k x -> staleClient x) nMap
     where 
@@ -486,12 +486,12 @@ getStaleClients app@(App a p c) interval currentTime = do
 
         
 getClientsWithFilter :: App -> T.Text -> (T.Text -> ClientState -> Bool) -> STM [ClientState]
-getClientsWithFilter app@(App a proxy c) nn f = do
+getClientsWithFilter app@(App a proxy connMap c) nn f = do
     nMap  <- readTVar c 
     return $ IMap.elems $ filterWithKey f nMap
 
 getAllClients :: App -> T.Text -> STM [ClientState]
-getAllClients app@(App a proxy c) nn = do
+getAllClients app@(App a proxy connMap c) nn = do
     nMap <- readTVar c 
     return $ IMap.elems $ filterWithKey (\k x-> nn /= (ClientState.nickName x)) nMap 
 
@@ -505,7 +505,7 @@ conv a =
 
 
 authenticateM :: WSConn.Connection -> T.Text -> App -> MaybeT IO (DestinationType, T.Text) 
-authenticateM aConn aText app@(App a proxy c) = do 
+authenticateM aConn aText app@(App a proxy connMap c) = do 
     Just o@(Object a) <- return $ J.decode . E.encodeUtf8 . L.fromStrict $ aText
     Just (r@(Login a b)) <- return . conv $ (parse parseJSON o :: Result Login) 
     Just nickName <- return $ fmap personNickName a 
@@ -514,7 +514,7 @@ authenticateM aConn aText app@(App a proxy c) = do
 
 
 authenticate :: WSConn.Connection -> T.Text -> App -> IO (DestinationType, T.Text)
-authenticate aConn aText app@(App a prxy c) = do 
+authenticate aConn aText app@(App a prxy connMap c) = do 
     r <- runMaybeT $ authenticateM aConn aText app 
     case r of 
         Just x -> return x 
@@ -545,7 +545,7 @@ authenticate aConn aText app@(App a prxy c) = do
 ser  = (L.toStrict) . (E.decodeUtf8) . (En.encode)
 
 processUserLoggedIn :: WSConn.Connection -> T.Text -> App -> T.Text -> IO (DestinationType, T.Text) 
-processUserLoggedIn aConn aText app@(App a prxy c) nickName = do
+processUserLoggedIn aConn aText app@(App a prxy connMap c) nickName = do
     case aCommand of 
             Nothing -> return (GroupCommunication.Reply, 
                     ser $ appError ("Login has errors" :: T.Text))
@@ -956,17 +956,19 @@ driverInternal port app = do
 
 newApp :: IO App
 newApp = do 
+    connectionsMap <- newTVarIO $ IMap.empty
     nMap <- newTVarIO $ IMap.empty
     chan <- atomically newBroadcastTChan 
     proxy <- newTChanIO 
-    return $ App chan proxy nMap
+    return $ App chan proxy connectionsMap nMap
 -- Local driver, no cloud support
 driver :: Int -> IO ()
 driver port = do
   nickNameMap <- newTVarIO $ IMap.empty
+  connectionsMap <- newTVarIO $ IMap.empty
   chan <- atomically newBroadcastTChan
   proxy <- newTChanIO 
-  let app = App chan proxy nickNameMap
+  let app = App chan proxy connectionsMap nickNameMap
   driverInternal port app 
 
 cloudDriver :: Int -> App -> IO () 
