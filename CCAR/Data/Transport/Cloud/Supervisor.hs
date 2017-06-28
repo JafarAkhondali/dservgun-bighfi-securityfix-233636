@@ -3,10 +3,12 @@ module CCAR.Data.Transport.Cloud.Supervisor
   (supervisor) where 
 import Data.Binary  
 import Data.Typeable
+import Data.Text
+
 import GHC.Generics(Generic)
 import System.Environment (getArgs)
 import Data.Monoid((<>))
-import Control.Concurrent(forkIO)
+import Control.Concurrent(forkIO, threadDelay)
 import Control.Concurrent.Async
 import Control.Distributed.Process
 import Control.Distributed.Process.Closure
@@ -18,32 +20,37 @@ import System.Log.Logger as Logger
 import Control.Monad(forM, forM_)
 import Text.Printf
 import CCAR.Main.Application(App(..))
-import CCAR.Main.Driver(cloudDriver, newApp)
+import CCAR.Main.Driver(cloudDriver, newApp, countAllClients)
 -- Data structures --
+processName :: String 
+processName = "CCAROnTheCloud"
 
 newtype CloudServiceName = CloudServiceName String
 newtype WebserverPort = WebserverPort Int deriving (Typeable, Generic)
 
-instance Binary WebserverPort
-type TestMessage = String -- todo fix this
-  
-processName :: String 
-processName = "CCAROnTheCloud"
-
-
-
--- Core functions-- 
-
-proxyProcess :: App -> Process()
-proxyProcess a@(App _ proxy _) =  
-  forever $ join $ liftIO $ atomically $ readTChan proxy
+data ProcessMessage = 
+  ClientsConnected Int ProcessId -- How many connections
+  -- How many requests: should add websocket recquests and http requests
+  | RequestsProcessed Int ProcessId 
+  | ProcessInfo String ProcessId
+  deriving(Typeable, Generic, Show)
 
 
 ------------ Message handling ----------------
 
-handleRemoteMessage :: App -> TestMessage -> Process() 
+
+updateConnectionCount :: App -> Int -> ProcessId -> STM ()
+updateConnectionCount anApp aCount aProcessId = return ()
+handleRemoteMessage :: App -> ProcessMessage -> Process() 
 handleRemoteMessage app aMessage = do 
-  say (printf "Received %s" (show aMessage))
+  say $ 
+    printf $ 
+      "handling remote message " <> (show aMessage)
+  case aMessage of 
+    ClientsConnected aNumber aProcessId -> 
+        liftIO $ atomically $ updateConnectionCount app aNumber aProcessId 
+    _ -> say $ printf
+                "%s - %s" ("Processing " :: String) (show aMessage)
 
 handleWhereIsReply _ (WhereIsReply _ Nothing) = return ()
 handleWhereIsReply anApp (WhereIsReply _ (Just pid)) = 
@@ -55,6 +62,26 @@ handleMonitorNotification anApp a@(ProcessMonitorNotification _ pid _) =
   say $ printf "Server on %s has died" (show pid)
 
 
+
+-- Remote communication
+proxyProcess :: App -> Process()
+proxyProcess a@(App _ proxy _) =  
+  forever $ join $ liftIO $ atomically $ readTChan proxy
+
+publishAppState :: ProcessId -> App -> Process ()
+publishAppState pid app@(App _ proxy _) = do
+  forever $ do
+    count <- liftIO $ atomically $ countAllClients app
+    atomically $ sendRemote app pid (ClientsConnected count pid) 
+    liftIO $ threadDelay (10 ^ 6 * 10) -- wake up every second
+
+
+
+
+
+sendRemote :: App -> ProcessId -> ProcessMessage -> STM ()
+sendRemote (App _ proxyChan _) pid pmsg = writeTChan proxyChan (send pid pmsg)
+
 -- A simple supervisor that can be used to manage load.
 
 server :: WebserverPort -> Process ()
@@ -63,7 +90,12 @@ server (WebserverPort aPortnumber) = do
     ("CCAR.Data.Transport.Cloud.Supervisor" :: String) 
     ("Runnning server" :: String)
   anApp <- liftIO $ newApp
-  _ <- liftIO $ forkIO $ cloudDriver aPortnumber anApp
+  liftIO $ forkIO $ cloudDriver aPortnumber anApp
+  currentPid <- getSelfPid
+  spawnLocal (publishAppState currentPid anApp)
+
+  -- Spawn local so we can start a process (this need not be remote)
+  -- because all nodes are peers.
   spawnLocal (proxyProcess anApp)
   forever $
     receiveWait
@@ -86,7 +118,7 @@ master backend webserverPort peers = do
   mynode <- getSelfNode
 
   peers0 <- liftIO $ findPeers backend 1000000
-  let peers = filter (/= mynode) peers0
+  let peers = Prelude.filter (/= mynode) peers0
   liftIO $ Logger.debugM modName $ "Peers are " <> (show peers)
   say ("peers are " ++ show peers)
 
@@ -111,3 +143,12 @@ processMain (CloudServiceName cPort) webserverPort = do
 
 supervisor :: String -> Int -> IO ()
 supervisor cPort wPort = processMain (CloudServiceName cPort) (WebserverPort wPort)
+
+
+--------- Miscellaenous -----
+
+instance Binary WebserverPort
+instance Binary ProcessMessage
+
+  
+

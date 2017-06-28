@@ -2,7 +2,7 @@
 
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
 module CCAR.Main.Driver
-    (driver, cloudDriver, newApp)
+    (driver, cloudDriver, newApp, countAllClients)
 where 
 
 import Data.Set as Set 
