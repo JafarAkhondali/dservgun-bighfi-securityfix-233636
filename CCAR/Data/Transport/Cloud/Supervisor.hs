@@ -5,7 +5,7 @@ import Data.Map as Map
 import Data.Binary  
 import Data.Typeable
 import Data.Text
-
+import Data.List as List
 import GHC.Generics(Generic)
 import System.Environment (getArgs)
 import Data.Monoid((<>))
@@ -23,6 +23,10 @@ import Text.Printf
 import CCAR.Main.Application(App(..))
 import CCAR.Main.Driver(cloudDriver, newApp, countAllClients)
 -- Data structures --
+
+{-| 
+  A name that cloud uses to register and discover peers.
+-}
 processName :: String 
 processName = "CCAROnTheCloud"
 
@@ -39,11 +43,28 @@ data ProcessMessage =
 
 ------------ Message handling ----------------
 
+{- | 
+-}
 
+getAllProcesses :: App -> STM [ProcessId]
+getAllProcesses anApp@(App _ _ connMap _) = do 
+  m <- readTVar connMap
+  return $ List.map (\x -> fst x) $ Map.toList m
+{- |
+  Updates the connection count for remote process. 
+-}
 updateConnectionCount :: App -> Int -> ProcessId -> STM ()
 updateConnectionCount (App _ _ connMap _) aCount aProcessId = do
   m <- readTVar connMap
   writeTVar connMap (Map.insert aProcessId aCount m)
+
+{- | Deletes all entries related to the process. -}
+deleteProcessEntries :: App -> ProcessId -> STM () 
+deleteProcessEntries (App _ _ connMap _) aProcessId = do
+  m <- readTVar connMap 
+  writeTVar connMap $ Map.delete aProcessId m
+
+{- | Entry point for the cloud processes. -}
 handleRemoteMessage :: App -> ProcessMessage -> Process() 
 handleRemoteMessage app aMessage = do 
   say $ 
@@ -59,38 +80,76 @@ handleRemoteMessage app aMessage = do
     _ -> say $ printf
                 "%s - %s" ("Processing " :: String) (show aMessage)
 
+
+{- | Each server publishes a  
+  * WhereIsReply when a process calls 'whereIsRemote'
+-}
 handleWhereIsReply _ (WhereIsReply _ Nothing) = return ()
-handleWhereIsReply anApp (WhereIsReply _ (Just pid)) = 
-    say (printf "Handle whereis reply %s" (show pid))
+handleWhereIsReply anApp (WhereIsReply _ (Just pid)) = do
+  say (printf "Handle whereis reply %s" (show pid))
+  publishInitialAppState pid anApp
 
 
+{- | When a remote process with 'pid' has stopped, cleanup the local cache by
+  * removing all entries corresponding to the process id.
+  ** Note: a degenerate case could be that the entire network is coming down, therefore 
+  some alerts need to be in place when processes race to the bottom.
+-}
 handleMonitorNotification :: App -> ProcessMonitorNotification ->  Process()
-handleMonitorNotification anApp a@(ProcessMonitorNotification _ pid _) = 
+handleMonitorNotification anApp a@(ProcessMonitorNotification _ pid _) = do
   say $ printf "Server on %s has died" (show pid)
+  liftIO $ atomically $ deleteProcessEntries anApp pid 
 
 
 
--- Remote communication
+{- | A listener waiting for messages on the read channel.
+-}
 proxyProcess :: App -> Process()
 proxyProcess a@(App _ proxy _ _) =  
   forever $ join $ liftIO $ atomically $ readTChan proxy
 
+{- | Initial state published when WhereIsReply.
+-}
+
+publishInitialAppState :: ProcessId -> App -> Process ()
+publishInitialAppState pid app = do 
+  count <- liftIO $ atomically $ countAllClients app 
+  spid <- getSelfPid  
+  allProcesses <- liftIO $ atomically $ getAllProcesses app
+  let aP = List.filter (/= spid) allProcesses
+  mapM
+        (\x -> liftIO $ atomically $ sendRemote app x (ClientsConnected count spid)) 
+        aP 
+  return ()
+
+{- | Publishes the state of the current process, self pid periodically.
+  A process can refuse connections if the load is above a threshold.
+-}
 publishAppState :: ProcessId -> App -> Process ()
 publishAppState pid app@(App _ proxy _ _) = do
   forever $ do
     count <- liftIO $ atomically $ countAllClients app
-    atomically $ sendRemote app pid (ClientsConnected count pid) 
+    allProcesses <- liftIO $  atomically $ getAllProcesses app
+    atomically $ 
+      sendRemote app pid (ClientsConnected count pid) 
     liftIO $ threadDelay (10 ^ 6 * 10) -- wake up every second
 
 
 
 
-
+{- | Send a 'ProcessMessage' to a remote process -}
 sendRemote :: App -> ProcessId -> ProcessMessage -> STM ()
 sendRemote (App _ proxyChan _ _) pid pmsg = writeTChan proxyChan (send pid pmsg)
 
--- A simple supervisor that can be used to manage load.
 
+{- | 
+  Server process that the backend launches. Key functions: 
+  * Create a new application.
+  * Fork the local process in this case a cloud driver.
+  * Publish heartbeats periodically
+  * Match on 'ProcessMessage', 'ProcessMonitorNotification', 
+    'WhereIsReply' and catch-all.
+-}
 server :: WebserverPort -> Process ()
 server (WebserverPort aPortnumber) = do
   say $ printf "%s : %s " 
