@@ -117,29 +117,14 @@ publishInitialAppState pid app = do
     "Publishing initial state " <> (show pid)
   count <- liftIO $ atomically $ countAllClients app 
   spid <- getSelfPid  
-  allProcesses <- liftIO $ atomically $ getAllProcesses app
-  let aP = List.filter (/= spid) allProcesses
-  liftIO $ Logger.infoM modName ("All processes " <> show allProcesses)
-  mapM_
-        (\x -> do 
-          let command = ClientsConnected count spid
-          liftIO $ Logger.infoM modName $ 
-            "Publishing command to "
-            <> (show x)
-            <> " " 
-            <> (show command)
-          liftIO $ atomically $ sendRemote app x command) 
-        aP 
+  liftIO $ atomically $ sendRemote app pid $ ClientsConnected count spid
   return ()
 
 {- | Publishes the state of the current process, self pid periodically.
   A process can refuse connections if the load is above a threshold.
 -}
 publishAppState :: ProcessId -> App -> Process ()
-publishAppState pid app@(App _ proxy _ _) = do
-  forever $ do
-    publishInitialAppState pid app
-    liftIO $ threadDelay (10 ^ 6 * 10) -- wake up every second
+publishAppState  = publishInitialAppState
 
 
 
@@ -165,7 +150,6 @@ server (WebserverPort aPortnumber) = do
   anApp <- liftIO $ newApp
   liftIO $ forkIO $ cloudDriver aPortnumber anApp
   currentPid <- getSelfPid
-  spawnLocal (publishAppState currentPid anApp)
 
   -- Spawn local so we can start a process (this need not be remote)
   -- because all nodes are peers.
