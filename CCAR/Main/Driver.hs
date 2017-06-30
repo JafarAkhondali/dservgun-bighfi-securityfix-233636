@@ -468,6 +468,8 @@ getAllClientIdentifiers app@(App a proxy _ c) = do
     return $ Map.keys nMap
 
 
+{- | Count all clients connected to the current local process.
+-}
 countAllClients :: App ->  STM Int 
 countAllClients app@(App a proxy _ c) = do
     nMap <- readTVar c 
@@ -497,11 +499,6 @@ getAllClients app@(App a proxy connMap c) nn = do
 
 
 
-conv :: Result a -> Maybe a 
-conv a = 
-    case a of 
-        Success r -> Just r 
-        Error s -> Nothing
 
 
 authenticateM :: WSConn.Connection -> T.Text -> App -> MaybeT IO (DestinationType, T.Text) 
@@ -510,6 +507,12 @@ authenticateM aConn aText app@(App a proxy connMap c) = do
     Just (r@(Login a b)) <- return . conv $ (parse parseJSON o :: Result Login) 
     Just nickName <- return $ fmap personNickName a 
     return (GroupCommunication.Reply, UserJoined.userJoined nickName)
+    where
+        conv :: Result a -> Maybe a 
+        conv a = 
+            case a of 
+                Success r -> Just r 
+                Error s -> Nothing
 
 
 

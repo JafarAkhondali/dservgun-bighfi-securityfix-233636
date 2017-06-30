@@ -113,11 +113,13 @@ proxyProcess a@(App _ proxy _ _) =
 
 publishInitialAppState :: ProcessId -> App -> Process ()
 publishInitialAppState pid app = do 
+  liftIO $ Logger.infoM modName $
+    "Publishing initial state " <> (show pid)
   count <- liftIO $ atomically $ countAllClients app 
   spid <- getSelfPid  
   allProcesses <- liftIO $ atomically $ getAllProcesses app
   let aP = List.filter (/= spid) allProcesses
-  mapM
+  mapM_
         (\x -> liftIO $ atomically $ sendRemote app x (ClientsConnected count spid)) 
         aP 
   return ()
@@ -128,7 +130,7 @@ publishInitialAppState pid app = do
 publishAppState :: ProcessId -> App -> Process ()
 publishAppState pid app@(App _ proxy _ _) = do
   forever $ do
-    publishAppState pid app
+    publishInitialAppState pid app
     liftIO $ threadDelay (10 ^ 6 * 10) -- wake up every second
 
 
@@ -172,14 +174,14 @@ server (WebserverPort aPortnumber) = do
 
 
 modName = "CCAR.Data.Transport.Cloud.Supervisor"
+
 -- This is needed for template haskell.
 remotable ['server]
 
 
 master :: Backend -> WebserverPort -> [NodeId] -> Process () 
-master backend webserverPort peers = do 
+master backend webserverPort _ = do 
   mynode <- getSelfNode
-
   peers0 <- liftIO $ findPeers backend 1000000
   let peers = Prelude.filter (/= mynode) peers0
   liftIO $ Logger.debugM modName $ "Peers are " <> (show peers)
