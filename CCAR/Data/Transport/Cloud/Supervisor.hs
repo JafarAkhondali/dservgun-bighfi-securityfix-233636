@@ -119,8 +119,16 @@ publishInitialAppState pid app = do
   spid <- getSelfPid  
   allProcesses <- liftIO $ atomically $ getAllProcesses app
   let aP = List.filter (/= spid) allProcesses
+  liftIO $ Logger.infoM modName ("All processes " <> show allProcesses)
   mapM_
-        (\x -> liftIO $ atomically $ sendRemote app x (ClientsConnected count spid)) 
+        (\x -> do 
+          let command = ClientsConnected count spid
+          liftIO $ Logger.infoM modName $ 
+            "Publishing command to "
+            <> (show x)
+            <> " " 
+            <> (show command)
+          liftIO $ atomically $ sendRemote app x command) 
         aP 
   return ()
 
