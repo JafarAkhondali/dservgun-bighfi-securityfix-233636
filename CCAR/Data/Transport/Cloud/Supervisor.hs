@@ -128,10 +128,7 @@ publishInitialAppState pid app = do
 publishAppState :: ProcessId -> App -> Process ()
 publishAppState pid app@(App _ proxy _ _) = do
   forever $ do
-    count <- liftIO $ atomically $ countAllClients app
-    allProcesses <- liftIO $  atomically $ getAllProcesses app
-    atomically $ 
-      sendRemote app pid (ClientsConnected count pid) 
+    publishAppState pid app
     liftIO $ threadDelay (10 ^ 6 * 10) -- wake up every second
 
 
