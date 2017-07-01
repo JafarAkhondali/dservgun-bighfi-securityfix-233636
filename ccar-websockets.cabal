@@ -116,6 +116,7 @@ executable ccar-websockets
                     , network-transport-tcp >= 0.5.1 && < 0.6
                     , binary >= 0.7.1.0 && < 0.8
                     , distributed-process-simplelocalnet >= 0.2 && < 0.3
+                    , aeson >= 0.8 && < 0.9
 
 
   -- Base language which the package is written in.
@@ -267,6 +268,7 @@ library
                      , distributed-process-simplelocalnet >= 0.2 && < 0.3
                      , network-transport-tcp >= 0.5.1 && < 0.6
                      , binary >= 0.7.1.0 && < 0.8
+                     , aeson >= 0.8 && < 0.9
 
   -- Directories containing source files.
   -- hs-source-dirs: 

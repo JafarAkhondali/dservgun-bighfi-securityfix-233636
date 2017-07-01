@@ -187,9 +187,8 @@ master backend webserverPort _ = do
 
   server webserverPort
 -- In cloud haskell, a distributed program is a set of processes
--- thus naming it as processMain
-processMain :: CloudServiceName ->  WebserverPort -> IO ()
-processMain (CloudServiceName cPort) webserverPort = do
+entryPoint :: CloudServiceName ->  WebserverPort -> IO ()
+entryPoint (CloudServiceName cPort) webserverPort = do
  Logger.debugM modName $ "Setting up backend on " <> (show cPort)
  backend <- 
   initializeBackend "localhost" cPort
@@ -199,7 +198,7 @@ processMain (CloudServiceName cPort) webserverPort = do
  Node.runProcess node (master backend webserverPort peers)
 
 supervisor :: String -> Int -> IO ()
-supervisor cPort wPort = processMain (CloudServiceName cPort) (WebserverPort wPort)
+supervisor cPort wPort = entryPoint (CloudServiceName cPort) (WebserverPort wPort)
 
 
 --------- Miscellaenous -----

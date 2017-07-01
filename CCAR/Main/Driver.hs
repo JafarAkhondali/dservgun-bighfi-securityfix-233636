@@ -2,7 +2,15 @@
 
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
 module CCAR.Main.Driver
-    (driver, cloudDriver, newApp, countAllClients)
+    (
+      -- * Web driver
+      driver
+      -- * Enables cloud haskell backend
+      , cloudDriver, 
+      -- * The application
+      newApp, 
+      -- ** Utility functions, that can most likely live elsewhere.
+      countAllClients)
 where 
 
 import Data.Set as Set 
@@ -37,6 +45,7 @@ import Data.Monoid ((<>), mappend)
 import Control.Concurrent.STM.Lifted
 import Data.Text as T  hiding(foldl, foldr)
 import Data.Aeson as J
+import Data.Aeson.Types
 import Control.Exception(SomeException)
 import Control.Applicative as Appl
 import Data.Aeson.Encode as En
@@ -152,18 +161,15 @@ type To = T.Text
 
 data UserPreferences = UserPreferences {prefs :: T.Text} deriving (Show, Eq, Generic)
 
+genTermsAndConditions :: TermsAndConditions -> Value
 genTermsAndConditions (TermsAndConditions t des accept) = object ["title" .= t
                                             , "description" .= des
                                             , "acceptDate" .= accept]
-genCommandKeepAlive a  = object ["KeepAlive" .= a
-                                , "commandType" .= ("KeepAlive" :: T.Text)]
-
-
 
 instance ToJSON UserTermsOperations where
     toJSON (UserTermsOperations o t) = object ["utOperation" .= o, "terms" .= t]
 
-
+parseKeepAlive :: FromJSON a => Object -> Parser a
 parseKeepAlive v = v .: "keepAlive"
 
 parsePerson = \v -> Person <$>  
@@ -831,7 +837,12 @@ jobReaderThread app nickN terminate =
     | across all the portfolios for the user.
  --}
 
-{-- The main processing loop for incoming commands.--}
+{-- | The main processing loop for incoming commands.
+    * Either disconnect gracefully because the user logged out
+    * Or handle any exception that might result in losing the client.
+    ** Note: the world view is the channel. This thread 'writes' to 
+    the channel reading off of a network stream.
+--}
 writerThread :: App -> WSConn.Connection -> T.Text -> Bool -> IO ()
 writerThread app connection nickName terminate = do
     Logger.debugM iModuleName $ 
@@ -887,6 +898,8 @@ postHomeR = do
     incomingRequest <- (requireJsonBody :: Handler Value)
     liftIO $ Logger.debugM iModuleName ("Incoming request" <> (show incomingRequest))
     return ()
+
+
 getHomeR :: Handler String
 getHomeR = do
     request <- waiRequest
@@ -903,7 +916,7 @@ staleClientInterval = getEnv("STALE_CLIENT_INTERVAL") >>= \x -> return
 -- TODO: Fix this
 mkClientInterval :: Integer -> NominalDiffTime 
 mkClientInterval _ = 20::NominalDiffTime 
--- TODO: use parsec to return the stale client interval.
+
 cleanupStaleConnections :: App -> IO ()
 cleanupStaleConnections app = loop 
     where loop = do 
