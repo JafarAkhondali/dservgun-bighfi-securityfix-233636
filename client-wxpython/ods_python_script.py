@@ -12,36 +12,33 @@ import threading
 import logging
 import datetime
 import copy
-import webbrowser 
+import webbrowser
 import requests
-import urllib 
+import urllib
 import tempfile
 
 from urllib.parse import urlencode
 
-logging.basicConfig(filename="./odspythonscript.log", level = 
+logging.basicConfig(filename="./odspythonscript.log", level =
         logging.DEBUG, filemode = "w", format="format=%(asctime)s %(name)-12s %(levelname)-8s %(threadName)s %(message)s")
 
-logger = logging.getLogger(__name__)    
+logger = logging.getLogger(__name__)
 logger.debug("Loaded script file "  + os.getcwd())
-
 
 ##### Note: Requires python 3.4 or above
 ##### It seems to be that all functions in a macro need to reside in a single file.
 ##### We will break them down into modules as the size of the macros grow.
-##### 
+#####
 
-#### 
+####
 # oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
 # oSeries = oXChartType.getDataSeries()
 # oNewSeries = ()
 # oNewSeries = (oSeries[4], oSeries[3], oSeries[2], oSeries[1], oSeries[0] )
 # oXChartType.setDataSeries(oNewSeries)
 
-
 ##### Todo:
 ##### Package the server interaction as a library.
-
 
 # Rectangle aRect = new Rectangle( aUpperLeft.X, aUpperLeft.Y, aExtent.Width, aExtent.Height );
 
@@ -81,15 +78,15 @@ logger.debug("Loaded script file "  + os.getcwd())
 #  }
 
 
-# class QuantityChanged(XModifyListener, unohelper.Base): 
+# class QuantityChanged(XModifyListener, unohelper.Base):
 #     def __init__(self):
-#         self.doc = None 
+#         self.doc = None
 #     def setDocument(self, doc):
 #         self.doc = doc
 #     def modified(self, oevent):
 #         logger.debug("Cell modified");
 #     def disposing(self, oevent):
-#         pass;    
+#         pass;
 
 def loadCABundleOffline(certFile, filename):
     try:
@@ -99,13 +96,12 @@ def loadCABundleOffline(certFile, filename):
         fw.write(f.read())
         fw.close()
     except:
-        error = traceback.format_exc() 
+        error = traceback.format_exc()
         logger.error(error);
-        return "Could not load bundle" 
+        return "Could not load bundle"
     finally:
         logger.debug("Load ca bundle")
         return "finished loading ca bundle"
-
 
 def loadCABundle(siteca, filename):
     try:
@@ -115,9 +111,9 @@ def loadCABundle(siteca, filename):
         fw.write(f.text)
         fw.close()
     except:
-        error = traceback.format_exc() 
+        error = traceback.format_exc()
         logger.error(error);
-        return "Could not load bundle" 
+        return "Could not load bundle"
     finally:
         logger.debug("Load ca bundle")
         return "finished loading ca bundle"
@@ -125,7 +121,6 @@ def loadCABundle(siteca, filename):
 tempFile = tempfile.NamedTemporaryFile(delete=False)
 ## https://www.labnol.org/internet/direct-links-for-google-drive/28356/
 ### When connected
-
 
 #bundleConvenienceLink = "https://drive.google.com/uc?id=0B6WIubsk0HIGN2RPVloxZ2o1STQ&export=download"
 #loadCABundle(bundleConvenienceLink, tempFile.name)
@@ -179,9 +174,6 @@ UNDEFINED = 1041
 COMPANY_SELECTION_LIST_CONTROL = "BrokerList"
 COMPANY_SELECTION_LIST_CONTROL_INDEX = 0
 
-
-
-
 class ClientOAuth:
     def __init__(self, loginHint):
         logger.debug("Creating an oauth client")
@@ -200,10 +192,10 @@ class ClientOAuth:
         redirect_uri = oauthJson["redirectURLs"][0]
         login_hint = self.loginHint
         payload = {
-                "client_id" : clientId, 
+                "client_id" : clientId,
                 "response_type" : responseType,
                 "scope" : scope,
-                "redirect_uri" : redirect_uri,  
+                "redirect_uri" : redirect_uri,
                 "login_hint" : login_hint}
         logger.debug("Auth uri " + authUri)
         logger.debug("payload " + urlencode(payload))
@@ -223,7 +215,7 @@ class TableDisplay:
     def __init__(self):
         logger.debug ("Creating table display")
         self.startRow = 2
-        # The next available row. Count the header as 
+        # The next available row. Count the header as
         # the first row.
         self.availableRowIndex = 2
         self.dataMap = {}
@@ -233,7 +225,7 @@ class TableDisplay:
         if key in self.indexMap:
             pass
         else:
-            self.indexMap[key] = self.availableRowIndex 
+            self.indexMap[key] = self.availableRowIndex
             self.availableRowIndex = self.availableRowIndex + 1
         self.dataMap[key] = anEntry
 
@@ -245,18 +237,15 @@ class TableDisplay:
             return self.availableRowIndex
     def values(self):
         return self.dataMap.values();
-# Design notes: 
+# Design notes:
 # Use composition over inheritance.
 class Util:
     # Indexes are zero based.
     @staticmethod
-    def convertToBool(aString):    
+    def convertToBool(aString):
         bool(aString)
 
-
-
-
-class OptionChain: 
+class OptionChain:
     def __init__(self, jsonRecord) :
         logger.debug("Creating option chain " + str(jsonRecord))
         self.lastBid = jsonRecord["lastBid"]
@@ -276,18 +265,18 @@ class OptionChain:
             return (hash(self.key()))
     def __eq__(self, other):
         if type(self) is type(other):
-            result = self.symbol == other.symbol 
+            result = self.symbol == other.symbol
             result = result and (self.underlying == other.underlying)
-            result = result and (self.strike == other.strike) 
+            result = result and (self.strike == other.strike)
             result = result and (self.expiration == other.expiration);
             return result;
         else:
             return False;
 
-class PortfolioSymbolParseError(Exception) : 
+class PortfolioSymbolParseError(Exception) :
         def __init__(self, value):
             self.value = value
-        def __str__(self): 
+        def __str__(self):
             return repr(self.value);
 
 class PortfolioSymbol:
@@ -311,47 +300,46 @@ class PortfolioSymbol:
 
     def __eq__(self, other) :
         if type(self) is type(other):
-            result = self.portfolioId == other.portfolioId 
+            result = self.portfolioId == other.portfolioId
             result = result and  (self.symbol == other.symbol)
-            result = result and  (self.side == other.side) 
+            result = result and  (self.side == other.side)
             result = result and  (self.symbolType == other.symbolType)
-            return result 
+            return result
         else:
             return False;
-    def __hash__(self): 
+    def __hash__(self):
         strCat = self.portfolioId + self.symbol + self.side + self.symbolType;
         return (hash(strCat))
-    def __str__(self): 
-        return repr(self.portfolioId + " " + self.symbol + " " + self.side + " " + 
+    def __str__(self):
+        return repr(self.portfolioId + " " + self.symbol + " " + self.side + " " +
                                 self.quantity + " " + self.value + " " + self.stressValue);
 
 
-    def key(self): 
+    def key(self):
         key = self.symbol + self.side + self.symbolType + self.portfolioId;
         logger.debug("Symbol key " + key);
         return key;
 
     def updateCrudType(self, aCrudType):
         self.crudType = aCrudType;
-    
-    def asJson(self): 
+
+    def asJson(self):
         jsonRecord = {
-                u"commandType"   :       self.commandType 
-            ,   u"crudType"      :       self.crudType 
-            ,   u"portfolioId"   :       self.portfolioId 
+                u"commandType"   :       self.commandType
+            ,   u"crudType"      :       self.crudType
+            ,   u"portfolioId"   :       self.portfolioId
             ,   u"symbol"        :       self.symbol
-            ,   u"quantity"      :       self.quantity 
-            ,   u"side"          :       self.side 
-            ,   u"symbolType"    :       self.symbolType 
+            ,   u"quantity"      :       self.quantity
+            ,   u"side"          :       self.side
+            ,   u"symbolType"    :       self.symbolType
             ,   u"value"         :       self.value
-            ,   u"stressValue"   :       self.stressValue 
+            ,   u"stressValue"   :       self.stressValue
             ,   u"dateTime"      :       self.dateTime
             ,   u"creator"       :       self.creator
             ,   u"updator"       :       self.updator
             ,   u"nickName"      :       self.nickName
         }
         return jsonRecord
-
 
     # private function insertPortfolioSymbolI(aSymbol : String, aSymbolType : String, aSide: String, quantity : String){
     #     trace("Inserting portfolio symbol through upload ");
@@ -372,20 +360,20 @@ class PortfolioSymbol:
     #     model.insertStream.resolve(portfolioSymbolT);
     # }
     ## Create a manage portfolio json request
-    def createManagePortfolioSymbol(self, crudType): 
+    def createManagePortfolioSymbol(self, crudType):
         result = {
             crudType : crudType
             , commandType : "ManagePortfolioSymbol"
             , portfolioId : self.portfolioId
-            , symbol : self.symbol 
-            , quantity : self.quantity 
-            , side : self.side 
+            , symbol : self.symbol
+            , quantity : self.quantity
+            , side : self.side
             , symbolType: self.symbolType
             , value : self.value
-            , stressValue : self.stressValue 
-            , creator : self.creator 
-            , updator : self.updator 
-            , nickName : self.nickName            
+            , stressValue : self.stressValue
+            , creator : self.creator
+            , updator : self.updator
+            , nickName : self.nickName
         }
         return result;
 
@@ -434,25 +422,23 @@ class PortfolioGroup:
             summaryCol = self.portfolioDetailColumns["summary"]
             self.brokerDictionary[portfolioCol] = companyCol
             logger.debug("Updating cell contents");
-            self.ccarClient.updateCellContent(self.portfolioWorksheet, 
+            self.ccarClient.updateCellContent(self.portfolioWorksheet,
                                 summaryCol + cellPosition, summary["summary"])
-            self.ccarClient.updateCellContent(self.portfolioWorksheet, 
+            self.ccarClient.updateCellContent(self.portfolioWorksheet,
                                 portfolioCol + cellPosition, summary["portfolioId"])
-            self.ccarClient.updateCellContent(self.portfolioWorksheet, 
+            self.ccarClient.updateCellContent(self.portfolioWorksheet,
                                 companyCol + cellPosition, summary["companyId"])
-            self.portfolioDetailCount  = self.portfolioDetailCount + 1             
-            displayName = summary["summary"]               
+            self.portfolioDetailCount  = self.portfolioDetailCount + 1
+            displayName = summary["summary"]
             newSheet = self.ccarClient.upsertNewWorksheet(displayName)
             self.createRows(summary["portfolioId"])
             self.portfolioGroupWorksheets[summary["portfolioId"]] = newSheet
     def getDisplayName(self, portfolioId):
         logger.debug("Get the display name for portfolio id ");
-        for summaryDictionary in self.portfolioSummaries: 
+        for summaryDictionary in self.portfolioSummaries:
             summary = summaryDictionary["Right"]
             if portfolioId == summary["portfolioId"]:
                 return summary["summary"]
-            
-
 
     def createRows(self, aWorksheetName):
         self.ccarClient.updateCellContent(aWorksheetName, "A1", "Symbol")
@@ -463,10 +449,9 @@ class PortfolioGroup:
         self.ccarClient.updateCellContent(aWorksheetName, "F1", "Stress value")
         self.ccarClient.updateCellContent(aWorksheetName, "G1", "Last update time")
 
-
     def getPortfolioIds(self):
-        result = [] 
-        for portfolio in self.portfolioSummaries: 
+        result = []
+        for portfolio in self.portfolioSummaries:
             summary = portfolio["Right"]
             result.append(summary["portfolioId"])
         return result
@@ -481,9 +466,11 @@ class PortfolioGroup:
                 , 'resultSet' : []
             }
             self.ccarClient.sendAsTask(payload);
+
     def updateAndSend(self):
         self.updateContents()
         self.sendPortfolioRequests()
+
     def getPortfolioSymbolTable(self, portfolioId):
         result = None
         if portfolioId in self.portfolioGroupDictionary:
@@ -511,6 +498,7 @@ class PortfolioGroup:
             , "optionChain" : []
         }
         yield from self.ccarClient.send(payload)
+
     @asyncio.coroutine
     def sendMarketDataQueryRequest(self, portfolioSymbol):
         if portfolioSymbol.portfolioId == portfolioSymbol.symbol:
@@ -525,7 +513,6 @@ class PortfolioGroup:
         logger.debug("Sending market data request " + str(payload))
         if payload == None:
             return
-
         yield from self.ccarClient.send(payload);
 
     @asyncio.coroutine
@@ -545,7 +532,7 @@ class PortfolioGroup:
                 pass
             else:
                 changes = PortfolioChanges(self.ccarClient, portfolioId);
-                crudType = ""; 
+                crudType = "";
                 nickName = self.ccarClient.getNickName();
                 p = changes.createLocalvalue(portfolioSymbol, nickName, nickName, nickName, crudType, row);
                 changes.register(p, portfolioSymbol);
@@ -568,15 +555,13 @@ class PortfolioGroup:
         except:
             logger.error(traceback.format_exc())
 
-
-
     @asyncio.coroutine
     def handleQueryPortfolioSymbolResponse(self, jsonResponse):
         logger.debug("Handle query portfolio symbol response " + str(jsonResponse))
         resultSet = jsonResponse["resultSet"]
         try :
             for result in resultSet:
-                logger.debug("Result " + str(result)) 
+                logger.debug("Result " + str(result))
                 x = result["Right"]
                 portfolioSymbol = PortfolioSymbol(self.ccarClient, x);
                 logger.debug("Adding portfolio symbol " + str(portfolioSymbol))
@@ -602,7 +587,7 @@ class PortfolioGroup:
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "A" + str(row), portfolioSymbol.symbol))
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "B" + str(row), q))
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "C" + str(row), portfolioSymbol.side))
-                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "D" + str(row), portfolioSymbol.symbolType))                    
+                    yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "D" + str(row), portfolioSymbol.symbolType))
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "E" + str(row), portfolioSymbol.value))
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "F" + str(row), portfolioSymbol.stressValue))
                     yield from self.ccarClient.loop.create_task(self.ccarClient.updateCellContentT(displayName, "G" + str(row), str(datetime.datetime.now())))
@@ -611,7 +596,6 @@ class PortfolioGroup:
             logger.error("Message " + str(result))
             logger.error(traceback.format_exc())
 
-    
     @asyncio.coroutine
     def sendMarketData(self):
         if self.portfolioSymbolTable == None:
@@ -626,16 +610,13 @@ class PortfolioGroup:
             yield from self.ccarClient.loop.create_task(self.sendMarketDataQueryRequest(value))
             yield from asyncio.sleep(.1, loop = self.ccarClient.loop)
 
-
     @asyncio.coroutine
     def refreshMarketDataRequests(self):
         while True:
             self.ccarClient.loop.create_task(self.sendMarketData());
             yield from asyncio.sleep(.5, loop = self.ccarClient.loop)
 
-
 class MarketDataTimeSeries:
-
     def __init__(self, symbol, high, low, openL, close, volume, date):
         self.high = '%.2f' % float(high)
         self.low = '%.2f' % float(low)
@@ -644,15 +625,18 @@ class MarketDataTimeSeries:
         self.date =  date
         self.symbol = symbol
         self.volume = volume
+
     def printValue(self):
         return (str(self.date) + " " + self.symbol)
+
     def key(self):
-        return self.symbol + self.date 
+        return self.symbol + self.date
 
 class MarketData:
     def __init__(self, symbol):
         self.timeSeries = {}
         self.symbol = symbol
+
     def add(self, event):
         self.timeSeries[event.date] = event
 
@@ -666,10 +650,10 @@ class CCARClient:
         self.marketData = {}
         self.optionTable = TableDisplay()
         self.marketDataRow = 2
-        self.marketDataRowMap = {} # 
+        self.marketDataRowMap = {} #
         self.marketDataBak = {} # To swap dictionaries outside iteration.
 
-        self.portfolioDetailCount = 0 
+        self.portfolioDetailCount = 0
         self.portfolioDetailStartRow = 5
         self.portfolioDetailStartCol = "C"
         self.portfolioDetailStartCol1 = "D"
@@ -708,7 +692,7 @@ class CCARClient:
         try:
             if cell == None:
                 logger.debug("No cell found for " + str(value))
-            else:                
+            else:
                 logger.debug("Updating worksheet by name " + worksheet + " CELL " + str(cell) + ": Value " + str(value))
                 sheet = self.getWorksheetByName(worksheet)
                 if sheet == None:
@@ -731,9 +715,9 @@ class CCARClient:
     def workSheetExists(self, aName):
         sheet = self.getWorksheetByName(aName);
         return (sheet != None)
-    
+
     #Either create a new sheet or return an existing one.
-    def upsertNewWorksheet(self, aName): 
+    def upsertNewWorksheet(self, aName):
         if aName == None:
             return None
         desktop = XSCRIPTCONTEXT.getDesktop()
@@ -760,27 +744,27 @@ class CCARClient:
         sheet = self.getWorksheetByName(sheetName);
         tRange = sheet.getCellRangeByName(aCell);
         return tRange.String
-    
-    def getCellContent(self, aCell): 
+
+    def getCellContent(self, aCell):
         return self.getCellContentForSheet("user_login_sheet", aCell);
 
-    def getWorksheetByIndex(self, worksheetIndex): 
+    def getWorksheetByIndex(self, worksheetIndex):
         desktop = XSCRIPTCONTEXT.getDesktop()
         model = desktop.getCurrentComponent()
-        sheet = model.Sheets.getByIndex(worksheetIndex)    
-    def getWorksheetByName(self, worksheetName): 
+        sheet = model.Sheets.getByIndex(worksheetIndex)
+    def getWorksheetByName(self, worksheetName):
         try:
             logger.info("Worksheet name " + worksheetName);
             desktop = XSCRIPTCONTEXT.getDesktop()
             if desktop == None:
                 return None;
             model = desktop.getCurrentComponent()
-            if model == None: 
+            if model == None:
                 logger.fatal("This can never happen " + worksheetName)
             if model.Sheets != None:
-                try:                
-                    sheet = model.Sheets.getByName(worksheetName) 
-                    return sheet   
+                try:
+                    sheet = model.Sheets.getByName(worksheetName)
+                    return sheet
                 except:
                     logger.error("Couldnt find worksheet " + worksheetName);
                     return None;
@@ -792,12 +776,10 @@ class CCARClient:
     def getMarketDataWorksheet(self):
         return self.getWorksheetByName(self.markeDataSheet);
 
-    def getCellContent(self, aCell): 
+    def getCellContent(self, aCell):
         sheet = self.getWorksheet(0);
         tRange = sheet.getCellRangeByName(aCell)
         return tRange.String
-
-
 
     def getWorksheet(self, anIndex) :
         desktop = XSCRIPTCONTEXT.getDesktop()
@@ -827,15 +809,14 @@ class CCARClient:
         tRange = sheet.getCellRangeByName(self.ERROR_CELL)
         tRange.String = tRange.String + "\n" + (str (aMessage))
 
-
-    def getNickName(self): 
-        return self.getUserName();        
+    def getNickName(self):
+        return self.getUserName();
     def getUserName(self) :
         return self.getCellContent(self.LOGIN_CELL)
 
     def clearCompanySelectionListBox(self):
         logger.debug("Clear the company selection list box")
-        
+
     def clearCells(self):
         self.clearCompanySelectionListBox()
         self.clearInfoWorksheet();
@@ -856,51 +837,49 @@ class CCARClient:
 
     def commandDictionary (self) :
         return {
-        u"Login"                 : LOGIN_COMMAND ,   
+        u"Login"                 : LOGIN_COMMAND ,
         "CCARUpload"            : CCAR_UPLOAD_COMMAND
-        , "ManageCompany"           : MANAGE_COMPANY 
+        , "ManageCompany"           : MANAGE_COMPANY
         , "SelectAllCompanies"      : SELECT_ALL_COMPANIES
-        , "QuerySupportedScripts"   : QUERY_SUPPORTED_SCRIPTS 
+        , "QuerySupportedScripts"   : QUERY_SUPPORTED_SCRIPTS
         , "QueryActiveWorkbenches"  : QUERY_ACTIVE_WORKBENCHES
-        , "ManageWorkbench"         : MANAGE_WORKBENCH 
+        , "ManageWorkbench"         : MANAGE_WORKBENCH
         , "ExecuteWorkbench"        : EXECUTE_WORKBENCH
-        , "SelectActiveProjects"    : SELECT_ACTIVE_PROJECTS 
+        , "SelectActiveProjects"    : SELECT_ACTIVE_PROJECTS
         , "ManageProject"           : MANAGE_PROJECT
-        , "ParsedCCARText"          : PARSED_CCAR_TEXT 
+        , "ParsedCCARText"          : PARSED_CCAR_TEXT
         , "ManageUser"              : MANAGE_USER
-        , "CreateUserTerms"         : CREATE_USER_TERMS 
+        , "CreateUserTerms"         : CREATE_USER_TERMS
         , "UpdateUserTerms"         : UPDATE_USER_TERMS
-        , "DeleteUserTerms"         : DELETE_USER_TERMS 
+        , "DeleteUserTerms"         : DELETE_USER_TERMS
         , "QueryUserTerms"          : QUERY_USER_TERMS
-        , "CreateUserPreferences"   : CREATE_USER_PREFERENCES 
+        , "CreateUserPreferences"   : CREATE_USER_PREFERENCES
         , "UpdateUserPreferences"   : UPDATE_USER_PREFERENCES
-        , "QueryUserPreferences"    : QUERY_USER_PREFERENCES 
+        , "QueryUserPreferences"    : QUERY_USER_PREFERENCES
         , "DeleteUserPreferences"   : DELETE_USER_PREFERENCES
         , "SendMessage"             : SEND_MESSAGE
         , "UserJoined"              : USER_JOINED
-        , "UserBanned"              : USER_BANNED 
+        , "UserBanned"              : USER_BANNED
         , "UserLoggedIn"            : USER_LOGGED_IN
-        , "UserLeft"                : USER_LEFT 
+        , "UserLeft"                : USER_LEFT
         , "AssignCompany"           : ASSIGN_COMPANY
-        , "KeepAlive"               : KEEP_ALIVE 
+        , "KeepAlive"               : KEEP_ALIVE
         , "PortfolioSymbolTypesQuery" : PORTFOLIO_SYMBOL_TYPES_QUERY
-        , "PortfolioSymbolSidesQuery" : PORTFOLIO_SYMBOL_SIDES_QUERY 
+        , "PortfolioSymbolSidesQuery" : PORTFOLIO_SYMBOL_SIDES_QUERY
         , "QueryPortfolios"         : QUERY_PORTFOLIOS
-        , "ManagePortfolio"         : MANAGE_PORTFOLIO 
+        , "ManagePortfolio"         : MANAGE_PORTFOLIO
         , "ManagePortfolioSymbol"   : MANAGE_PORTFOLIO_SYMBOL
-        , "QueryPortfolioSymbol"    : QUERY_PORTFOLIO_SYMBOL 
+        , "QueryPortfolioSymbol"    : QUERY_PORTFOLIO_SYMBOL
         , "ManageEntitlements"      : MANAGE_ENTITLEMENTS
-        , "QueryEntitlements"       : QUERY_ENTITLEMENTS 
+        , "QueryEntitlements"       : QUERY_ENTITLEMENTS
         ,"QueryCompanyUsers"       : QUERY_COMPANY_USERS
         , "MarketDataUpdate"        : MARKET_DATA_UPDATE
         , "OptionAnalytics"         : OPTION_ANALYTICS
-        , "QueryMarketData"         : QUERY_MARKET_DATA 
+        , "QueryMarketData"         : QUERY_MARKET_DATA
         , "HistoricalStressValueCommand" : HISTORICAL_STRESS_VALUE_COMMAND
         , "QueryOptionChain"        : QUERY_OPTION_CHAIN
         , "Undefined"               : UNDEFINED
         }
-
-
 
     def getSecuritySettings(self) :
         # Return the security settings for this document.
@@ -919,11 +898,11 @@ class CCARClient:
         };
         return payload
 
-    def sendLoginRequest(self, userName, password) : 
+    def sendLoginRequest(self, userName, password) :
         #create a login json request
         login = {
             u'commandType' : 'Login',
-            u'nickName' : userName, 
+            u'nickName' : userName,
             u'loginStatus' : "Undefined",
             u'login' : None
         }
@@ -931,7 +910,7 @@ class CCARClient:
         logger.debug("Login request %s", jsonLogin)
         return jsonLogin
 
-    def sendUserLoggedIn (self, jsonRequest): 
+    def sendUserLoggedIn (self, jsonRequest):
         userLoggedIn = {
             'nickName' : self.getUserName()
             , 'commandType' : 'UserLoggedIn'
@@ -945,9 +924,9 @@ class CCARClient:
             , "keepAlive" : "Ping"
         }
         return k
-        
+
     def handleKeepAlive(self, jsonRequest) :
-        return None 
+        return None
 
     def activePortfolioIntervalF(self):
         self.activePortfolioInterval = self.getCellContent(self.ACTIVE_PORTFOLIO_INTERVAL_CELL)
@@ -960,8 +939,8 @@ class CCARClient:
         self.marketDataRefreshInterval = self.getCellContent(self.MARKET_DATA_REFRESH_INTERVAL_CELL)
         return self.marketDataRefreshInterval
 
-    ## Send a keep alive request every n seconds. 
-    ## This is not entirely accurate: the client needs to send 
+    ## Send a keep alive request every n seconds.
+    ## This is not entirely accurate: the client needs to send
     ## a message only after n seconds of idle period. TODO
     @asyncio.coroutine
     def send(self, aJsonMessage):
@@ -989,13 +968,13 @@ class CCARClient:
     @asyncio.coroutine
     def checkForChanges(self):
         try:
-            keepChecking = True 
+            keepChecking = True
             autoSaveInterval = 1.0
-            while keepChecking: 
+            while keepChecking:
                 logger.debug("Checking for changes " + str(self.portfolioGroup))
 
-                if self.portfolioGroup != None: 
-                    logger.debug("Iterating through portfolios");              
+                if self.portfolioGroup != None:
+                    logger.debug("Iterating through portfolios");
                     portfolioIds = self.portfolioGroup.getPortfolioIds()
                     for p in portfolioIds :
                         logger.debug("Updating " + str(p))
@@ -1017,14 +996,14 @@ class CCARClient:
         try:
             logger.debug("Starting the keep alive timer..")
 
-            while True: 
+            while True:
                 reply = self.sendKeepAlive();
                 logger.debug("Reply " + str(reply))
-                serverConnection = self.websocket                                
-                logger.debug("Keep alive ping:" + str(reply) + " Sleeping " + self.keepAliveInterval())        
+                serverConnection = self.websocket
+                logger.debug("Keep alive ping:" + str(reply) + " Sleeping " + self.keepAliveInterval())
                 self.sendAsTask(reply)
                 yield from asyncio.sleep(int(self.keepAliveInterval()), loop = self.loop)
-                
+
         except:
             logger.error(traceback.format_exc())
             return None
@@ -1047,33 +1026,28 @@ class CCARClient:
         result = self.sendUserLoggedIn(data);
         return result
 
-
     def handleUserNotFound (self, incomingJson) :
-        # If the user is not found, let the 
-        # register on the website. This 
+        # If the user is not found, let the
+        # register on the website. This
         # might be a useful feature, security wise
-        # A sort of poor man's tfa. 
-        # Issues to consider: handling multiple 
-        # active connections. 
+        # A sort of poor man's tfa.
+        # Issues to consider: handling multiple
+        # active connections.
         # The server needs to count per client type.
         # Browser, Smartphone, desktop
         pass
 
-
-
     def getCommandType(self, incomingJson) :
         data = json.loads(incomingJson);
-        if "commandType" in data: 
+        if "commandType" in data:
             return data["commandType"]
         elif "Right" in data:
             return (data["Right"])["commandType"]
         else:
             return "Undefined"
 
-    def getCommandTypeValue(self, aCommandType) : 
+    def getCommandTypeValue(self, aCommandType) :
         return self.commandDictionary()[aCommandType]
-
-
 
     def handleUndefinedCommandType(self, incomingMessage) :
         # Do something when command type is not defined.
@@ -1082,11 +1056,11 @@ class CCARClient:
     def sendManageCompany(self, aJsonMessage) :
         # Send a manage company json request
         pass
-    def handleManageCompany(self, aJsonResponse): 
+    def handleManageCompany(self, aJsonResponse):
         #Handle manage company
         pass
 
-    def handleSelectAllCompaniesResponse(self, response): 
+    def handleSelectAllCompaniesResponse(self, response):
         companiesList = response['company'];
         portfolioQueries = []
         count = 0
@@ -1104,84 +1078,84 @@ class CCARClient:
             self.loop.create_task(self.send(portfolioQuery))
 
         return None
-    
-    """ 
-        Send a json request by wrapping it inside a task 
+
+    """
+        Send a json request by wrapping it inside a task
     """
     def sendAsTask(self, aJsonRequest):
         logger.debug(">>>" + str(aJsonRequest))
         self.loop.create_task(self.send(aJsonRequest));
 
-    def sendQuerySupportedScripts(self, aJsonRequest) : 
-        pass 
+    def sendQuerySupportedScripts(self, aJsonRequest) :
+        pass
     def handleQuerySupportedScripts(self, aJsonResponse):
-        pass 
+        pass
     def sendQueryActiveWorkbenches(self, aJsonRequest) :
-        pass 
+        pass
     def handleQueryActiveWorkbenches(self, aJsonResponse):
-        pass 
+        pass
 
     def sendManageWorkbench(self, aJsonRequest):
-        pass 
+        pass
     def handleManageWorkbench(self, aJsonResponse):
-        pass 
-    def sendExecuteWorkbench(self, jsonReuest) : 
+        pass
+    def sendExecuteWorkbench(self, jsonReuest) :
         pass
     def handleExecuteWorkbench(self, jsonRequest) :
-        pass 
+        pass
     def sendSelectActiveProjects (self, jsonReequest) :
-        pass 
+        pass
     def handleSelectActiveProjects(self, jsonRequest) :
         pass
     def sendManageProject (self, jsonRequest) :
-        pass 
+        pass
     def handleManageProject (self, jsonRequest) :
-        pass 
+        pass
     def sendParsedCCARText(self, jsonRequest) :
-        pass 
+        pass
     def handleParsedCCARText(self, jsonRequest) :
-        pass 
+        pass
     def sendManageUser (self, jsonRequest) :
-        pass 
+        pass
     def handleManageUser (self, jsonRequest) :
-        pass 
+        pass
     def sendCreateUserTerms(self, jsonRequest) :
-        pass 
+        pass
     def handleCreateUserTerms(self, jsonReques) :
-        pass 
-    def sendUpdateUserTerms(self, jsonRequest): 
-        pass 
+        pass
+    def sendUpdateUserTerms(self, jsonRequest):
+        pass
     def handleUpdateUserTerms (self, jsonRequest):
         pass
     def sendDeleteUserTerms(self, jsonRequest):
-        pass 
+        pass
     def handleDeleteUserTerms(self, jsonRequest) :
-        pass 
-    def sendQueryUserTerms(self, jsonRequest) : 
-        pass 
+        pass
+    def sendQueryUserTerms(self, jsonRequest) :
+        pass
     def handleQueryUserTerms(self, jsonRequest) :
         pass
     def sendCreateUserPreferences(self, jsonRequest) :
-        pass 
+        pass
     def handleCreateUserPreferences(self, jsonRequest) :
         pass
     def sendUpdateUserPreferences(self, jsonRequest) :
-        pass 
+        pass
     def handleUpdateUserPreferences(self, jsonRequest) :
         pass
     def sendQueryUserPreferences(self, jsonRequest):
-        pass 
+        pass
     def handleQueryUserPreferences(self, jsonRequest):
         pass
     def sendDeleteUserPreferences(self, jsonRequest):
-        pass 
+        pass
     def handleDeleteUserPreferences(self, jsonRequest) :
-        pass 
-    def sendMessage(self, jsonRequest): 
+        pass
+    def sendMessage(self, jsonRequest):
         pass
 
     def handleSendMessage(self, jsonResponse):
-        try:    
+        try:
             logger.debug("Not handling " + str(jsonResponse));
             return None
         except:
@@ -1192,28 +1166,39 @@ class CCARClient:
 
     def handleUserJoined(self, jsonRequest) :
         pass
+
     def sendUserBanned(self, jsonRequest):
-        pass 
-    def handleUserBanned(self, jsonResponse): 
-        pass 
-    def sendUserLeft (self, jsonRequest) :
-        pass 
-    def handleUserLeft (self, jsonRequest) :
-        pass 
-    def sendAssignCompany(self, jsonRequest): 
-        pass 
-    ## This functionality should go as an desktop 
-    ## may not arbitrarily assign a user to a company
-    def handleAssignCompany(self, jsonResponse): 
         pass
+
+    def handleUserBanned(self, jsonResponse):
+        pass
+
+    def sendUserLeft (self, jsonRequest) :
+        pass
+
+    def handleUserLeft (self, jsonRequest) :
+        pass
+
+    def sendAssignCompany(self, jsonRequest):
+        pass
+
+    ## This functionality should go as an desktop
+    ## may not arbitrarily assign a user to a company
+    def handleAssignCompany(self, jsonResponse):
+        pass
+
     def sendPortfolioSymbolTypesQuery(self, jsonRequest) :
-        pass 
+        pass
+
     def handlePortfolioSymbolTypesQuery(self, jsonResponse):
-        pass 
-    def sendPortfolioSymbolSidesQuery(self, jsonRequest): 
-        pass 
+        pass
+
+    def sendPortfolioSymbolSidesQuery(self, jsonRequest):
+        pass
+
     def handlePortfolioSymbolSidesQuery(self, jsonResponse):
-        pass 
+        pass
+
     def sendQueryPortfolios(self, jsonRequest):
         pass
 
@@ -1224,57 +1209,57 @@ class CCARClient:
         self.portfolioGroup.updateAndSend();
         #(self.loop.create_task(self.updateActivePortfolios()))
 
-
-
-    def handleQueryPortfolios(self, jsonResponse): 
+    def handleQueryPortfolios(self, jsonResponse):
         logger.debug("Handling query portfolios " + str(jsonResponse));
         resultSet = jsonResponse["resultSet"]
         self.updatePortfolios(resultSet)
         return None
-    def sendManagePortfolio(self, jsonRequest): 
-        pass 
+
+    def sendManagePortfolio(self, jsonRequest):
+        pass
+
     def handleManagePortfolio(self, jsonResponse):
         pass
+
     def sendManagePortfolioSymbol(self, jsonRequest):
         self.sendAsTask(jsonRequest);
-    @asyncio.coroutine 
+
+    @asyncio.coroutine
     def handleManagePortfolioSymbol(self, jsonResponse):
         logger.debug("Process handle portfolio symbol " + str(jsonResponse))
         self.loop.create_task(self.portfolioGroup.updateUsingManagePortfolioSymbol(jsonResponse))
-        
 
-    def sendQueryPortfolioSymbol(self, jsonRequest): 
-        pass 
+    def sendQueryPortfolioSymbol(self, jsonRequest):
+        pass
+
     @asyncio.coroutine
     def handleQueryPortfolioSymbol(self, jsonRequest) :
         logger.debug("Handle query portfolio symbol " + str(jsonRequest))
         yield from self.portfolioGroup.handleQueryPortfolioSymbolResponse(jsonRequest);
 
-        
     def sendManageEntitlements(self, jsonRequest):
-        pass 
-    def handleManageEntitlements(self, jsonResponse): 
-        pass 
-    def sendQueryEntitlements(self, jsonRequest): 
-        pass 
+        pass
+    def handleManageEntitlements(self, jsonResponse):
+        pass
+    def sendQueryEntitlements(self, jsonRequest):
+        pass
     def handleQueryEntitlements(self, jsonRequest):
-        pass 
-    def sendQueryCompanyUsers(self, jsonRequest): 
-        pass 
-    def handleQueryCompanyUsers(self, jsonRequest): 
-        pass 
+        pass
+    def sendQueryCompanyUsers(self, jsonRequest):
+        pass
+    def handleQueryCompanyUsers(self, jsonRequest):
+        pass
     def sendMarketDataUpdate(self, jsonRequest):
-        pass 
+        pass
     def handleMarketDataUpdate(self, jsonResponse):
-        pass 
+        pass
     def sendOptionAnalytics(self, jsonRequest) :
-        pass 
-    def handleQptionAnalytics(self, jsonResponse): 
-        pass 
+        pass
+    def handleQptionAnalytics(self, jsonResponse):
+        pass
     def sendQueryMarketData(self, jsonRequest):
         logger.debug("Send query market data for each symbol across all the portfolios")
         logger.debug("Will never come here.");
-
 
     @asyncio.coroutine
     def handleQueryOptionChain(self, jsonRequest):
@@ -1283,7 +1268,7 @@ class CCARClient:
             logger.debug("Handle Query option chain " + str(chain))
             for r in chain:
                 logger.debug("Option " + str(r))
-                try: 
+                try:
                     optionInstance = OptionChain(r);
                     self.optionTable.add(optionInstance)
                     logger.debug("Processing option chain " + str(optionInstance))
@@ -1297,14 +1282,14 @@ class CCARClient:
                     self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "F" + str(computedRow), optionInstance.lastAsk))
                     self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "G" + str(computedRow), optionInstance.change))
                     self.loop.create_task(self.updateCellContentT(self.optionDataSheet, "H" + str(computedRow), optionInstance.openInterest))
-                    yield from asyncio.sleep(0.1, loop = self.loop)         
+                    yield from asyncio.sleep(0.1, loop = self.loop)
                 except:
                     logger.error(traceback.format_exc())
                     logger.error(chain)
-
         except:
             logger.error(traceback.format_exc())
             logger.error(jsonRequest)
+
     @asyncio.coroutine
     def handleQueryMarketData(self, jsonRequest) :
         try:
@@ -1320,7 +1305,7 @@ class CCARClient:
                     if portfolioId == symbol:
                         continue;
                     row = self.marketDataRow
-                    high = timeSeries["high"]   
+                    high = timeSeries["high"]
                     low  = timeSeries["low"]
                     openL = timeSeries["open"]
                     close = timeSeries["close"]
@@ -1331,11 +1316,11 @@ class CCARClient:
                         self.marketDataRow = self.marketDataRow + 1
                         self.marketDataRowMap[event.key()] = self.marketDataRow
                     else:
-                        self.marketDataRowMap[event.key()] = self.marketDataRow 
+                        self.marketDataRowMap[event.key()] = self.marketDataRow
                         self.marketDataRow = self.marketDataRow + 1
 
                     logger.debug("Processing time series " + str(timeSeries))
-                    (self.marketDataBak[symbol]).add(event)       
+                    (self.marketDataBak[symbol]).add(event)
                     computedRow = self.marketDataRowMap[event.key()]
                     self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "A" + str(computedRow), symbol))
                     self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "B" + str(computedRow), event.high))
@@ -1344,28 +1329,25 @@ class CCARClient:
                     self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "E" + str(computedRow), event.close))
                     self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "F" + str(computedRow), event.volume))
                     self.loop.create_task(self.updateCellContentT(self.marketDataSheet, "G" + str(computedRow), event.date))
-                    yield from asyncio.sleep(0.1, loop = self.loop)         
+                    yield from asyncio.sleep(0.1, loop = self.loop)
         except:
             error = traceback.format_exc()
             logger.error(error)
     def sendHistoricalStressValue(self, jsonRequest):
         pass
-    def handleHistoricalStressValue(self, jsonResponse): 
+    def handleHistoricalStressValue(self, jsonResponse):
         pass
 
-
-
-    def clientConnection (self) : 
+    def clientConnection (self) :
         CONNECTION_CELL = "B1";
         return self.getCellContentForSheet("settings", CONNECTION_CELL);
-
 
     ### Right in the json response implies no errors.
     def processIncomingCommand(self, payloadI) :
         cType = self.getCommandType(payloadI);
         payloadJ = json.loads(payloadI)
         if "Right" in  payloadJ:
-            payload = payloadJ["Right"]; 
+            payload = payloadJ["Right"];
         elif "Left" in payloadJ:
             self.updateErrorWorksheet(payloadJ);
             return;
@@ -1373,17 +1355,17 @@ class CCARClient:
             payload = payloadJ
 
         commandType = self.getCommandTypeValue(cType)
-        if commandType == LOGIN_COMMAND: 
+        if commandType == LOGIN_COMMAND:
             reply = self.handleLoginResponse(payload);
         elif commandType == CCAR_UPLOAD_COMMAND:
             reply = self.handleCCARUpload(paylad)
         elif commandType == MANAGE_COMPANY:
             reply = self.handleManageCompany(payload);
-        elif commandType == SELECT_ALL_COMPANIES: 
+        elif commandType == SELECT_ALL_COMPANIES:
             reply = self.handleSelectAllCompaniesResponse(payload);
         elif commandType == QUERY_SUPPORTED_SCRIPTS:
             reply = self.handleQuerySupportedScripts(payload);
-        elif commandType == QUERY_ACTIVE_WORKBENCHES:  
+        elif commandType == QUERY_ACTIVE_WORKBENCHES:
             reply = self.handleQueryActiveWorkbenches(payload);
         elif commandType == MANAGE_WORKBENCH:
             reply = self.handleManageWorkbench(payload);
@@ -1391,7 +1373,7 @@ class CCARClient:
             reply = self.handleExecuteWorkbench(payload);
         elif commandType == SELECT_ACTIVE_PROJECTS:
             reply = self.handleSelectActiveProjects(payload);
-        elif commandType == MANAGE_PROJECT: 
+        elif commandType == MANAGE_PROJECT:
             reply = self.handleManageProject(payload);
         elif commandType == PARSED_CCAR_TEXT:
             reply = self.handleParsedCCARText(payload);
@@ -1463,8 +1445,7 @@ class CCARClient:
             reply = None
         return reply
 
-
-    #klass=WebSocketClientProtocol, timeout=10, max_size=2 ** 20, 
+    #klass=WebSocketClientProtocol, timeout=10, max_size=2 ** 20,
     #max_queue=2 ** 5, loop=None, origin=None, subprotocols=None, extra_headers=None, **kwds
     @asyncio.coroutine
     def ccarLoop(self, userName, password):
@@ -1475,7 +1456,7 @@ class CCARClient:
         bundle = open(tempFile.name)
         logger.debug(bundle.read())
         context.load_verify_locations(tempFile.name)
-        
+
         logger.debug("Before making connection")
         self.websocket = yield from websockets.client.connect(self.clientConnection()
                 , ssl = context # XXX: Remember to using localhost. Write a function for this.
@@ -1485,9 +1466,9 @@ class CCARClient:
             payload = self.sendLoginRequest(userName, password);
             yield from self.websocket.send(payload)
             while True:
-                try: 
+                try:
                     response = yield from  self.websocket.recv()
-                    commandType = self.getCommandType(response);                
+                    commandType = self.getCommandType(response);
                     reply = self.processIncomingCommand(response)
                     #logger.debug("Reply --> " + str(reply));
                     if reply == None:
@@ -1503,12 +1484,9 @@ class CCARClient:
             logger.error(traceback.format_exc())
             logger.error("Closing connection. See exception above")
             yield from self.websocket.close()
-        
 
     def LOGGER_CELL():
         return "A23"
-
-
 
     def login (self, loop, userName, password, ssl):
         try:
@@ -1519,34 +1497,31 @@ class CCARClient:
                 return;
             loop.run_until_complete(self.ccarLoop(userName, password))
         except:
-            error = traceback.format_exc() 
+            error = traceback.format_exc()
             logger.error(error);
-            return "Error while logging in" 
+            return "Error while logging in"
         finally:
             logger.debug("Exiting main loop")
             return "Finished processing login"
 ### End class
 
-
-
 # We find out all the portfolio changes
 class PortfolioChanges:
     def __init__(self, ccarClient, portfolioId):
         logger.debug("Collect a list of all changes for this portfolio")
-        self.updates = {} 
-        self.adds = {} 
+        self.updates = {}
+        self.adds = {}
         self.deletes = {}
         self.portfolioId = portfolioId
         self.ccarClient = ccarClient
-
 
     def getPortfolioSymbolDict(self, portfolioId):
         logger.debug("Return all the portfolios from the server");
         portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
         serverDict = {}
-        for s in portfolioSymbolsServer: 
+        for s in portfolioSymbolsServer:
             serverDict[s] = s
-        return serverDict;        
+        return serverDict;
 
     def collectNewrowsForPortfolio(self, portfolioId):
         # This is not going to work.
@@ -1555,7 +1530,7 @@ class PortfolioChanges:
         maxRows = 200; # Approximate page size.
         portfolioSymbolsServer = self.ccarClient.portfolioGroup.getPortfolioSymbolTable(portfolioId).getPortfolioSymbols();
         serverDict = {}
-        for s in portfolioSymbolsServer: 
+        for s in portfolioSymbolsServer:
             serverDict[s] = s
         localSymbols = []
         localDict = self.ccarClient.localDict
@@ -1574,7 +1549,7 @@ class PortfolioChanges:
         for l in localDict:
             # Create handles both insert and update. This is obviously not efficient.
             # We will manage updates correctly.
-            e = localDict[l]            
+            e = localDict[l]
             if (not e in serverDict):
                 e.updateCrudType("Create")
                 logger.debug("Adding a new symbol: current portfolio value" + str(l))
@@ -1586,24 +1561,22 @@ class PortfolioChanges:
                 logger.debug("Deleting an existing symbol: current portfolio value" + str(e))
                 self.ccarClient.sendManagePortfolioSymbol(e.asJson())
 
-
-
     def register(self, localVal, remoteVal):
         if hasChanged(localVal, remoteVal):
             saveLocal(localVal);
         else:
             pass;
 
-    def saveLocal(self, localValue): 
+    def saveLocal(self, localValue):
         self.ccarClient.localDict[localValue];
 
     def hasChanged(self, p1, p2) :
         # Has the value changed
         if p1 == None :
             return False
-        if p2 == None : 
+        if p2 == None :
             return False;
-        return p1.quantity != p2.quantity 
+        return p1.quantity != p2.quantity
 
     def createLocalvalue(self, portfolioSymbol, creator, updator, nickName, crudType, row):
         assert (portfolioSymbol != None);
@@ -1614,39 +1587,36 @@ class PortfolioChanges:
         #     self.ccarClient.sendManagePortfolioSymbol(p.asJson());
         #     return p;
 
-
     def createPortfolioSymbol(self, portfolioId, creator, updator, nickName, crudType, row):
 
                 symbol      = self.ccarClient.getCellContentForSheet(portfolioId, "A" + str(row))
-                quantity    = self.ccarClient.getCellContentForSheet(portfolioId, "B" + str(row)) 
+                quantity    = self.ccarClient.getCellContentForSheet(portfolioId, "B" + str(row))
                 side        = self.ccarClient.getCellContentForSheet(portfolioId, "C" + str(row))
                 symbolType  = self.ccarClient.getCellContentForSheet(portfolioId, "D" + str(row))
                 value       = self.ccarClient.getCellContentForSheet(portfolioId, "E" + str(row))
                 stressValue = self.ccarClient.getCellContentForSheet(portfolioId, "F" + str(row))
                 dateTime    = str(datetime.datetime.now())
-                if symbol == None or symbol == "": 
+                if symbol == None or symbol == "":
                     return None;
-                logger.debug("Creating portfolio symbol for id " + portfolioId + " for row " + str(row) + " symbol " + symbol + 
+                logger.debug("Creating portfolio symbol for id " + portfolioId + " for row " + str(row) + " symbol " + symbol +
                                         " " + "Quantity " + quantity);
                 jsonrecord = {
                       "commandType" : "ManagePortfolioSymbol"
                     , "crudType" : crudType
                     , "portfolioId" : portfolioId
-                    , "symbol" : symbol 
+                    , "symbol" : symbol
                     , "quantity" : quantity
-                    , "side" : side 
-                    , "symbolType" : symbolType 
-                    , "value" : value 
-                    , "stressValue" : stressValue 
+                    , "side" : side
+                    , "symbolType" : symbolType
+                    , "value" : value
+                    , "stressValue" : stressValue
                     , "dateTime" : dateTime
-                    , "creator" : creator 
-                    , "updator" : updator 
+                    , "creator" : creator
+                    , "updator" : updator
                     , "nickName" : nickName
                 }
                 logger.debug("Portfolio json " + str(jsonrecord))
                 return PortfolioSymbol(self.ccarClient, jsonrecord)
-
-
 
 ### End Class
 class ClientOAuth :
@@ -1666,10 +1636,10 @@ class ClientOAuth :
         redirect_uri = oauthJson["redirectURLs"][0]
         login_hint = self.loginHint
         payload = {
-                "client_id" : clientId, 
+                "client_id" : clientId,
                 "response_type" : responseType,
                 "scope" : scope,
-                "redirect_uri" : redirect_uri,  
+                "redirect_uri" : redirect_uri,
                 "login_hint" : login_hint}
         logger.debug("Auth uri " + authUri)
         logger.debug("payload " + urlencode(payload))
@@ -1705,7 +1675,7 @@ class MarketDataChart:
             logger.debug("Mchart " + str(mchart));
 
             # oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
-            
+
             # oSeries = oXChartType.getDataSeries()
             # oNewSeries = ()
             # oNewSeries = (oSeries[4], oSeries[3], oSeries[2], oSeries[1], oSeries[0] )
@@ -1713,8 +1683,6 @@ class MarketDataChart:
 
         else:
             logger.error("Key not found " + aSymbol)
-
-
 
 def StartClient(*args):
     try:
@@ -1736,10 +1704,6 @@ def StartClient(*args):
     except:
         logger.error(traceback.format_exc())
 
-
-
-
-
 def createChart():
         symbol = "IBM"
         logger.debug("Market data dict " + aSymbol)
@@ -1751,7 +1715,7 @@ def createChart():
         logger.debug("Mchart " + str(mchart));
 
         # oXChartType = oCharts.getByIndex(0).getEmbeddedObject().getFirstDiagram().getCoordinateSystems()[0].getChartTypes()[0]
-        
+
         # oSeries = oXChartType.getDataSeries()
         # oNewSeries = ()
         # oNewSeries = (oSeries[4], oSeries[3], oSeries[2], oSeries[1], oSeries[0] )

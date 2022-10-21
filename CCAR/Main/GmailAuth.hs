@@ -41,7 +41,7 @@ import Data.Text.Encoding as TE
 data ApplicationType = Web | Desktop | Browser deriving (Show, Generic) 
 
 newtype Project = Project {unPrjId :: T.Text} deriving (Show, Generic) 
-newtype ClientSecret = ClientSecret {unClientSecrete :: T.Text} 
+newtype ClientSecret = ClientSecret {unClientSecret :: T.Text} 
 
 
 instance ToJSON ClientSecret where 
@@ -73,7 +73,7 @@ data AuthenticationDetails = AuthenticationDetails {
     , clientSecret :: ClientSecret 
     , redirectURLs :: [URL]
     , javascriptOrigins :: [URL]
-    , csrfToken :: Maybe CSRFToken
+    , csrfToken :: Maybe CSRFToken -- ??
 } deriving (Generic, Show)
 
 
@@ -150,8 +150,6 @@ authenticateGmail = do
         (\a@(SomeException e) -> do
                 Logger.errorM iModuleName $ show a
                 return Nothing )
-
-
 
 
 getGmailOauthCallbackR :: MonadHandler m => m Value

@@ -22,30 +22,14 @@ scriptName = sys.argv[2]
 print("Open file " + sys.argv[1]  +  " Using script " + scriptName)
 shutil.copyfile(sys.argv[1],filename)
 
-
 doc = zipfile.ZipFile(filename,'a')
 ## XXX: Use python based path separators
-doc.write(scriptName, "Scripts/python/" + scriptName)
-# zipdir("/usr/lib/python3/dist-packages/requests", doc)
-# zipdir("/usr/local/lib/python3.4/dist-packages/websockets", doc)
-
-doc.write("../beta.ccardemo.tech/beta_ccardemo_tech.ca-bundle", "Scripts/beta_ccardemo_tech.ca-bundle")
-# Copy the certificate bundle.
-#doc.write("ca_bundle.pem.bak", "certificates/ca_bundle.pem")
 manifest = []
 for line in doc.open('META-INF/manifest.xml'):
   if '</manifest:manifest>' in line.decode('utf-8'):
-    for path in ['Scripts/','Scripts/python/','Scripts/python/' + scriptName, 'Scripts/beta_ccardemo_tech.ca-bundle']:
+    for path in ['Scripts/','Scripts/python/','Scripts/python/' + scriptName]:
       manifest.append(' <manifest:file-entry manifest:media-type="application/binary" manifest:full-path="%s"/>' % path)
   manifest.append(line.decode('utf-8'))
-
-
-# for line in doc.open('META-INF/manifest.xml'):
-#   if '</manifest:manifest>' in line.decode('utf-8'):
-#     for path in ['certificates']:
-#       manifest.append(' <manifest:file-entry manifest:media-type="text" manifest:full-path="%s"/>' % path)
-#   manifest.append(line.decode('utf-8'))
-
 
 doc.writestr('META-INF/manifest.xml', ''.join(manifest))
 doc.close()

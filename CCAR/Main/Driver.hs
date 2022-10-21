@@ -103,9 +103,7 @@ import CCAR.Main.GmailAuth
 iModuleName :: String 
 iModuleName = "CCAR.Main.Driver"
 
-
 connStr = getConnectionString
-
 
 data CheckPassword = CheckPassword {pwNickName :: T.Text, pwPassword :: T.Text, 
                 passwordValid :: Maybe Bool, 
@@ -115,13 +113,9 @@ data CheckPassword = CheckPassword {pwNickName :: T.Text, pwPassword :: T.Text,
 instance ToJSON CheckPassword 
 instance FromJSON CheckPassword
 
-
-
-
 data UserTermsOperations = UserTermsOperations {utOperation :: Ust.CRUD
                                         , terms :: Maybe TermsAndConditions} 
                                                 deriving(Show, Eq)
-
 
 data KeepAliveCommand = KeepAliveCommand {
         kaNickName :: T.Text
@@ -141,13 +135,8 @@ instance FromJSON KeepAliveCommand where
         a .: "keepAlive"
     parseJSON _ = Appl.empty
 
-
-
-
 type From = T.Text
 type To = T.Text
-
-
 
 data UserPreferences = UserPreferences {prefs :: T.Text} deriving (Show, Eq, Generic)
 
@@ -157,11 +146,8 @@ genTermsAndConditions (TermsAndConditions t des accept) = object ["title" .= t
 genCommandKeepAlive a  = object ["KeepAlive" .= a
                                 , "commandType" .= ("KeepAlive" :: T.Text)]
 
-
-
 instance ToJSON UserTermsOperations where
     toJSON (UserTermsOperations o t) = object ["utOperation" .= o, "terms" .= t]
-
 
 parseKeepAlive v = v .: "keepAlive"
 
@@ -173,7 +159,6 @@ parsePerson = \v -> Person <$>
                 <*> v .: "deleted"
                 <*> v .: "lastLoginTime"
                 
-
 parseTermsAndConditions v = TermsAndConditions <$>
                         v .: "title" <*>
                         v .: "description" <*>
@@ -186,7 +171,6 @@ pJSON :: (FromJSON a) => T.Text -> IO (Either String (Maybe a))
 pJSON  aText = do
     Logger.infoM  iModuleName ( T.unpack aText)
     return $ iParseJSON aText
-
 
 instance Yesod App
 type State = T.Text 
@@ -203,8 +187,6 @@ mkYesod "App" [parseRoutes|
 /gmailOauthCallback GmailOauthCallbackR GET
 |]
 
-
-
 checkPassword :: CheckPassword -> IO (DestinationType, CheckPassword) 
 checkPassword b@(CheckPassword personNickName password _ attempts) = do
     chk <- checkLoginExists(personNickName) 
@@ -216,7 +198,6 @@ checkPassword b@(CheckPassword personNickName password _ attempts) = do
 
 validatePassword :: T.Text -> CheckPassword -> Maybe Bool 
 validatePassword dbPassword input = Just $ dbPassword == (pwPassword input)
-
 
 processCommandValue :: App -> T.Text -> Value -> IO (DestinationType, T.Text)
 processCommandValue app nickName aValue@(Object a)   = do  
@@ -368,7 +349,6 @@ processCommandValue app nickName aValue@(Object a)   = do
         cType = lookupTag aValue "commandType"
         ser a = L.toStrict $ E.decodeUtf8 $ En.encode a 
 
-
 lookupTag :: Value -> T.Text -> (Maybe Value)
 lookupTag (Object a ) aTag = LH.lookup aTag a 
 
@@ -382,7 +362,6 @@ data DriverError = NickNameNotFound T.Text
                 | MultipleLogins T.Text
                 deriving(Show, Eq, Typeable, Data, Generic)
 
-
 instance Error DriverError where 
     noMsg =  UndefinedDriverError "We dont know what happened here!"
     strMsg = UndefinedDriverError . pack 
@@ -391,8 +370,6 @@ instance Error DriverError where
 newtype NickNameError a = NickNameError {
     runP :: ErrorT DriverError IO a
 }deriving (Applicative, Functor, Monad, MonadError DriverError) 
-
-
 
 nickName2 :: Maybe Value -> NickNameError T.Text
 nickName2 aCommand = do 
@@ -406,8 +383,6 @@ nickName2 aCommand = do
                 Nothing -> throwError nn
     where 
         nn = NickNameNotFound "NickName tag not found"
-
-
 
 processLoginMessages :: App -> WSConn.Connection -> T.Text -> Maybe Value  -> MaybeT IO (DestinationType, T.Text)
 processLoginMessages app conn aNickName Nothing = 
@@ -442,9 +417,6 @@ processIncomingMessage app conn aNickName aCommand = do
                                     Util.serialize $ UserJoined.userLeft aNickName)
                             )
                     
-
-
-
 deleteConnection :: App -> T.Text -> STM  () 
 deleteConnection app nn = do 
             cMap <- readTVar nMap
@@ -452,7 +424,6 @@ deleteConnection app nn = do
             return ()
             where
                 nMap = nickNameMap app
-
 
 addConnection :: App -> WSConn.Connection ->  T.Text -> UTCTime -> STM ()
 addConnection app aConn nn currentTime = do 
@@ -624,10 +595,6 @@ startUserThreads app connection nickNameV = do
                         , (d, "Market data thread" , T.unpack nickNameV)]
         A.waitAny [a, b, c, d]
         return "Threads had exception" 
-
-
-
-
 
 validateClientState :: App -> Network.WebSockets.Connection -> T.Text -> ErrorT DriverError IO T.Text
 validateClientState app connection = \command -> do 
